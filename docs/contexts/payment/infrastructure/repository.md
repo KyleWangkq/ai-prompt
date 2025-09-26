@@ -322,20 +322,101 @@ last_health_check     DATETIME        -       NULL                 最后检查�
 #### 接口定义
 ```java
 public interface PaymentChannelAdapter {
+    // 支付操作
     PaymentResult executePayment(PaymentRequest request);
+    
+    // 退款操作
     RefundResult executeRefund(RefundRequest request);
+    
+    // 状态查询
     PaymentStatus queryPaymentStatus(String channelTransactionId);
     RefundStatus queryRefundStatus(String channelRefundId);
+    
+    // 渠道健康检查
     HealthCheckResult checkHealth(PaymentChannel channel);
+    
+    // 批量支付操作
+    BatchPaymentResult executeBatchPayment(List<PaymentRequest> requests);
+    
+    // 信用支付操作
+    CreditPaymentResult executeCreditPayment(CreditPaymentRequest request);
+    
+    // 渠道限额查询
+    ChannelLimitInfo queryChannelLimit();
+    
+    // 支付凭证验证
+    PaymentProofValidationResult validatePaymentProof(PaymentProofInfo proofInfo);
 }
 ```
 
 #### 具体适配器实现
-- AlipayChannelAdapter: 支付宝渠道适配器
-- WechatChannelAdapter: 微信支付渠道适配器  
-- UnionPayChannelAdapter: 银联渠道适配器
-- BankChannelAdapter: 银行直连适配器
-- InternalAccountAdapter: 企业内部账户适配器
+
+##### 线上支付渠道
+```java
+@Component
+public class UnionPayChannelAdapter implements PaymentChannelAdapter {
+    // 支持银联在线支付、企业网银支付
+    private final UnionPayClient unionPayClient;
+    private final UnionPayConfig config;
+    
+    @Override
+    public PaymentResult executePayment(PaymentRequest request) {
+        // 实现银联支付逻辑
+        // 处理大额支付的特殊验证
+        // 支持异步通知处理
+    }
+}
+```
+
+##### 钱包支付渠道
+```java
+@Component
+public class WalletPayChannelAdapter implements PaymentChannelAdapter {
+    // 支持企业钱包余额支付
+    private final WalletAccountService walletService;
+    
+    @Override
+    public PaymentResult executePayment(PaymentRequest request) {
+        // 实现钱包支付逻辑
+        // 处理账户余额检查
+        // 执行实时扣款
+    }
+}
+```
+
+##### 电汇支付渠道
+```java
+@Component
+public class BankTransferChannelAdapter implements PaymentChannelAdapter {
+    // 支持银行转账凭证上传和确认
+    private final BankTransferVerificationService verificationService;
+    
+    @Override
+    public PaymentProofValidationResult validatePaymentProof(PaymentProofInfo proofInfo) {
+        // 实现转账凭证验证逻辑
+        // 支持多种凭证格式
+        // 提供人工审核接口
+    }
+}
+```
+
+##### 信用支付渠道
+```java
+@Component
+public class CreditAccountChannelAdapter implements PaymentChannelAdapter {
+    // 支持企业信用额度支付
+    private final CreditAccountService creditService;
+    private final CreditLimitValidator limitValidator;
+    
+    @Override
+    public CreditPaymentResult executeCreditPayment(CreditPaymentRequest request) {
+        // 实现信用支付逻辑
+        // 检查信用额度
+        // 创建还款计划
+        // 记录信用支付历史
+    }
+}
+```
 
 ### OrderServiceClient (订单服务客户端)
 
@@ -377,25 +458,223 @@ public interface DomainEventPublisher {
 - 提供事件序列化和反序列化支持
 - 支持事件重试和死信队列处理
 
-### 配置管理
-```text
-数据库连接配置:
-- 主库连接: 支持读写操作
-- 从库连接: 支持只读查询
-- 连接池配置: HikariCP
+# 基础设施层通用组件
 
-缓存配置:
-- Redis集群配置
-- 缓存键命名规范
-- TTL策略配置
+## 1. 异常处理机制
 
-消息队列配置:
-- Topic和Queue配置
-- 生产者和消费者配置  
-- 序列化配置
+### 1.1 异常体系设计
 
-监控配置:
-- 数据库性能监控
-- 缓存命中率监控
-- 消息队列监控
+```java
+public class PaymentInfrastructureException extends RuntimeException {
+    private final String errorCode;
+    private final String businessCode;
+    private final Map<String, Object> errorContext;
+    
+    // 数据访问异常
+    public static class DataAccessException extends PaymentInfrastructureException {
+        // 数据库操作异常
+        public static class DatabaseException extends DataAccessException {}
+        // 缓存操作异常
+        public static class CacheException extends DataAccessException {}
+    }
+    
+    // 外部服务异常
+    public static class ExternalServiceException extends PaymentInfrastructureException {
+        // 支付渠道异常
+        public static class PaymentChannelException extends ExternalServiceException {}
+        // 订单服务异常
+        public static class OrderServiceException extends ExternalServiceException {}
+    }
+    
+    // 消息处理异常
+    public static class MessageHandlingException extends PaymentInfrastructureException {
+        // 消息发送异常
+        public static class MessagePublishException extends MessageHandlingException {}
+        // 消息消费异常
+        public static class MessageConsumeException extends MessageHandlingException {}
+    }
+}
+```
+
+### 1.2 错误码定义
+
+```java
+public enum PaymentErrorCode {
+    // 数据库错误 (1000-1099)
+    DB_CONNECTION_ERROR("1000", "数据库连接异常"),
+    DB_TRANSACTION_ERROR("1001", "数据库事务异常"),
+    DB_DEADLOCK_ERROR("1002", "数据库死锁异常"),
+    
+    // 缓存错误 (1100-1199)
+    CACHE_CONNECTION_ERROR("1100", "缓存连接异常"),
+    CACHE_DATA_ERROR("1101", "缓存数据异常"),
+    
+    // 支付渠道错误 (1200-1299)
+    CHANNEL_CONNECTION_ERROR("1200", "渠道连接异常"),
+    CHANNEL_TIMEOUT_ERROR("1201", "渠道超时异常"),
+    CHANNEL_RESPONSE_ERROR("1202", "渠道响应异常"),
+    
+    // 订单服务错误 (1300-1399)
+    ORDER_SERVICE_ERROR("1300", "订单服务异常"),
+    ORDER_DATA_ERROR("1301", "订单数据异常"),
+    
+    // 消息队列错误 (1400-1499)
+    MQ_CONNECTION_ERROR("1400", "消息队列连接异常"),
+    MQ_PUBLISH_ERROR("1401", "消息发送异常"),
+    MQ_CONSUME_ERROR("1402", "消息消费异常");
+    
+    private final String code;
+    private final String message;
+}
+```
+
+## 2. 监控和指标收集
+
+### 2.1 核心监控指标
+
+```java
+public class PaymentMetrics {
+    // 支付交易指标
+    private final Counter paymentRequestCounter;      // 支付请求计数
+    private final Counter paymentSuccessCounter;      // 支付成功计数
+    private final Counter paymentFailureCounter;      // 支付失败计数
+    private final Timer paymentProcessingTimer;       // 支付处理时间
+    private final Gauge activePaymentsGauge;         // 活跃支付数量
+    
+    // 退款交易指标
+    private final Counter refundRequestCounter;       // 退款请求计数
+    private final Counter refundSuccessCounter;       // 退款成功计数
+    private final Timer refundProcessingTimer;        // 退款处理时间
+    
+    // 渠道性能指标
+    private final Map<String, Timer> channelTimers;   // 各渠道响应时间
+    private final Map<String, Counter> channelErrors; // 各渠道错误计数
+    
+    // 系统性能指标
+    private final Timer dbOperationTimer;             // 数据库操作时间
+    private final Timer cacheOperationTimer;          // 缓存操作时间
+    private final Counter deadlockCounter;            // 死锁计数器
+}
+```
+
+### 2.2 告警规则设置
+
+```yaml
+alerts:
+  # 支付失败率告警
+  payment_failure_rate:
+    condition: failure_rate > 5%
+    duration: 5m
+    severity: critical
+    
+  # 支付处理时间告警
+  payment_processing_time:
+    condition: processing_time > 10s
+    duration: 5m
+    severity: warning
+    
+  # 渠道可用性告警
+  channel_availability:
+    condition: success_rate < 95%
+    duration: 5m
+    severity: critical
+    
+  # 系统资源告警
+  system_resources:
+    cpu_usage:
+      condition: usage > 80%
+      duration: 5m
+      severity: warning
+    memory_usage:
+      condition: usage > 80%
+      duration: 5m
+      severity: warning
+```
+
+## 3. 配置管理
+
+### 3.1 数据源配置
+
+```yaml
+spring:
+  datasource:
+    primary:
+      url: jdbc:mysql://master:3306/payment
+      username: ${PAYMENT_DB_USER}
+      password: ${PAYMENT_DB_PASSWORD}
+      hikari:
+        maximum-pool-size: 20
+        minimum-idle: 5
+    replica:
+      url: jdbc:mysql://slave:3306/payment
+      username: ${PAYMENT_DB_READ_USER}
+      password: ${PAYMENT_DB_READ_PASSWORD}
+      hikari:
+        maximum-pool-size: 10
+        minimum-idle: 3
+```
+
+### 3.2 缓存配置
+
+```yaml
+spring:
+  redis:
+    cluster:
+      nodes: 
+        - redis-node1:6379
+        - redis-node2:6379
+        - redis-node3:6379
+    password: ${REDIS_PASSWORD}
+    lettuce:
+      pool:
+        max-active: 20
+        max-idle: 10
+        min-idle: 5
+```
+
+### 3.3 消息队列配置
+
+```yaml
+spring:
+  rocketmq:
+    name-server: rocketmq-server:9876
+    producer:
+      group: payment-producer
+      send-message-timeout: 3000
+      retry-times-when-send-failed: 2
+    
+  kafka:
+    bootstrap-servers: kafka-server:9092
+    producer:
+      retries: 3
+      batch-size: 16384
+      buffer-memory: 33554432
+    consumer:
+      group-id: payment-consumer
+      auto-offset-reset: earliest
+```
+
+### 3.4 支付渠道配置
+
+```yaml
+payment:
+  channels:
+    unionpay:
+      merchant-id: ${UNIONPAY_MERCHANT_ID}
+      api-key: ${UNIONPAY_API_KEY}
+      api-url: https://gateway.unionpay.com/api/v2
+      notify-url: https://api.example.com/payment/callback/unionpay
+      
+    wallet:
+      api-url: http://internal-wallet-service/api
+      api-key: ${WALLET_API_KEY}
+      
+    bank-transfer:
+      verification-url: http://internal-verification-service/api
+      allowed-proof-types: ["pdf", "jpg", "png"]
+      
+    credit:
+      service-url: http://credit-service/api
+      api-key: ${CREDIT_API_KEY}
+      check-interval: 60s
 ```

@@ -19,9 +19,10 @@ Payment Context (支付上下文) 作为核心支付处理中心:
 ### 1. Payment ↔ Order Context (支付-订单上下文映射)
 
 #### 映射关系类型(Mapping Type)
-Customer/Supplier Pattern (客户-供应商模式)
+Customer/Supplier Pattern (客户-供应商模式) with Collaborative Partnership
 - Payment Context 作为 Customer (下游)
 - Order Context 作为 Supplier (上游)
+- 双方协同配合完成分阶段支付业务
 
 #### 集成方式(Integration Method)
 - **同步调用**: REST API调用获取订单信息
@@ -48,8 +49,13 @@ Response: {
     "currency": "string",
     "orderStatus": "string",
     "paymentDeadline": "datetime",
-    "businessType": "string"
-}
+    "businessType": "string",
+    "paymentType": "string", // 预付款/尾款/其他费用
+    "productionStage": "string", // 生产阶段
+    "deliveryInfo": {
+        "deliveryType": "string", // 全部发货/部分发货
+        "deliveryProgress": "decimal" // 发货进度
+    }
 
 // 向Order Context发送支付状态
 POST /api/v1/orders/{orderId}/payment-status
@@ -122,8 +128,10 @@ Response: {
 ### 3. Payment ↔ Finance Context (支付-财务上下文映射)
 
 #### 映射关系类型(Mapping Type)  
-Partnership Pattern (合作伙伴模式)
+Partnership Pattern (合作伙伴模式) with Daily Reconciliation
 - 两个上下文平等协作，共同完成财务处理
+- 实现每日对账和差异处理机制
+- 支持多种支付方式的财务核算
 
 #### 集成方式(Integration Method)
 - **双向事件**: 支付完成触发财务记录，财务确认触发支付确认
@@ -175,11 +183,13 @@ Open Host Service Pattern (开放主机服务模式)
 - PaymentDeadlineApproaching: 支付截止时间临近提醒
 ```
 
-### 5. Payment ↔ External Payment Providers (支付-外部支付提供商映射)
+### 5. Payment ↔ External Payment Providers & Credit Management (支付-外部支付提供商和信用管理映射)
 
 #### 映射关系类型(Mapping Type)
 Anticorruption Layer Pattern (防腐层模式)
 - 通过适配器层隔离外部系统的复杂性和差异性
+- 支持B2B大额支付场景
+- 集成企业信用管理功能
 
 #### 集成方式(Integration Method)
 - **统一接口**: 通过PaymentChannelAdapter提供统一接口
@@ -188,11 +198,30 @@ Anticorruption Layer Pattern (防腐层模式)
 
 #### 外部系统适配(External System Adaptation)
 ```text
-支付宝适配器 (AlipayChannelAdapter):
-- 请求签名和验证
-- 异步回调处理  
-- 订单状态查询
+B2B银联支付适配器 (UnionPayB2BAdapter):
+- 企业网银支付接入
+- 大额支付处理
+- 支付结果异步确认
+- 转账凭证管理
 - 退款处理
+
+企业钱包适配器 (EnterpriseWalletAdapter):
+- 企业内部资金账户管理
+- 余额查询和支付
+- 资金操作记录
+- 额度控制
+
+电汇支付适配器 (BankTransferAdapter):
+- 银行账户验证
+- 转账信息生成
+- 凭证上传和确认
+- 退款处理
+
+信用支付适配器 (CreditPaymentAdapter):
+- 信用额度查询
+- 信用支付处理
+- 还款计划生成
+- 逾期管理
 
 微信支付适配器 (WechatChannelAdapter):
 - 统一下单接口
@@ -335,6 +364,37 @@ sequenceDiagram
         Payment->>Payment: Record Refund Failure
         Payment-->>User: Refund Failure Response
     end
+```
+
+## 特殊业务流程处理(Special Business Process Handling)
+
+### 合并支付处理(Batch Payment Processing)
+```text
+业务规则：
+- 同一经销商多个支付单合并
+- 支持不同支付类型组合
+- 统一支付渠道处理
+- 金额自动分配机制
+
+状态同步：
+- 批量更新支付状态
+- 同步通知相关上下文
+- 处理部分成功场景
+```
+
+### 信用支付处理(Credit Payment Processing)
+```text
+信用额度管理：
+- 与信用管理上下文实时同步
+- 额度占用和释放机制
+- 还款计划自动生成
+- 逾期处理和预警
+
+还款流程：
+- 自动创建还款支付单
+- 多渠道还款支持
+- 还款结果实时同步
+- 信用记录更新
 ```
 
 ## 数据一致性策略(Data Consistency Strategy)
