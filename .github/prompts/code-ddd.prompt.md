@@ -13,8 +13,8 @@
 - `com.example.project.interfaces`
   - `controller` → REST API Controller 实现类
   - `model` → 接口层对象（RO/VO）
-    - **RO (Request Object)** → Controller 接收的请求对象
-    - **VO (View Object)** → Controller 返回的响应对象
+    - **RO (Request Object)** → Controller 接收的请求对象（如 `UserCreateRO`）
+    - **VO (View Object)** → Controller 返回的响应对象（如 `UserVO`）
 
 - `com.example.project.application`
   - `service` → 应用服务，封装用例逻辑，调用领域层
@@ -24,7 +24,7 @@
 
 - `com.example.project.domain`
   - `entity` → 领域实体、聚合根、值对象
-  - `repository` → 数据接口，命名规则：
+  - `repository` → 数据接口
     - 接口用 `I` 前缀，例如 `IUserRepository`
     - 接口继承 MyBatis-Plus 的 `IService<T>`，例如：
       ```java
@@ -35,9 +35,9 @@
   - `service` → 领域服务，封装复杂业务逻辑
 
 - `com.example.project.infrastructure`
-  - `repositoryImpl` → 数据接口实现类，命名规则：
+  - `repositoryImpl` → 数据接口实现类
     - 去掉 `I` 前缀，加 `Impl` 后缀，例如 `UserRepositoryImpl`
-    - **继承 MyBatis-Plus 的 `ServiceImpl<Mapper, Entity>` 并实现接口**，例如：
+    - 继承 MyBatis-Plus 的 `ServiceImpl<Mapper, Entity>` 并实现接口，例如：
       ```java
       @Service
       public class UserRepositoryImpl extends ServiceImpl<UserMapper, User> implements IUserRepository {
@@ -69,9 +69,10 @@
 
 4. **接口层 (Interfaces)**
    - 在 `controller` 包下生成 Controller 实现类（使用 `@RestController`、`@RequestMapping`）
-   - 在 `model` 包下生成 RO/VO 对象：
-     - **RO**：Controller 接收的请求对象（如 `UserCreateRO`）
-     - **VO**：Controller 返回的响应对象（如 `UserVO`）
+   - 在 `model` 包下生成 RO/VO 对象
+     - **RO**：Controller 接收的请求对象
+     - **VO**：Controller 返回的响应对象
+   - RO/VO 对象与领域实体解耦，不直接暴露领域对象
 
 5. **事件层 (Event)**
    - 在 `event` 包下生成领域事件或集成事件对象
@@ -86,3 +87,4 @@
 ### 输入文档
 下面是我设计的 DDD 文档，请你基于该文档生成完整的项目代码骨架：
 
+[在这里粘贴你的 DDD 设计文档，例如：聚合、上下文、实体、值对象、业务规则、领域服务……]

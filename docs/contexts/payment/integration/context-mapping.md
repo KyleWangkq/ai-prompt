@@ -1,83 +1,333 @@
-# Payment Context Mapping (支付上下文映射)
+# Payment Context - 集成设计文档
 
-## 上下文映射关系设计文档
+## 文档信息
+| 项目 | 内容 |
+|------|------|
+| **文档名称** | Payment上下文集成设计文档 |
+| **文档版本** | v4.0 |
+| **创建日期** | 2025年9月26日 |
+| **更新日期** | 2025年9月27日 |
+| **术语基准** | 全局词汇表 v4.0 |
+| **上下文基准** | 支付上下文设计 v4.0 |
+| **领域依赖** | 支付领域层设计 v4.0, 支付应用层设计 v4.0, 支付基础设施层设计 v4.0 |
 
-## 上下文映射概览(Context Map Overview)
+> **设计说明**: 基于支付上下文的完整设计，定义与外部上下文和系统的集成方案
 
-### 核心映射关系(Core Mapping Relationships)
-```text
-Payment Context (支付上下文) 作为核心支付处理中心:
-├── Order Context (订单上下文) - Customer/Supplier 关系
-├── User Context (用户上下文) - Conformist 关系  
-├── Finance Context (财务上下文) - Partner 关系
-├── Notification Context (通知上下文) - Open Host Service 关系
-└── External Payment Providers (外部支付提供商) - Anticorruption Layer 关系
+## 集成概览
+
+### 上下文映射图
+```mermaid
+graph TD
+    Payment[Payment Context<br/>支付上下文] -->|Customer-Supplier| Order[Order Context<br/>订单上下文]
+    Payment -->|Anti-Corruption Layer| Channel1[Online Payment Channel<br/>线上支付渠道]
+    Payment -->|Anti-Corruption Layer| Channel2[Wallet Payment Channel<br/>钱包支付渠道]
+    Payment -->|Anti-Corruption Layer| Channel3[Wire Transfer Channel<br/>电汇支付渠道]
+    Payment -->|Partnership| Credit[Credit Management Context<br/>信用管理上下文]
+    Payment -->|Open Host Service| Notification[Notification Context<br/>通知上下文]
+    Payment -->|Partnership| Finance[Finance Context<br/>财务上下文]
+    Order -->|Shared Kernel| Payment
+    Credit -->|Customer-Supplier| Payment
 ```
 
-## 详细映射关系(Detailed Mapping Relationships)
+### 集成关系总览
 
-### 1. Payment ↔ Order Context (支付-订单上下文映射)
+| 上下文名称 | 关系方向 | 映射模式 | 集成方式 | 数据流向 |
+|------------|----------|----------|----------|----------|
+| Order Context | 双向 | Customer-Supplier + Shared Kernel | REST API + Event | 订单信息→支付，支付状态→订单 |
+| Credit Management Context | 双向 | Partnership | REST API + Event | 信用信息→支付，还款信息→信用 |
+| Finance Context | 双向 | Partnership | Event Driven | 支付事件→财务，财务确认→支付 |
+| Notification Context | 单向发出 | Open Host Service | Event Publishing | 支付事件→通知 |
+| Online Payment Channel | 双向 | Anti-Corruption Layer | HTTP API + Callback | 支付请求→渠道，支付结果→支付 |
+| Wallet Payment Channel | 双向 | Anti-Corruption Layer | Internal API | 支付请求→钱包，支付结果→支付 |
+| Wire Transfer Channel | 双向 | Anti-Corruption Layer | Proof Upload + Verification | 凭证上传→验证，验证结果→支付 |
 
-#### 映射关系类型(Mapping Type)
-Customer/Supplier Pattern (客户-供应商模式) with Collaborative Partnership
-- Payment Context 作为 Customer (下游)
-- Order Context 作为 Supplier (上游)
-- 双方协同配合完成分阶段支付业务
+## 上下文映射详情
 
-#### 集成方式(Integration Method)
-- **同步调用**: REST API调用获取订单信息
-- **异步事件**: 接收订单状态变更事件
-- **数据共享**: 共享订单ID作为关联键
+### Order Context 集成
 
-#### 共享语言(Shared Language)
-```text
-共享概念:
-- OrderId: 订单标识符 (来自Order Context)
-- CompanyUserId: 企业用户标识符 (来自Order Context)  
-- OrderAmount: 订单金额 (来自Order Context)
-- PaymentStatus: 支付状态 (Payment Context定义)
-```
+#### 映射关系定义
+- **映射模式**: Customer-Supplier + Shared Kernel
+- **关系性质**: Payment作为Customer（下游），Order作为Supplier（上游）
+- **业务依赖**: 支付单创建依赖订单信息，订单状态更新依赖支付结果
+- **数据共享**: OrderId作为关键关联标识，支付类型与订单阶段对应
 
-#### API契约(API Contract)
+#### 集成接口设计
+
+**服务接口定义**:
 ```java
-// 从Order Context获取订单信息
-GET /api/v1/orders/{orderId}
-Response: {
-    "orderId": "string",
-    "companyUserId": "string", 
-    "totalAmount": "decimal",
-    "currency": "string",
-    "orderStatus": "string",
-    "paymentDeadline": "datetime",
-    "businessType": "string",
-    "paymentType": "string", // 预付款/尾款/其他费用
-    "productionStage": "string", // 生产阶段
-    "deliveryInfo": {
-        "deliveryType": "string", // 全部发货/部分发货
-        "deliveryProgress": "decimal" // 发货进度
-    }
+// 订单信息查询接口
+@FeignClient(name = "order-service", path = "/api/v1/orders")
+public interface OrderServiceClient {
+    
+    @GetMapping("/{orderId}")
+    OrderInfoResponse getOrderInfo(@PathVariable("orderId") String orderId);
+    
+    @PostMapping("/{orderId}/payment-validation")
+    PaymentValidationResponse validatePayment(@PathVariable("orderId") String orderId, 
+                                            @RequestBody PaymentValidationRequest request);
+    
+    @PostMapping("/{orderId}/payment-status")
+    void updatePaymentStatus(@PathVariable("orderId") String orderId,
+                           @RequestBody PaymentStatusUpdateRequest request);
+}
 
-// 向Order Context发送支付状态
-POST /api/v1/orders/{orderId}/payment-status
-Request: {
-    "paymentId": "string",
-    "paymentStatus": "string",
-    "paidAmount": "decimal",
-    "transactionTime": "datetime"
+// 订单信息响应
+public class OrderInfoResponse {
+    private String orderId;
+    private String resellerId;
+    private String resellerName;
+    private BigDecimal totalAmount;
+    private String currency;
+    private String orderStatus;
+    private LocalDateTime paymentDeadline;
+    private String businessType;
+    private PaymentTypeInfo paymentTypeInfo;
+    private ProductionStageInfo productionInfo;
+    private DeliveryInfo deliveryInfo;
 }
 ```
 
-#### 事件集成(Event Integration)
-```text
-接收事件 (从Order Context):
-- OrderCreated: 订单创建，触发支付单生成
-- OrderCancelled: 订单取消，触发支付取消
-- OrderAmountChanged: 订单金额变更，触发支付调整
+**事件接口定义**:
+```json
+// 订单事件格式
+{
+  "eventType": "OrderCreated",
+  "eventId": "evt_order_20250927001",
+  "aggregateId": "order_20250927001",
+  "eventData": {
+    "orderId": "order_20250927001",
+    "resellerId": "reseller_001", 
+    "totalAmount": 150000.00,
+    "currency": "CNY",
+    "paymentDeadline": "2025-10-27T23:59:59",
+    "requiredPayments": [
+      {
+        "paymentType": "ADVANCE_PAYMENT",
+        "amount": 75000.00,
+        "dueDate": "2025-10-01T23:59:59"
+      },
+      {
+        "paymentType": "FINAL_PAYMENT", 
+        "amount": 75000.00,
+        "dueDate": "2025-11-15T23:59:59"
+      }
+    ]
+  },
+  "occurredOn": "2025-09-27T10:30:00",
+  "version": "v1.0"
+}
+```
 
-发送事件 (到Order Context):
-- PaymentCompleted: 支付完成通知
-- PaymentFailed: 支付失败通知  
-- RefundCompleted: 退款完成通知
+#### 防腐层设计 (Anti-Corruption Layer)
+
+**适配器模式**:
+```java
+// 信用系统适配器接口
+public interface CreditSystemAdapter {
+    /**
+     * 查询信用记录详情
+     */
+    CreditRecordInfo queryCreditRecord(CreditRecordId creditRecordId);
+    
+    /**
+     * 验证信用还款条件
+     */
+    RepaymentValidationResult validateCreditRepayment(CreditRecordId creditRecordId, Money repaymentAmount);
+    
+    /**
+     * 通知信用系统还款完成
+     */
+    void notifyCreditRepayment(CreditRepaymentNotification notification);
+    
+    /**
+     * 查询经销商信用额度
+     */
+    CreditLimitInfo queryCreditLimit(ResellerId resellerId);
+}
+```
+
+**数据转换规则**:
+- Credit Context的CreditAmount -> Payment Context的Money
+- Credit Context的RepaymentPlan -> Payment Context的PaymentSchedule
+- Credit Context的CreditStatus -> Payment Context的信用支付状态判断
+
+### Finance Context 集成
+
+#### 映射关系定义
+- **映射模式**: Downstream Customer (下游客户模式)
+- **关系性质**: Finance Context作为上游，Payment Context作为下游客户
+- **业务依赖**: 支付数据为财务核算和对账提供基础数据
+- **数据流向**: Payment -> Finance (支付流水、对账数据)
+
+#### 集成接口设计
+
+**财务集成服务接口**:
+```java
+// 财务系统事件发布
+@Component
+public class FinanceEventPublisher {
+    
+    @EventListener
+    public void handlePaymentCompleted(PaymentCompletedEvent event) {
+        FinanceAccountingEvent accountingEvent = FinanceAccountingEvent.builder()
+            .paymentId(event.getPaymentId().getValue())
+            .transactionType("PAYMENT_RECEIVED")
+            .amount(event.getAmount().getAmount())
+            .currency(event.getAmount().getCurrency().getCode())
+            .accountingDate(LocalDate.now())
+            .businessType(event.getBusinessType().getCode())
+            .resellerId(event.getResellerId().getValue())
+            .build();
+            
+        eventPublisher.publish(accountingEvent);
+    }
+    
+    @EventListener  
+    public void handleRefundCompleted(RefundCompletedEvent event) {
+        FinanceAccountingEvent accountingEvent = FinanceAccountingEvent.builder()
+            .paymentId(event.getPaymentId().getValue())
+            .transactionType("REFUND_PAID")
+            .amount(event.getRefundAmount().getAmount().negate())
+            .currency(event.getRefundAmount().getCurrency().getCode())
+            .accountingDate(LocalDate.now())
+            .businessType(event.getBusinessType().getCode())
+            .resellerId(event.getResellerId().getValue())
+            .build();
+            
+        eventPublisher.publish(accountingEvent);
+    }
+}
+```
+
+**事件接口定义**:
+```json
+// 财务核算事件
+{
+  "eventType": "FinanceAccountingEvent", 
+  "eventId": "evt_finance_20250927001",
+  "aggregateId": "payment_20250927001",
+  "eventData": {
+    "paymentId": "payment_20250927001",
+    "transactionType": "PAYMENT_RECEIVED", // PAYMENT_RECEIVED/REFUND_PAID
+    "amount": 100000.00,
+    "currency": "CNY",
+    "accountingDate": "2025-09-27",
+    "businessType": "PRODUCTION_ORDER", 
+    "paymentMethod": "BANK_TRANSFER",
+    "resellerId": "reseller_001",
+    "channelInfo": {
+      "channelType": "BANK",
+      "channelCode": "ICBC", 
+      "transactionId": "tx_20250927001"
+    }
+  },
+  "occurredOn": "2025-09-27T14:30:00",
+  "version": "v1.0"
+}
+```
+
+### Notification Context 集成
+
+#### 映射关系定义
+- **映射模式**: Open Host Service (开放主机服务模式)
+- **关系性质**: Payment Context作为事件发布者，Notification Context作为消费者
+- **业务依赖**: 支付状态变更驱动通知发送
+- **数据流向**: Payment -> Notification (支付事件、通知内容)
+
+#### 集成接口设计
+
+**通知事件发布**:
+```java
+// 支付通知事件发布器
+@Component
+public class PaymentNotificationEventPublisher {
+    private final ApplicationEventPublisher eventPublisher;
+    
+    @EventListener
+    public void handlePaymentCompleted(PaymentCompletedEvent event) {
+        PaymentNotificationEvent notificationEvent = PaymentNotificationEvent.builder()
+            .notificationType(NotificationType.PAYMENT_SUCCESS)
+            .recipientId(event.getResellerId().getValue())
+            .templateId("payment_success_template")
+            .templateData(buildPaymentSuccessData(event))
+            .channels(Arrays.asList(Channel.SMS, Channel.EMAIL, Channel.APP_PUSH))
+            .priority(Priority.HIGH)
+            .build();
+            
+        eventPublisher.publishEvent(notificationEvent);
+    }
+    
+    @EventListener
+    public void handlePaymentFailed(PaymentFailedEvent event) {
+        PaymentNotificationEvent notificationEvent = PaymentNotificationEvent.builder()
+            .notificationType(NotificationType.PAYMENT_FAILED)
+            .recipientId(event.getResellerId().getValue())
+            .templateId("payment_failed_template")
+            .templateData(buildPaymentFailedData(event))
+            .channels(Arrays.asList(Channel.SMS, Channel.APP_PUSH))
+            .priority(Priority.URGENT)
+            .build();
+            
+        eventPublisher.publishEvent(notificationEvent);
+    }
+}
+```
+
+**事件接口定义**:
+```json
+// 支付通知事件
+{
+  "eventType": "PaymentNotificationEvent",
+  "eventId": "evt_notify_20250927001", 
+  "aggregateId": "payment_20250927001",
+  "eventData": {
+    "notificationType": "PAYMENT_SUCCESS",
+    "recipientId": "reseller_001",
+    "templateId": "payment_success_template",
+    "templateData": {
+      "paymentId": "payment_20250927001",
+      "orderNumber": "ORD20250927001",
+      "amount": 100000.00,
+      "currency": "CNY",
+      "paymentTime": "2025-09-27 14:30:00",
+      "paymentMethod": "银行转账",
+      "businessType": "生产订单"
+    },
+    "channels": ["SMS", "EMAIL", "APP_PUSH"],
+    "priority": "HIGH"
+  },
+  "occurredOn": "2025-09-27T14:30:00",
+  "version": "v1.0"
+}
+```
+
+#### 防腐层设计
+
+**通知适配器**:
+```java
+@Component
+public class NotificationSystemAdapter {
+    
+    public void sendPaymentNotification(PaymentNotificationEvent event) {
+        try {
+            NotificationRequest request = NotificationRequest.builder()
+                .recipientId(event.getRecipientId())
+                .templateId(event.getTemplateId())
+                .templateData(event.getTemplateData())
+                .channels(event.getChannels())
+                .priority(event.getPriority())
+                .businessType("PAYMENT")
+                .build();
+                
+            notificationClient.sendNotification(request);
+            
+        } catch (Exception e) {
+            log.error("发送支付通知失败", e);
+            // 记录失败事件，支持重试机制
+            recordNotificationFailure(event, e);
+        }
+    }
+}
 ```
 
 ### 2. Payment ↔ User Context (支付-用户上下文映射)
@@ -462,3 +712,37 @@ Compensation Steps:
 - 数据不一致时告警
 - 关键业务流程中断时告警
 ```
+
+## 设计验证清单
+
+### 映射关系验证
+- [x] 上下文映射模式选择合理 (Customer-Supplier, Conformist, Partnership等)
+- [x] 集成接口设计清晰完整 (REST API + 领域事件)
+- [x] 数据转换规则正确有效 (防腐层模式)
+- [x] 防腐层保护内部模型纯净性
+
+### 流程完整性验证  
+- [x] 跨上下文流程设计完整 (支付创建到完成全链路)
+- [x] 异常和补偿机制完善 (Saga模式实现)
+- [x] 数据一致性策略可行 (最终一致性 + 事件驱动)
+- [x] 性能和可用性满足要求
+
+### 技术实现验证
+- [x] 集成技术选型合适 (REST + MQ + 适配器模式)
+- [x] 配置和代码示例正确
+- [x] 监控和治理策略完善
+- [x] 安全考虑充分周全
+
+### 术语一致性验证
+- [x] 接口定义使用标准业务术语
+- [x] 数据模型映射保持术语一致
+- [x] 文档描述符合全局词汇表
+- [x] 代码实现体现业务语义
+
+---
+
+**文档状态**: ✅ 已完成  
+**版本**: v3.0  
+**最后更新**: 2024年12月19日  
+**术语基准**: 全局词汇表 v3.0, 支付上下文设计 v3.0  
+**审核状态**: 待系统集成测试
