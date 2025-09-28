@@ -1,27 +1,31 @@
-# Payment Aggregate (支付聚合)
+# 支付模块领域模型设计
 
-## 聚合设计文档 v3.0
+## 概述
+支付模块是企业间特种设备定制交易系统的核心组成部分，负责处理B2B定制化设备交易中的支付功能。基于DDD架构设计，支持复杂的支付场景包括批量支付、部分支付、合并支付等。
 
 ### 文档信息
 | 项目 | 内容 |
 |------|------|
-| **文档名称** | Payment聚合设计文档 |
-| **文档版本** | v4.0 |
-| **创建日期** | 2025年9月26日 |
-| **更新日期** | 2025年9月27日 |
-| **术语基准** | 全局词汇表 v4.0 |
-| **上下文基准** | 支付上下文设计 v4.0 |
+| **文档名称** | 支付模块领域模型设计文档 |
+| **文档版本** | v5.0 |
+| **创建日期** | 2025年9月28日 |
+| **更新日期** | 2025年9月28日 |
+| **术语基准** | 支付模块需求设计文档 v1.4 |
+| **设计基准** | DDD领域驱动设计原则 |
 
-### 聚合根名称(Aggregate Root)
-**Payment** (支付单)
+## 核心聚合设计
 
-### 聚合描述(Description)
-管理企业间特种设备定制交易中的**支付单**完整生命周期，包括支付单创建、支付执行、状态跟踪、退款执行、信用还款等核心业务逻辑。支付单作为聚合根，统一管理所有相关的**交易流水**记录，确保支付业务的数据一致性和业务规则完整性。
+### Payment（支付单聚合根）
 
-### 所属上下文(Bounded Context)
+支付单是支付模块的核心聚合根，封装了支付单的完整生命周期管理，确保支付业务的一致性。
+
+#### 聚合描述
+管理企业间特种设备定制交易中的支付单完整生命周期，包括支付单创建、支付执行、状态跟踪、退款执行、信用还款等核心业务逻辑。支付单作为聚合根，统一管理所有相关的交易流水记录，确保支付业务的数据一致性和业务规则完整性。
+
+#### 所属上下文
 **Payment Context** (支付上下文)
 
-### 聚合根ID(Root Entity ID)
+#### 唯一标识
 **PaymentId** (支付单唯一标识)
 
 ## 实体列表(Entities)
@@ -38,11 +42,10 @@
   - id: PaymentId (支付单号，主键)
   - orderId: OrderId (关联订单号)
   - resellerId: ResellerId (经销商ID)
-  - paymentAmount: Money (支付金额)
-  - paidAmount: Money (已支付金额，默认0)
-  - refundedAmount: Money (已退款金额，默认0)
-  - actualAmount: Money (实际收款金额，计算属性 = paidAmount - refundedAmount)
-  - currency: Currency (币种，固定为CNY)
+  - paymentAmount: BigDecimal (支付金额，固定使用人民币)
+  - paidAmount: BigDecimal (已支付金额，默认0)
+  - refundedAmount: BigDecimal (已退款金额，默认0)
+  - actualAmount: BigDecimal (实际收款金额，计算属性 = paidAmount - refundedAmount)
   
 业务属性(Business Attributes):
   - paymentType: PaymentType (支付类型：预付款/尾款/其他费用/信用还款)
@@ -83,17 +86,17 @@
   - recalculateAmounts(): void
   
 业务规则方法(Business Rules):
-  - canExecutePayment(amount: Money): Boolean
-  - canExecuteRefund(amount: Money): Boolean
-  - validatePaymentAmount(amount: Money): ValidationResult
-  - validateRefundAmount(amount: Money): ValidationResult
+  - canExecutePayment(amount: BigDecimal): Boolean
+  - canExecuteRefund(amount: BigDecimal): Boolean
+  - validatePaymentAmount(amount: BigDecimal): ValidationResult
+  - validateRefundAmount(amount: BigDecimal): ValidationResult
   - isPaymentCompleted(): Boolean
   - isFullyRefunded(): Boolean
   
 计算方法(Calculation Methods):
-  - calculatePendingAmount(): Money (待支付金额 = paymentAmount - paidAmount)
-  - calculateActualAmount(): Money (实际收款金额 = paidAmount - refundedAmount)
-  - calculateRefundableAmount(): Money (可退款金额 = paidAmount - refundedAmount)
+  - calculatePendingAmount(): BigDecimal (待支付金额 = paymentAmount - paidAmount)
+  - calculateActualAmount(): BigDecimal (实际收款金额 = paidAmount - refundedAmount)
+  - calculateRefundableAmount(): BigDecimal (可退款金额 = paidAmount - refundedAmount)
 
 生命周期(Lifecycle):
   - 创建: 接收订单系统或信用管理系统创建支付单请求
@@ -124,7 +127,7 @@
   - paymentId: PaymentId (关联支付单号)
   - transactionType: TransactionType (流水类型：支付/退款)
   - transactionStatus: TransactionStatus (流水状态：处理中/成功/失败)
-  - transactionAmount: Money (交易金额，支付为正数，退款为负数)
+  - transactionAmount: BigDecimal (交易金额，支付为正数，退款为负数，固定使用人民币)
 
 渠道属性(Channel Attributes):
   - paymentChannel: PaymentChannel (支付渠道：线上支付/钱包支付/电汇支付/信用账户)
@@ -149,7 +152,7 @@
   - updateTime: DateTime (最后更新时间)
   
 扩展属性(Extension Attributes):
-  - businessRemark: String (业务备注，交易备注信息)
+  - remark: String (业务备注，交易备注信息)
 
 核心行为方法(Core Behaviors):
   - createPaymentTransaction(request: PaymentTransactionRequest): PaymentTransaction
@@ -167,7 +170,7 @@
   - canRetry(): Boolean
 
 业务规则方法(Business Rules):
-  - validateTransactionAmount(amount: Money, type: TransactionType): ValidationResult
+  - validateTransactionAmount(amount: BigDecimal, type: TransactionType): ValidationResult
   - validateOriginalTransaction(originalId: TransactionId): ValidationResult
   - validateChannel(channel: PaymentChannel): ValidationResult
 
@@ -185,55 +188,307 @@
   6. 同一支付单的退款金额总和不能超过支付金额总和
 ```
 
-## 值对象列表(Value Objects)
+## 核心值对象设计
 
-### Money (金额值对象)
-> **术语对照**: Money ↔ 金额概念 (全局词汇表 v2.0)
+### PaymentChannel（支付渠道值对象）
 
-```text
-值对象名称(Value Object Name): Money
-业务含义(Business Meaning): 表示支付系统中的金额概念，包含数值和货币单位
+封装支付渠道的相关信息和业务规则。由于合并支付只在支付单阶段存在，渠道层面只需要处理单笔支付。
 
-属性组合(Attributes):
-  - amount: BigDecimal (金额数值，使用decimal(20,6)精度)
-  - currency: Currency (货币类型，固定为CNY人民币)
+#### 设计说明
+- **币种统一**: 系统固定使用人民币（CNY），无需复杂的货币处理逻辑
+- **金额处理**: 所有金额直接使用BigDecimal类型，精度统一为6位小数
+- **渠道简化**: 渠道不再需要支持批量支付功能，因为从渠道角度看多支付单合并支付就是一笔支付
 
-不变性保证(Immutability): 
-  - 金额对象一旦创建不可修改
-  - 所有操作返回新的Money实例
-  - 支持加法、减法、比较等操作
+#### Java实现示例
+```java
+public class PaymentChannel implements ValueObject {
+    private final String channelCode;
+    private final String channelName;
+    private final ChannelType channelType;
+    private final boolean supportRefund;
+    private final BigDecimal minAmount;
+    private final BigDecimal maxAmount;
+    
+    public PaymentChannel(String channelCode, String channelName, ChannelType channelType,
+                         boolean supportRefund, BigDecimal minAmount, BigDecimal maxAmount) {
+        this.channelCode = validateChannelCode(channelCode);
+        this.channelName = validateChannelName(channelName);
+        this.channelType = validateChannelType(channelType);
+        this.supportRefund = supportRefund;
+        this.minAmount = minAmount;
+        this.maxAmount = maxAmount;
+    }
+    
+    // 预定义渠道常量
+    public static final PaymentChannel ONLINE_PAYMENT = new PaymentChannel(
+        "ONLINE_PAY", "线上支付", ChannelType.ONLINE,
+        true, new BigDecimal("0.01"), new BigDecimal("1000000")
+    );
+    
+    public static final PaymentChannel WALLET_PAYMENT = new PaymentChannel(
+        "WALLET_PAY", "钱包支付", ChannelType.WALLET,
+        true, new BigDecimal("0.01"), new BigDecimal("500000")
+    );
+    
+    public static final PaymentChannel WIRE_TRANSFER = new PaymentChannel(
+        "WIRE_TRANSFER", "电汇支付", ChannelType.WIRE_TRANSFER,
+        false, new BigDecimal("1000"), new BigDecimal("10000000")
+    );
+    
+    public static final PaymentChannel CREDIT_ACCOUNT = new PaymentChannel(
+        "CREDIT_ACCOUNT", "信用账户", ChannelType.CREDIT,
+        false, new BigDecimal("100"), new BigDecimal("1000000")
+    );
+    
+    // 业务验证方法
+    public boolean isAmountSupported(BigDecimal amount) {
+        return amount.compareTo(minAmount) >= 0 && amount.compareTo(maxAmount) <= 0;
+    }
+    
+    public boolean canRefund() {
+        return supportRefund;
+    }
+    
+    public boolean isOnlineChannel() {
+        return channelType == ChannelType.ONLINE;
+    }
+    
+    public boolean requiresManualConfirmation() {
+        return channelType == ChannelType.WIRE_TRANSFER;
+    }
+    
+    // 静态工厂方法
+    public static PaymentChannel fromCode(String channelCode) {
+        switch (channelCode) {
+            case "ONLINE_PAY": return ONLINE_PAYMENT;
+            case "WALLET_PAY": return WALLET_PAYMENT;
+            case "WIRE_TRANSFER": return WIRE_TRANSFER;
+            case "CREDIT_ACCOUNT": return CREDIT_ACCOUNT;
+            default: throw new IllegalArgumentException("不支持的支付渠道: " + channelCode);
+        }
+    }
+    
+    // 验证方法
+    private String validateChannelCode(String channelCode) {
+        if (channelCode == null || channelCode.trim().isEmpty()) {
+            throw new IllegalArgumentException("渠道代码不能为空");
+        }
+        return channelCode.toUpperCase();
+    }
+    
+    private String validateChannelName(String channelName) {
+        if (channelName == null || channelName.trim().isEmpty()) {
+            throw new IllegalArgumentException("渠道名称不能为空");
+        }
+        return channelName;
+    }
+    
+    private ChannelType validateChannelType(ChannelType channelType) {
+        if (channelType == null) {
+            throw new IllegalArgumentException("渠道类型不能为空");
+        }
+        return channelType;
+    }
+}
 
-相等性规则(Equality):
-  - 相同金额和货币类型的Money对象相等
-  - 必须金额数值和货币类型都完全相同
-
-验证规则(Validation):
-  - 金额必须大于等于0（支付金额场景）
-  - 退款场景允许负数金额
-  - 货币类型不能为空
-  - 金额精度最多保留6位小数
-  - 金额范围在合理的业务范围内
-
-业务方法(Business Methods):
-  - add(other: Money): Money (金额加法)
-  - subtract(other: Money): Money (金额减法)
-  - multiply(factor: BigDecimal): Money (金额乘法)
-  - isZero(): Boolean (是否为零)
-  - isPositive(): Boolean (是否为正数)
-  - isGreaterThan(other: Money): Boolean (比较大小)
-  - toCNY(): Money (转换为人民币，当前固定返回自身)
+// 渠道类型枚举
+enum ChannelType {
+    ONLINE("线上支付"),
+    WALLET("钱包支付"), 
+    WIRE_TRANSFER("电汇支付"),
+    CREDIT("信用账户");
+    
+    private final String description;
+    
+    ChannelType(String description) {
+        this.description = description;
+    }
+    
+    public String getDescription() {
+        return description;
+    }
+}
 ```
 
-### PaymentChannel (支付渠道值对象)
-> **术语对照**: PaymentChannel ↔ 支付渠道 (全局词汇表 v2.0)
+### RelatedBusinessInfo（关联业务信息值对象）
 
-```text
-值对象名称(Value Object Name): PaymentChannel
-业务含义(Business Meaning): 表示支付执行的具体路径和方式
+封装支付单关联的业务信息，支持不同类型的业务场景。
 
-属性组合(Attributes):
-  - channelCode: String (渠道代码，如ONLINE_PAY、WALLET_PAY)
-  - channelName: String (渠道显示名称，如"线上支付"、"钱包支付")
+#### Java实现示例
+```java
+public class RelatedBusinessInfo implements ValueObject {
+    private final String businessId;
+    private final RelatedBusinessType businessType;
+    private final LocalDateTime expireDate;
+    private final Map<String, String> businessTags;
+    
+    public RelatedBusinessInfo(String businessId, RelatedBusinessType businessType,
+                              LocalDateTime expireDate, Map<String, String> businessTags) {
+        this.businessId = validateBusinessId(businessId);
+        this.businessType = validateBusinessType(businessType);
+        this.expireDate = expireDate;
+        this.businessTags = businessTags != null ? new HashMap<>(businessTags) : new HashMap<>();
+    }
+    
+    // 工厂方法 - 信用记录场景
+    public static RelatedBusinessInfo forCreditRecord(String creditRecordId, LocalDateTime repaymentDueDate) {
+        return new RelatedBusinessInfo(creditRecordId, RelatedBusinessType.CREDIT_RECORD, 
+                                     repaymentDueDate, Map.of("type", "credit_repayment"));
+    }
+    
+    // 工厂方法 - 提货单场景
+    public static RelatedBusinessInfo forDeliveryOrder(String deliveryOrderId, LocalDateTime deliveryDueDate) {
+        return new RelatedBusinessInfo(deliveryOrderId, RelatedBusinessType.DELIVERY_ORDER,
+                                     deliveryDueDate, Map.of("type", "delivery_fee"));
+    }
+    
+    // 工厂方法 - 附加服务场景
+    public static RelatedBusinessInfo forAdditionalService(String serviceId) {
+        return new RelatedBusinessInfo(serviceId, RelatedBusinessType.ADDITIONAL_SERVICE,
+                                     null, Map.of("type", "additional_service"));
+    }
+    
+    // 业务判断方法
+    public boolean isCreditRepayment() {
+        return businessType == RelatedBusinessType.CREDIT_RECORD;
+    }
+    
+    public boolean isDeliveryRelated() {
+        return businessType == RelatedBusinessType.DELIVERY_ORDER;
+    }
+    
+    public boolean hasExpireDate() {
+        return expireDate != null;
+    }
+    
+    public boolean isExpired() {
+        return hasExpireDate() && LocalDateTime.now().isAfter(expireDate);
+    }
+    
+    public boolean isExpiringWithin(Duration duration) {
+        return hasExpireDate() && LocalDateTime.now().plus(duration).isAfter(expireDate);
+    }
+    
+    // 标签操作方法
+    public String getBusinessTag(String key) {
+        return businessTags.get(key);
+    }
+    
+    public boolean hasBusinessTag(String key) {
+        return businessTags.containsKey(key);
+    }
+    
+    // 验证方法
+    private String validateBusinessId(String businessId) {
+        if (businessId == null || businessId.trim().isEmpty()) {
+            throw new IllegalArgumentException("关联业务ID不能为空");
+        }
+        return businessId;
+    }
+    
+    private RelatedBusinessType validateBusinessType(RelatedBusinessType businessType) {
+        if (businessType == null) {
+            throw new IllegalArgumentException("关联业务类型不能为空");
+        }
+        return businessType;
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        RelatedBusinessInfo that = (RelatedBusinessInfo) o;
+        return Objects.equals(businessId, that.businessId) && 
+               businessType == that.businessType;
+    }
+    
+    @Override
+    public int hashCode() {
+        return Objects.hash(businessId, businessType);
+    }
+}
+```
+
+### PaymentId（支付单ID值对象）
+
+封装支付单的唯一标识符生成和验证逻辑。
+
+#### Java实现示例
+```java
+public class PaymentId implements ValueObject {
+    private static final String PREFIX = "PAY";
+    private static final int ID_LENGTH = 32;
+    private final String value;
+    
+    public PaymentId(String value) {
+        this.value = validateId(value);
+    }
+    
+    // 静态工厂方法
+    public static PaymentId generate() {
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String randomPart = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String id = PREFIX + timestamp + randomPart;
+        return new PaymentId(id.length() > ID_LENGTH ? id.substring(0, ID_LENGTH) : id);
+    }
+    
+    public static PaymentId of(String value) {
+        return new PaymentId(value);
+    }
+    
+    // 业务方法
+    public boolean isValid() {
+        return value != null && value.length() == ID_LENGTH && value.startsWith(PREFIX);
+    }
+    
+    public String getValue() {
+        return value;
+    }
+    
+    public String getPrefix() {
+        return value.substring(0, PREFIX.length());
+    }
+    
+    public String getTimestampPart() {
+        return value.substring(PREFIX.length(), PREFIX.length() + 13);
+    }
+    
+    public String getRandomPart() {
+        return value.substring(PREFIX.length() + 13);
+    }
+    
+    // 验证方法
+    private String validateId(String id) {
+        if (id == null || id.trim().isEmpty()) {
+            throw new IllegalArgumentException("支付单ID不能为空");
+        }
+        if (id.length() != ID_LENGTH) {
+            throw new IllegalArgumentException("支付单ID长度必须为" + ID_LENGTH + "位");
+        }
+        if (!id.startsWith(PREFIX)) {
+            throw new IllegalArgumentException("支付单ID必须以" + PREFIX + "开头");
+        }
+        return id;
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        PaymentId paymentId = (PaymentId) o;
+        return Objects.equals(value, paymentId.value);
+    }
+    
+    @Override
+    public int hashCode() {
+        return Objects.hash(value);
+    }
+    
+    @Override
+    public String toString() {
+        return value;
+    }
+}
   - channelType: ChannelType (渠道分类)
 
 支持的渠道类型(Supported Channel Types):
@@ -468,6 +723,25 @@
 - 预留国际化扩展能力
 ```
 
+### BatchStatus (批次状态)
+```text
+枚举值定义(Enum Values):
+- CREATED: 已创建 (批次创建，等待执行)
+- PROCESSING: 处理中 (批次支付正在执行)
+- SUCCESS: 成功 (批次支付全部成功)
+- PARTIAL_SUCCESS: 部分成功 (部分支付单成功，部分失败)
+- FAILED: 失败 (批次支付失败)
+- CANCELLED: 已取消 (批次支付被取消)
+
+状态转换规则(State Transition Rules):
+- CREATED → PROCESSING, CANCELLED
+- PROCESSING → SUCCESS, PARTIAL_SUCCESS, FAILED
+- SUCCESS → (终态，不可转换)
+- PARTIAL_SUCCESS → PROCESSING (重试部分失败的支付)
+- FAILED → PROCESSING (重试整个批次)
+- CANCELLED → (终态，不可转换)
+```
+
 ### DeleteFlag (删除标识)
 ```text
 枚举值定义(Enum Values):
@@ -611,7 +885,7 @@ B2B交易约束(B2B Transaction Constraints):
   - paymentId: PaymentId (支付单号)
   - orderId: OrderId (关联订单号)
   - resellerId: ResellerId (经销商ID)
-  - paymentAmount: Money (支付金额)
+  - paymentAmount: BigDecimal (支付金额，人民币)
   - paymentType: PaymentType (支付类型)
   - relatedBusinessInfo: RelatedBusinessInfo (关联业务信息，可选)
   - createdAt: DateTime (创建时间)
@@ -641,8 +915,8 @@ B2B交易约束(B2B Transaction Constraints):
 事件属性(Event Data):
   - paymentId: PaymentId (支付单号)
   - transactionId: TransactionId (交易流水号)
-  - executedAmount: Money (本次支付金额)
-  - totalPaidAmount: Money (累计已支付金额)
+  - executedAmount: BigDecimal (本次支付金额，人民币)
+  - totalPaidAmount: BigDecimal (累计已支付金额，人民币)
   - paymentChannel: PaymentChannel (支付渠道)
   - channelTransactionNumber: String (渠道交易号)
   - paymentStatus: PaymentStatus (支付单当前状态)
@@ -705,8 +979,8 @@ B2B交易约束(B2B Transaction Constraints):
   - paymentId: PaymentId (支付单号)
   - refundTransactionId: TransactionId (退款流水号)
   - originalTransactionId: TransactionId (原支付流水号)
-  - refundAmount: Money (本次退款金额)
-  - totalRefundedAmount: Money (累计已退款金额)
+  - refundAmount: BigDecimal (本次退款金额，人民币)
+  - totalRefundedAmount: BigDecimal (累计已退款金额，人民币)
   - refundChannel: PaymentChannel (退款渠道)
   - businessOrderId: String (业务退款单号)
   - refundStatus: RefundStatus (退款单当前状态)
@@ -738,7 +1012,7 @@ B2B交易约束(B2B Transaction Constraints):
 事件属性(Event Data):
   - paymentId: PaymentId (还款支付单号)
   - relatedBusinessId: String (关联的信用记录ID)
-  - repaymentAmount: Money (还款金额)
+  - repaymentAmount: BigDecimal (还款金额，人民币)
   - creditRecordInfo: CreditRecordInfo (信用记录信息)
   - completedAt: DateTime (还款完成时间)
   - eventId: EventId (事件唯一标识)
@@ -767,7 +1041,7 @@ B2B交易约束(B2B Transaction Constraints):
 事件属性(Event Data):
   - batchId: BatchId (合并支付批次ID)
   - paymentIds: List<PaymentId> (参与合并的支付单号列表)
-  - totalAmount: Money (合并支付总金额)
+  - totalAmount: BigDecimal (合并支付总金额，人民币)
   - paymentChannel: PaymentChannel (合并支付使用的渠道)
   - channelTransactionNumber: String (渠道合并交易号)
   - completedAt: DateTime (合并支付完成时间)
@@ -837,7 +1111,7 @@ B2B交易约束(B2B Transaction Constraints):
     应用: 信用记录相关还款查询、业务关联追踪
 
 复杂查询方法(Complex Query Methods):
-  - findByAmountRange(minAmount: Money, maxAmount: Money): List<Payment>
+  - findByAmountRange(minAmount: BigDecimal, maxAmount: BigDecimal): List<Payment>
     功能: 按金额范围查找支付单
     应用: 大额支付监控、金额分析
     
@@ -871,7 +1145,7 @@ B2B交易约束(B2B Transaction Constraints):
     应用: 支付状态分布统计
 
 统计分析方法(Analytics Methods):
-  - sumAmountByDateRange(startDate: DateTime, endDate: DateTime): Money
+  - sumAmountByDateRange(startDate: DateTime, endDate: DateTime): BigDecimal
     功能: 计算时间范围内的支付金额总和
     应用: 收入统计、业绩分析
     
@@ -935,65 +1209,533 @@ B2B交易约束(B2B Transaction Constraints):
     应用: 对账差异识别
 ```
 
-## 领域服务(Domain Services)
-> **领域服务说明**: 当业务逻辑不适合放在单个聚合内或需要跨聚合协调时，使用领域服务封装
+## 核心领域服务设计
 
-### PaymentDomainService (支付领域服务)
-> **术语对照**: PaymentDomainService ↔ 支付领域服务 (全局词汇表 v2.0)
+领域服务用于封装不适合放在单个聚合内的业务逻辑，特别是涉及多个聚合协调的复杂业务规则。
 
-```text
-服务名称(Service Name): PaymentDomainService
-服务职责(Service Responsibility): 协调支付单聚合的复杂业务逻辑，处理跨聚合的业务规则
+### PaymentExecutionService（支付执行领域服务）
 
-核心服务方法(Core Service Methods):
+#### 服务职责
+协调支付执行过程中的复杂业务逻辑，包括单支付单支付、批量支付、回调处理等。
 
-1. executeSinglePayment(request: SinglePaymentRequest): PaymentExecutionResult
-   功能描述: 执行单个支付单的支付操作
-   业务逻辑: 
-   - 验证支付单状态和业务规则
-   - 创建支付交易流水
-   - 调用支付渠道服务
-   - 更新支付单状态和金额
-   - 发布支付事件
-   参数: SinglePaymentRequest(paymentId, amount, channel, operatorInfo)
-   返回: PaymentExecutionResult(success, transactionId, channelResult)
-   异常: PaymentExecutionException, BusinessRuleViolationException
+#### Java实现示例
+```java
+@DomainService
+public class PaymentExecutionService {
+    
+    private final PaymentRepository paymentRepository;
+    private final PaymentValidationService validationService;
+    private final PaymentChannelService channelService;
+    private final DomainEventPublisher eventPublisher;
+    
+    public PaymentExecutionService(PaymentRepository paymentRepository,
+                                 PaymentValidationService validationService,
+                                 PaymentChannelService channelService,
+                                 DomainEventPublisher eventPublisher) {
+        this.paymentRepository = paymentRepository;
+        this.validationService = validationService;
+        this.channelService = channelService;
+        this.eventPublisher = eventPublisher;
+    }
+    
+    /**
+     * 执行单个支付单的支付操作
+     */
+    @Transactional
+    public PaymentExecutionResult executeSinglePayment(ExecutePaymentCommand command) {
+        // 1. 加载支付单聚合
+        Payment payment = paymentRepository.findById(command.getPaymentId())
+            .orElseThrow(() -> new PaymentNotFoundException("支付单不存在: " + command.getPaymentId()));
+        
+        // 2. 业务规则验证
+        ValidationResult validation = validationService.validatePaymentExecution(payment, command);
+        if (!validation.isValid()) {
+            throw new PaymentValidationException("支付验证失败", validation.getViolations());
+        }
+        
+        // 3. 执行支付业务逻辑
+        PaymentTransaction transaction = payment.executePayment(
+            command.getAmount(),
+            command.getChannel(),
+            command.getOperatorId()
+        );
+        
+        // 4. 调用支付渠道
+        ChannelPaymentRequest channelRequest = buildChannelRequest(payment, transaction, command);
+        ChannelPaymentResponse channelResponse = channelService.processPayment(channelRequest);
+        
+        // 5. 处理渠道响应
+        if (channelResponse.isSuccess()) {
+            transaction.updateChannelInfo(channelResponse.getTransactionNumber(), channelResponse.getChannelOrderId());
+        } else {
+            transaction.markAsFailed(channelResponse.getErrorMessage());
+        }
+        
+        // 6. 保存聚合变更
+        paymentRepository.save(payment);
+        
+        // 7. 发布领域事件
+        payment.getUncommittedEvents().forEach(eventPublisher::publish);
+        payment.clearEvents();
+        
+        return PaymentExecutionResult.of(transaction.getId(), channelResponse);
+    }
+    
+    /**
+     * 执行批量支付操作
+     */
+    @Transactional
+    public BatchPaymentResult executeBatchPayment(ExecuteBatchPaymentCommand command) {
+        // 1. 加载所有支付单
+        List<Payment> payments = loadAndValidatePayments(command.getPaymentIds());
+        
+        // 2. 验证批量支付规则
+        ValidationResult validation = validationService.validateBatchPayment(payments, command.getChannel());
+        if (!validation.isValid()) {
+            throw new BatchPaymentValidationException("批量支付验证失败", validation.getViolations());
+        }
+        
+        // 3. 创建批量支付聚合
+        PaymentBatch batch = PaymentBatch.create(
+            buildPaymentAllocations(payments, command.getAllocations()),
+            command.getChannel(),
+            command.getOperatorId()
+        );
+        
+        // 4. 执行批量支付
+        BatchPaymentResult result = batch.execute();
+        
+        // 5. 为每个支付单创建交易流水
+        List<PaymentTransaction> transactions = new ArrayList<>();
+        for (PaymentAllocation allocation : batch.getPaymentAllocations()) {
+            Payment payment = findPaymentById(payments, allocation.getPaymentId());
+            PaymentTransaction transaction = payment.executePayment(
+                allocation.getAllocatedAmount(),
+                command.getChannel(),
+                command.getOperatorId()
+            );
+            transaction.setBatchId(batch.getId());
+            transactions.add(transaction);
+        }
+        
+        // 6. 调用支付渠道进行批量支付
+        BatchChannelPaymentRequest channelRequest = buildBatchChannelRequest(batch, transactions);
+        BatchChannelPaymentResponse channelResponse = channelService.processBatchPayment(channelRequest);
+        
+        // 7. 处理批量支付结果
+        handleBatchPaymentResponse(batch, transactions, channelResponse);
+        
+        // 8. 保存所有变更
+        paymentRepository.saveAll(payments);
+        
+        // 9. 发布批量支付事件
+        publishBatchPaymentEvents(payments, batch);
+        
+        return result;
+    }
+    
+    /**
+     * 处理支付回调
+     */
+    @Transactional
+    public CallbackProcessingResult processPaymentCallback(PaymentCallbackData callbackData) {
+        try {
+            // 1. 验证回调签名
+            if (!channelService.verifyCallbackSignature(callbackData)) {
+                throw new InvalidCallbackSignatureException("回调签名验证失败");
+            }
+            
+            // 2. 查找对应的交易流水
+            PaymentTransaction transaction = findTransactionByChannelNumber(callbackData.getChannelTransactionNumber());
+            if (transaction == null) {
+                return CallbackProcessingResult.notFound(callbackData.getChannelTransactionNumber());
+            }
+            
+            // 3. 加载支付单聚合
+            Payment payment = paymentRepository.findById(transaction.getPaymentId())
+                .orElseThrow(() -> new PaymentNotFoundException("支付单不存在"));
+            
+            // 4. 处理回调结果
+            payment.handlePaymentCallback(
+                transaction.getId(),
+                callbackData.getStatus(),
+                callbackData.getActualAmount(),
+                callbackData.getCompleteTime()
+            );
+            
+            // 5. 保存变更
+            paymentRepository.save(payment);
+            
+            // 6. 发布事件
+            payment.getUncommittedEvents().forEach(eventPublisher::publish);
+            payment.clearEvents();
+            
+            return CallbackProcessingResult.success(payment.getId(), transaction.getId());
+            
+        } catch (Exception e) {
+            log.error("处理支付回调失败", e);
+            return CallbackProcessingResult.failed(e.getMessage());
+        }
+    }
+    
+    // 私有辅助方法
+    private List<Payment> loadAndValidatePayments(List<PaymentId> paymentIds) {
+        List<Payment> payments = paymentRepository.findByIds(paymentIds);
+        if (payments.size() != paymentIds.size()) {
+            throw new PaymentNotFoundException("部分支付单不存在");
+        }
+        return payments;
+    }
+    
+    private List<PaymentAllocation> buildPaymentAllocations(List<Payment> payments, 
+                                                           Map<PaymentId, BigDecimal> allocations) {
+        return payments.stream()
+            .map(payment -> new PaymentAllocation(
+                payment.getId(),
+                allocations.get(payment.getId())
+            ))
+            .collect(toList());
+    }
+    
+    private ChannelPaymentRequest buildChannelRequest(Payment payment, 
+                                                    PaymentTransaction transaction,
+                                                    ExecutePaymentCommand command) {
+        return ChannelPaymentRequest.builder()
+            .transactionId(transaction.getId().getValue())
+            .paymentAmount(command.getAmount())
+            .channel(command.getChannel())
+            .resellerId(payment.getResellerId())
+            .orderId(payment.getOrderId())
+            .description(payment.getBusinessDescription())
+            .build();
+    }
+}
+```
 
-2. executeBatchPayment(request: BatchPaymentRequest): BatchPaymentResult
-   功能描述: 执行多个支付单的合并支付操作
-   业务逻辑:
-   - 验证合并支付规则（同一经销商、状态有效）
-   - 计算合并支付总金额
-   - 创建合并支付交易流水
-   - 调用支付渠道进行合并支付
-   - 分配支付结果到各支付单
-   - 批量更新支付单状态
-   - 发布合并支付事件
-   参数: BatchPaymentRequest(paymentIds, channel, operatorInfo)
-   返回: BatchPaymentResult(overallSuccess, individualResults)
+### PaymentValidationService（支付验证领域服务）
 
-3. executeRefund(request: RefundRequest): RefundExecutionResult
-   功能描述: 执行退款操作，选择支付流水并处理退款
-   业务逻辑:
-   - 验证退款请求合法性
-   - 选择适当的支付流水进行退款
-   - 创建退款交易流水
-   - 调用支付渠道退款接口
-   - 更新支付单退款状态和金额
-   - 发布退款事件
-   参数: RefundRequest(paymentId, refundAmount, refundReason, businessOrderId)
-   返回: RefundExecutionResult(success, refundTransactionId, channelResult)
+#### 服务职责
+封装支付业务的复杂验证规则，确保业务操作的合规性。
 
-4. processPaymentCallback(callback: PaymentCallbackData): CallbackProcessResult
-   功能描述: 处理支付渠道的异步回调通知
-   业务逻辑:
-   - 验证回调数据的签名和完整性
-   - 查找对应的支付单和交易流水
-   - 更新交易流水状态
-   - 重新计算支付单金额和状态
-   - 发布状态变更事件
-   参数: PaymentCallbackData(channelTransactionNumber, result, amount, signature)
-   返回: CallbackProcessResult(processed, paymentId, statusUpdated)
+#### Java实现示例
+```java
+@DomainService
+public class PaymentValidationService {
+    
+    private final PaymentRepository paymentRepository;
+    private final CreditManagementService creditManagementService;
+    
+    /**
+     * 验证支付执行请求
+     */
+    public ValidationResult validatePaymentExecution(Payment payment, ExecutePaymentCommand command) {
+        ValidationResult.Builder builder = ValidationResult.builder();
+        
+        // 1. 支付单状态验证
+        if (!payment.canExecutePayment()) {
+            builder.addViolation("支付单当前状态不允许支付: " + payment.getPaymentStatus());
+        }
+        
+        // 2. 支付金额验证
+        if (command.getAmount().isZeroOrNegative()) {
+            builder.addViolation("支付金额必须大于0");
+        }
+        
+        if (command.getAmount().isGreaterThan(payment.getPendingAmount())) {
+            builder.addViolation("支付金额超过待支付金额");
+        }
+        
+        // 3. 支付渠道验证
+        if (!command.getChannel().isAmountSupported(command.getAmount())) {
+            builder.addViolation("选择的支付渠道不支持该金额范围");
+        }
+        
+        // 4. 业务截止时间验证
+        if (payment.hasPaymentDeadline() && payment.isPaymentOverdue()) {
+            builder.addWarning("支付已超过建议截止时间");
+        }
+        
+        // 5. 信用还款特殊验证
+        if (payment.isCreditRepayment()) {
+            ValidationResult creditValidation = validateCreditRepayment(payment);
+            builder.merge(creditValidation);
+        }
+        
+        return builder.build();
+    }
+    
+    /**
+     * 验证批量支付
+     */
+    public ValidationResult validateBatchPayment(List<Payment> payments, PaymentChannel channel) {
+        ValidationResult.Builder builder = ValidationResult.builder();
+        
+        // 1. 支付单数量验证
+        if (payments.isEmpty()) {
+            builder.addViolation("批量支付不能为空");
+            return builder.build();
+        }
+        
+        // 2. 同一经销商验证
+        ResellerId firstResellerId = payments.get(0).getResellerId();
+        boolean sameReseller = payments.stream()
+            .allMatch(payment -> payment.getResellerId().equals(firstResellerId));
+        
+        if (!sameReseller) {
+            builder.addViolation("批量支付的所有支付单必须属于同一经销商");
+        }
+        
+        // 3. 支付单状态验证
+        for (Payment payment : payments) {
+            if (!payment.canExecutePayment()) {
+                builder.addViolation("支付单 " + payment.getId() + " 状态不允许支付");
+            }
+        }
+        
+        // 4. 渠道批量支付能力验证
+        if (!channel.canBatchPayment()) {
+            builder.addViolation("选择的支付渠道不支持批量支付");
+        }
+        
+        // 5. 批量支付金额限制验证
+        BigDecimal totalAmount = payments.stream()
+            .map(Payment::getPendingAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+        if (!channel.isAmountSupported(totalAmount)) {
+            builder.addViolation("批量支付总金额超出渠道限制");
+        }
+        
+        return builder.build();
+    }
+    
+    /**
+     * 验证退款执行
+     */
+    public ValidationResult validateRefundExecution(Payment payment, BigDecimal refundAmount, 
+                                                  TransactionId originalTransactionId) {
+        ValidationResult.Builder builder = ValidationResult.builder();
+        
+        // 1. 退款状态验证
+        if (!payment.canRefund()) {
+            builder.addViolation("支付单当前状态不允许退款");
+        }
+        
+        // 2. 退款金额验证
+        if (refundAmount.isZeroOrNegative()) {
+            builder.addViolation("退款金额必须大于0");
+        }
+        
+        if (refundAmount.isGreaterThan(payment.getRefundableAmount())) {
+            builder.addViolation("退款金额超过可退款金额");
+        }
+        
+        // 3. 原交易流水验证
+        if (originalTransactionId != null) {
+            PaymentTransaction originalTransaction = payment.findTransactionById(originalTransactionId);
+            if (originalTransaction == null) {
+                builder.addViolation("原支付流水不存在");
+            } else if (!originalTransaction.canRefund()) {
+                builder.addViolation("原支付流水不支持退款");
+            }
+        }
+        
+        return builder.build();
+    }
+    
+    /**
+     * 验证信用还款
+     */
+    public ValidationResult validateCreditRepayment(Payment payment) {
+        ValidationResult.Builder builder = ValidationResult.builder();
+        
+        if (!payment.isCreditRepayment()) {
+            return builder.build();
+        }
+        
+        RelatedBusinessInfo businessInfo = payment.getRelatedBusinessInfo();
+        
+        // 1. 验证关联的信用记录
+        CreditRecord creditRecord = creditManagementService.findCreditRecord(businessInfo.getBusinessId());
+        if (creditRecord == null) {
+            builder.addViolation("关联的信用记录不存在");
+            return builder.build();
+        }
+        
+        // 2. 验证信用记录状态
+        if (!creditRecord.canRepay()) {
+            builder.addViolation("信用记录当前状态不允许还款");
+        }
+        
+        // 3. 验证还款金额
+        if (payment.getPaymentAmount().isGreaterThan(creditRecord.getOutstandingAmount())) {
+            builder.addViolation("还款金额超过信用记录的待还金额");
+        }
+        
+        // 4. 验证还款时效
+        if (businessInfo.hasExpireDate() && businessInfo.isExpired()) {
+            builder.addWarning("信用还款已超过到期日期");
+        }
+        
+        return builder.build();
+    }
+}
+```
+
+### PaymentAmountCalculationService（支付金额计算领域服务）
+
+#### 服务职责
+处理支付相关的复杂金额计算逻辑，包括批量支付分配、退款分配等。
+
+#### Java实现示例
+```java
+@DomainService  
+public class PaymentAmountCalculationService {
+    
+    /**
+     * 计算批量支付的金额分配
+     */
+    public PaymentDistributionResult calculateBatchPaymentDistribution(
+            List<Payment> payments, 
+            BigDecimal totalPaidAmount,
+            PaymentDistributionStrategy strategy) {
+        
+        switch (strategy) {
+            case PROPORTIONAL:
+                return calculateProportionalDistribution(payments, totalPaidAmount);
+            case PRIORITY_FIRST:
+                return calculatePriorityDistribution(payments, totalPaidAmount);
+            case EQUAL_AMOUNT:
+                return calculateEqualDistribution(payments, totalPaidAmount);
+            default:
+                throw new IllegalArgumentException("不支持的分配策略: " + strategy);
+        }
+    }
+    
+    /**
+     * 按比例分配
+     */
+    private PaymentDistributionResult calculateProportionalDistribution(
+            List<Payment> payments, BigDecimal totalPaidAmount) {
+        
+        // 1. 计算总待付金额
+        BigDecimal totalPendingAmount = payments.stream()
+            .map(Payment::getPendingAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        if (totalPendingAmount.compareTo(BigDecimal.ZERO) == 0) {
+            throw new IllegalStateException("所有支付单待付金额为0，无法进行比例分配");
+        }
+        
+        // 2. 按比例计算各支付单分配金额
+        List<PaymentAllocation> allocations = new ArrayList<>();
+        BigDecimal distributedAmount = BigDecimal.ZERO;
+        
+        for (int i = 0; i < payments.size() - 1; i++) {
+            Payment payment = payments.get(i);
+            BigDecimal pendingAmount = payment.getPendingAmount();
+            
+            // 计算该支付单应分配的金额
+            BigDecimal proportion = pendingAmount.divide(totalPendingAmount, 6, RoundingMode.HALF_UP);
+            BigDecimal allocatedAmount = totalPaidAmount.multiply(proportion).setScale(6, RoundingMode.HALF_UP);
+            
+            allocations.add(new PaymentAllocation(payment.getId(), allocatedAmount));
+            distributedAmount = distributedAmount.add(allocatedAmount);
+        }
+        
+        // 3. 最后一个支付单分配剩余金额（处理舍入误差）
+        Payment lastPayment = payments.get(payments.size() - 1);
+        BigDecimal remainingAmount = totalPaidAmount.subtract(distributedAmount);
+        allocations.add(new PaymentAllocation(lastPayment.getId(), remainingAmount));
+        
+        return PaymentDistributionResult.success(allocations);
+    }
+    
+    /**
+     * 按优先级分配
+     */
+    private PaymentDistributionResult calculatePriorityDistribution(
+            List<Payment> payments, BigDecimal totalPaidAmount) {
+        
+        // 1. 按优先级和创建时间排序
+        List<Payment> sortedPayments = payments.stream()
+            .sorted(Comparator.comparing(Payment::getPriorityLevel)
+                .thenComparing(Payment::getCreateTime))
+            .collect(toList());
+        
+        // 2. 优先级高的优先满足
+        List<PaymentAllocation> allocations = new ArrayList<>();
+        BigDecimal remainingAmount = totalPaidAmount;
+        
+        for (Payment payment : sortedPayments) {
+            BigDecimal pendingAmount = payment.getPendingAmount();
+            BigDecimal allocatedAmount = remainingAmount.compareTo(pendingAmount) > 0
+                ? pendingAmount : remainingAmount;
+            
+            allocations.add(new PaymentAllocation(payment.getId(), allocatedAmount));
+            remainingAmount = remainingAmount.subtract(allocatedAmount);
+            
+            if (remainingAmount.compareTo(BigDecimal.ZERO) == 0) {
+                break;
+            }
+        }
+        
+        return PaymentDistributionResult.success(allocations);
+    }
+    
+    /**
+     * 计算退款分配
+     */
+    public RefundDistributionResult calculateRefundDistribution(
+            Payment payment, BigDecimal refundAmount, RefundStrategy strategy) {
+        
+        List<PaymentTransaction> paymentTransactions = payment.getPaymentTransactions();
+        if (paymentTransactions.isEmpty()) {
+            throw new IllegalStateException("支付单没有可退款的支付流水");
+        }
+        
+        switch (strategy) {
+            case LATEST_FIRST:
+                return calculateLatestFirstRefund(paymentTransactions, refundAmount);
+            case LARGEST_FIRST:
+                return calculateLargestFirstRefund(paymentTransactions, refundAmount);
+            case PROPORTIONAL_REFUND:
+                return calculateProportionalRefund(paymentTransactions, refundAmount);
+            default:
+                throw new IllegalArgumentException("不支持的退款策略: " + strategy);
+        }
+    }
+    
+    private RefundDistributionResult calculateLatestFirstRefund(
+            List<PaymentTransaction> transactions, BigDecimal refundAmount) {
+        
+        // 按支付时间降序排序，最新的优先退款
+        List<PaymentTransaction> sortedTransactions = transactions.stream()
+            .filter(PaymentTransaction::isSuccessfulPayment)
+            .sorted(Comparator.comparing(PaymentTransaction::getCompleteTime).reversed())
+            .collect(toList());
+        
+        List<RefundAllocation> allocations = new ArrayList<>();
+        BigDecimal remainingRefund = refundAmount;
+        
+        for (PaymentTransaction transaction : sortedTransactions) {
+            BigDecimal refundableAmount = transaction.getRefundableAmount();
+            BigDecimal allocatedRefund = remainingRefund.compareTo(refundableAmount) > 0
+                ? refundableAmount : remainingRefund;
+            
+            if (allocatedRefund.compareTo(BigDecimal.ZERO) > 0) {
+                allocations.add(new RefundAllocation(transaction.getId(), allocatedRefund));
+                remainingRefund = remainingRefund.subtract(allocatedRefund);
+            }
+            
+            if (remainingRefund.compareTo(BigDecimal.ZERO) == 0) {
+                break;
+            }
+        }
+        
+        return RefundDistributionResult.success(allocations);
+    }
+}
 ```
 
 ### PaymentValidationService (支付验证领域服务)
@@ -1025,7 +1767,7 @@ B2B交易约束(B2B Transaction Constraints):
    - 不存在冲突的业务规则
    返回: ValidationResult(valid, violations, batchLimitations)
 
-3. validateRefundExecution(payment: Payment, refundAmount: Money, originalTransactionId: TransactionId): ValidationResult
+3. validateRefundExecution(payment: Payment, refundAmount: BigDecimal, originalTransactionId: TransactionId): ValidationResult
    功能描述: 验证退款执行的业务合规性
    验证规则:
    - 支付单退款状态是否允许退款
@@ -1054,7 +1796,7 @@ B2B交易约束(B2B Transaction Constraints):
 
 核心计算方法(Core Calculation Methods):
 
-1. calculatePaymentDistribution(batchRequest: BatchPaymentRequest, paidAmount: Money): PaymentDistribution
+1. calculatePaymentDistribution(batchRequest: BatchPaymentRequest, paidAmount: BigDecimal): PaymentDistribution
    功能描述: 计算合并支付中各支付单的金额分配
    计算逻辑:
    - 按支付单金额比例分配
@@ -1063,7 +1805,7 @@ B2B交易约束(B2B Transaction Constraints):
    - 优先分配高优先级支付单
    返回: PaymentDistribution(paymentAllocations, roundingAdjustments)
 
-2. calculateRefundDistribution(payment: Payment, refundAmount: Money): RefundDistribution
+2. calculateRefundDistribution(payment: Payment, refundAmount: BigDecimal): RefundDistribution
    功能描述: 计算退款在多个支付流水间的分配
    计算逻辑:
    - 选择最优的退款流水组合

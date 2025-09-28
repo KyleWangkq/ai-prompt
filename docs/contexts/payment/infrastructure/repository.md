@@ -1,147 +1,175 @@
-# Payment Context - 基础设施层设计
+# Payment Context - 基础设施层架构设计
 
 ## 文档信息
 | 项目 | 内容 |
 |------|------|
-| **文档名称** | Payment基础设施层设计文档 |
-| **文档版本** | v4.0 |
-| **创建日期** | 2025年9月26日 |
-| **更新日期** | 2025年9月27日 |
-| **术语基准** | 全局词汇表 v4.0 |
-| **上下文基准** | 支付上下文设计 v4.0 |
-| **领域依赖** | 支付领域层设计 v4.0 |
+| **文档名称** | Payment基础设施层架构设计文档 |
+| **文档版本** | v5.0 |
+| **创建日期** | 2025年9月28日 |
+| **更新日期** | 2025年9月28日 |
+| **需求基准** | 支付模块需求设计文档 v1.4 |
+| **术语基准** | 全局词汇表 v5.0 |
+| **领域基准** | Payment领域层设计 v5.0 |
 
-> **设计说明**: 基于支付领域层定义的Repository接口和聚合模型，设计具体的技术实现方案
-> **技术栈**: Spring Boot + MyBatis Plus + MySQL + Redis + RocketMQ
+> **设计原则**: 基于需求文档数据模型和领域层Repository接口，设计清晰的基础设施架构蓝图
+> **架构重点**: 数据接口清晰性、持久化架构纯净性、集成契约标准化
+> **技术栈**: Spring Boot + MyBatis-Plus + MySQL + Redis + RocketMQ
 
-## Repository实现概览
+## Repository接口架构概览
 
-| Repository接口 | 实现类 | 聚合根 | 数据库表 | Mapper接口 |
-|---|---|---|---|---|
-| PaymentRepository | PaymentRepositoryImpl | Payment | payment | PaymentMapper |
-| - | - | PaymentTransaction | payment_transaction | PaymentTransactionMapper |
+基于需求设计文档第4.4节数据模型和领域层Repository接口定义，建立完整的基础设施架构映射：
 
-> **聚合设计原则**: PaymentTransaction作为Payment聚合的内部实体，通过PaymentRepository统一管理，不单独提供Repository接口
+| Repository接口 | 实现规范类 | 聚合根 | 数据库表 | Mapper接口 | 接口复杂度 |
+|---|---|---|---|---|---|
+| PaymentRepository | PaymentRepositoryImpl | Payment | cms_payment | PaymentMapper | 高复杂度 |
+| - | PaymentTransactionService | PaymentTransaction | cms_payment_transaction | PaymentTransactionMapper | 中复杂度 |
 
-## Repository实现详情
+> **架构设计原则**: 
+> - PaymentTransaction作为Payment聚合内实体，通过PaymentRepository统一管理数据一致性
+> - 所有Repository接口在领域层定义，实现在基础设施层
+> - 数据库表命名遵循需求文档4.4.3节的命名规范（cms_前缀）
+> - 严格遵循领域驱动设计的分层架构原则
+
+## Repository接口设计规范详情
 
 ### PaymentRepository
 
-#### 基本信息
-- **接口名称**: PaymentRepository
-- **实现类名**: PaymentRepositoryImpl
+#### 接口基本信息
+- **接口名称**: PaymentRepository (领域层定义)
+- **实现规范名**: PaymentRepositoryImpl (基础设施层实现)
 - **管理聚合**: Payment (支付单聚合根)
-- **数据库表**: payment (主表), payment_transaction (流水表)
+- **主数据表**: cms_payment (遵循需求文档表命名规范)
+- **关联表**: cms_payment_transaction (交易流水表)  
 - **MyBatis Mapper**: PaymentMapper, PaymentTransactionMapper
+- **接口复杂度**: 高复杂度 (聚合根完整管理)
 
-#### 核心方法实现
+#### 核心接口方法规范
 
-**基础CRUD方法**:
+基于领域层PaymentRepository接口定义，提供完整的实现规范和数据契约：
+
+**基础CRUD接口**:
 ```java
-// 保存聚合根
+// 保存聚合根 (包含所有内部实体)
 Payment save(Payment aggregate);
 
-// 根据ID查找聚合根  
+// 根据支付单ID查找完整聚合  
 Optional<Payment> findById(PaymentId id);
 
-// 删除聚合根
+// 软删除聚合根 (设置删除标识，保持审计完整性)
 void delete(Payment aggregate);
 
-// 检查存在性
+// 检查支付单存在性 (排除已删除记录)
 boolean exists(PaymentId id);
 ```
 
-**业务查询方法**:
+> **实现要求**: 所有CRUD操作必须保证聚合内部一致性，支付单和交易流水必须在同一事务内操作
+
+**业务查询接口**:
+基于需求文档4.7节查询需求和领域层接口定义：
+
 ```java
-// 根据订单ID查找支付单
+// 根据订单ID查找支付单 (需求文档4.7.1 单条查询)
 List<Payment> findByOrderId(OrderId orderId);
 
-// 根据经销商ID查找支付单
+// 根据经销商ID查找支付单 (需求文档4.7.1 批量查询)
 List<Payment> findByResellerId(ResellerId resellerId);
 
-// 根据支付状态查找支付单
+// 根据支付状态查找支付单 (需求文档4.7.1 条件筛选)
 List<Payment> findByPaymentStatus(PaymentStatus status);
 
-// 根据支付类型查找支付单
+// 根据支付类型查找支付单 (需求文档4.7.1 条件筛选)
 List<Payment> findByPaymentType(PaymentType type);
 
-// 根据关联业务查找支付单
+// 根据关联业务查找支付单 (支持信用还款等场景)
 List<Payment> findByRelatedBusiness(RelatedBusinessType businessType, String businessId);
 
-// 按金额范围查找支付单
-List<Payment> findByAmountRange(Money minAmount, Money maxAmount);
+// 按金额范围查找支付单 (需求文档4.7.1 条件筛选)
+List<Payment> findByAmountRange(BigDecimal minAmount, BigDecimal maxAmount);
 
-// 按时间范围查找支付单
-List<Payment> findByDateRange(DateTime startDate, DateTime endDate);
+// 按时间范围查找支付单 (需求文档4.7.1 条件筛选)
+List<Payment> findByDateRange(LocalDateTime startDate, LocalDateTime endDate);
 
-// 查找支付截止时间在指定时间前的支付单
-List<Payment> findByDeadlineBefore(DateTime deadline);
+// 查找支付截止时间在指定时间前的支付单 (逾期支付处理)
+List<Payment> findByDeadlineBefore(LocalDateTime deadline);
 
-// 查找指定经销商未完成支付的支付单
+// 查找指定经销商未完成支付的支付单 (支持合并支付筛选)
 List<Payment> findUnpaidOrPartialPaid(ResellerId resellerId);
 
-// 查找有待处理退款的支付单
+// 查找有待处理退款的支付单 (退款处理监控)
 List<Payment> findPendingRefund();
 ```
 
-**批量操作方法**:
+> **查询设计原则**: 所有查询方法都基于需求文档的实际业务场景，支持完整的支付单生命周期管理
+
+**批量操作接口**:
+支持需求文档4.3节合并支付和批量管理功能：
+
 ```java
-// 批量保存支付单
+// 批量保存支付单 (合并支付场景，保证事务一致性)
 List<Payment> saveAll(List<Payment> payments);
 
-// 批量查询支付单
+// 批量查询支付单 (合并支付处理，批量状态检查)
 List<Payment> findByIds(List<PaymentId> ids);
 
-// 统计指定状态的支付单数量
+// 统计指定状态的支付单数量 (支付状态分布统计)
 Long countByStatus(PaymentStatus status);
 ```
 
-**统计分析方法**:
-```java
-// 计算时间范围内的支付金额总和
-Money sumAmountByDateRange(DateTime startDate, DateTime endDate);
+**统计分析接口**:
+支持需求文档4.9节对账管理和业务统计需求：
 
-// 按支付类型和状态统计支付单数量
+```java
+// 计算时间范围内的支付金额总和 (收入统计、业绩分析)
+BigDecimal sumAmountByDateRange(LocalDateTime startDate, LocalDateTime endDate);
+
+// 按支付类型和状态统计支付单数量 (支付类型分析、完成率统计)
 Long countByPaymentTypeAndStatus(PaymentType type, PaymentStatus status);
 
-// 查找支付金额最高的经销商
+// 查找支付金额最高的经销商 (客户价值分析、VIP客户识别)
 List<ResellerPaymentSummary> findTopResellersByAmount(Integer limit);
 ```
 
+> **统计原则**: 使用BigDecimal统一处理金额，避免浮点数精度问题，与需求文档4.4节数据精度要求一致
+
 #### 数据对象设计
 
+基于需求文档4.4.3节数据库表结构设计，建立完整的数据对象映射：
+
 **PaymentDO (支付单数据对象)**:
+严格对应需求文档cms_payment表结构设计：
+
 ```java
-@TableName("payment")
+@TableName("cms_payment")
 public class PaymentDO {
     @TableId("id")
-    private String id;                    // 支付单号
-    private String orderId;               // 关联订单号
-    private String resellerId;            // 经销商ID
-    private BigDecimal paymentAmount;     // 支付金额
-    private BigDecimal paidAmount;        // 已支付金额
-    private BigDecimal refundedAmount;    // 已退款金额
-    private String currency;              // 币种(固定CNY)
-    private String paymentType;           // 支付类型
-    private String paymentStatus;         // 支付状态
-    private String refundStatus;          // 退款状态
-    private String businessDesc;          // 业务描述
-    private LocalDateTime paymentDeadline;// 支付截止时间
-    private Integer priorityLevel;        // 优先级
-    private String relatedBusinessId;     // 关联业务ID
-    private String relatedBusinessType;   // 关联业务类型
-    private LocalDateTime businessExpireDate; // 业务到期日
-    private String businessTags;          // 业务标签(JSON)
-    private LocalDateTime createTime;     // 创建时间
-    private LocalDateTime updateTime;     // 更新时间
-    private String createBy;              // 创建人ID
-    private String createByName;          // 创建人姓名
-    private String updateBy;              // 更新人ID
-    private String updateByName;          // 更新人姓名
+    private String id;                        // 支付单号 (VARCHAR 32)
+    private String orderId;                   // 关联订单号 (VARCHAR 32)
+    private String resellerId;                // 经销商ID (VARCHAR 32)
+    private BigDecimal paymentAmount;         // 支付金额 (DECIMAL 20,6)
+    private BigDecimal paidAmount;            // 已支付金额 (DECIMAL 20,6)
+    private BigDecimal refundedAmount;        // 已退款金额 (DECIMAL 20,6)
+    // 实际收款金额 = paidAmount - refundedAmount (计算属性，数据库生成列)
+    private String currency;                  // 币种 (VARCHAR 3, 默认CNY)
+    private String paymentType;               // 支付类型 (VARCHAR 20)
+    private String paymentStatus;             // 支付状态 (VARCHAR 20)
+    private String refundStatus;              // 退款状态 (VARCHAR 20)
+    private String businessDesc;              // 业务描述 (VARCHAR 500)
+    private LocalDateTime paymentDeadline;    // 支付截止时间 (DATETIME)
+    private Integer priorityLevel;            // 优先级 (TINYINT, 1-高2-中3-低)
+    private String relatedBusinessId;         // 关联业务ID (VARCHAR 32)
+    private String relatedBusinessType;       // 关联业务类型 (VARCHAR 20)
+    private LocalDateTime businessExpireDate; // 业务到期日 (DATETIME)
+    private String businessTags;              // 业务标签 (JSON)
+    private LocalDateTime createTime;         // 创建时间 (DATETIME)
+    private LocalDateTime updateTime;         // 更新时间 (DATETIME)
+    private String createBy;                  // 创建人ID (VARCHAR 32)
+    private String createByName;              // 创建人姓名 (VARCHAR 50)
+    private String updateBy;                  // 更新人ID (VARCHAR 32)
+    private String updateByName;              // 更新人姓名 (VARCHAR 50)
     @TableLogic
-    private Integer delFlag;              // 删除标识
+    private Integer delFlag;                  // 删除标识 (TINYINT 0-正常1-删除)
     @Version
-    private Integer version;              // 乐观锁版本号
+    private Integer version;                  // 乐观锁版本号 (INT)
     
     // 关联交易流水(非数据库字段)
     @TableField(exist = false)
@@ -246,82 +274,94 @@ public class PaymentDO {
 }
 ```
 
-**PaymentTransactionDO (交易流水数据对象)**:
+**PaymentTransactionDO (支付交易数据对象)**:
+严格对应需求文档cms_payment_transaction表结构设计：
+
 ```java
-@TableName("payment_transaction")
+@TableName("cms_payment_transaction")
 public class PaymentTransactionDO {
     @TableId("id")
-    private String id;                      // 交易流水号
-    private String paymentId;               // 支付单号
-    private String transactionType;         // 交易类型
-    private String transactionStatus;       // 交易状态
-    private BigDecimal transactionAmount;   // 交易金额
-    private String paymentChannel;          // 支付渠道
-    private String channelTransactionNumber;// 渠道交易号
-    private String paymentWay;              // 支付方式
-    private String originalTransactionId;   // 原交易流水号
-    private String businessOrderId;         // 业务单号
-    private LocalDateTime createTime;       // 创建时间
-    private LocalDateTime completeDatetime; // 完成时间
-    private LocalDateTime expirationTime;   // 过期时间
-    private String businessRemark;          // 业务备注
-    private String createBy;                // 创建人ID
-    private String createByName;            // 创建人姓名
-    private String updateBy;                // 更新人ID
-    private String updateByName;            // 更新人姓名
-    private LocalDateTime updateTime;       // 更新时间
+    private String id;                        // 交易单号 (VARCHAR 32)
+    private String paymentId;                 // 支付单号 (VARCHAR 32)
+    private String thirdPartyTransId;         // 第三方交易号 (VARCHAR 64)
+    private String paymentChannel;            // 支付渠道 (VARCHAR 20)
+    private String transactionType;           // 交易类型 (VARCHAR 20)
+    private BigDecimal transactionAmount;     // 交易金额 (DECIMAL 20,6)
+    private String transactionStatus;         // 交易状态 (VARCHAR 20)
+    private String failureReason;             // 失败原因 (VARCHAR 500)
+    private LocalDateTime requestTime;        // 请求时间 (DATETIME)
+    private LocalDateTime responseTime;       // 响应时间 (DATETIME)
+    private String requestData;               // 请求数据 (JSON)
+    private String responseData;              // 响应数据 (JSON)
+    private String notificationData;          // 通知数据 (JSON)
+    private Integer retryCount;               // 重试次数 (TINYINT DEFAULT 0)
+    private LocalDateTime nextRetryTime;      // 下次重试时间 (DATETIME)
+    private String remarks;                   // 备注 (VARCHAR 500)
+    private LocalDateTime createTime;         // 创建时间 (DATETIME)
+    private LocalDateTime updateTime;         // 更新时间 (DATETIME)
+    private String createBy;                  // 创建人ID (VARCHAR 32)
+    private String createByName;              // 创建人姓名 (VARCHAR 50)
+    private String updateBy;                  // 更新人ID (VARCHAR 32)
+    private String updateByName;              // 更新人姓名 (VARCHAR 50)
     @TableLogic
-    private Integer delFlag;                // 删除标识
+    private Integer delFlag;                  // 删除标识 (TINYINT 0-正常1-删除)
+    @Version
+    private Integer version;                  // 乐观锁版本号 (INT)
     
-    // 转换为领域对象
+    // 转换为领域对象 (基于需求文档业务模型)
     public PaymentTransaction toDomain() {
         return new PaymentTransaction(
             new TransactionId(this.id),
             new PaymentId(this.paymentId),
+            this.thirdPartyTransId,
+            PaymentChannel.valueOf(this.paymentChannel),
             TransactionType.valueOf(this.transactionType),
-            TransactionStatus.valueOf(this.transactionStatus),
             new Money(this.transactionAmount, Currency.CNY),
-            new PaymentChannel(this.paymentChannel),
-            this.channelTransactionNumber,
-            this.paymentWay,
-            this.originalTransactionId != null ? new TransactionId(this.originalTransactionId) : null,
-            this.businessOrderId,
+            TransactionStatus.valueOf(this.transactionStatus),
+            this.failureReason,
+            this.requestTime,
+            this.responseTime,
+            this.requestData,
+            this.responseData,
+            this.notificationData,
+            this.retryCount,
+            this.nextRetryTime,
+            this.remarks,
             this.createTime,
-            this.completeDatetime,
-            this.expirationTime,
-            this.businessRemark,
+            this.updateTime,
             this.createBy,
             this.createByName,
             this.updateBy,
-            this.updateByName,
-            this.updateTime
+            this.updateByName
         );
     }
     
-    // 从领域对象转换
+    // 从领域对象转换 (基于需求文档业务模型)
     public static PaymentTransactionDO fromDomain(PaymentTransaction transaction) {
         PaymentTransactionDO transactionDO = new PaymentTransactionDO();
         transactionDO.setId(transaction.getId().getValue());
         transactionDO.setPaymentId(transaction.getPaymentId().getValue());
+        transactionDO.setThirdPartyTransId(transaction.getThirdPartyTransId());
+        transactionDO.setPaymentChannel(transaction.getPaymentChannel().name());
         transactionDO.setTransactionType(transaction.getTransactionType().name());
-        transactionDO.setTransactionStatus(transaction.getTransactionStatus().name());
         transactionDO.setTransactionAmount(transaction.getTransactionAmount().getAmount());
-        transactionDO.setPaymentChannel(transaction.getPaymentChannel().getChannelCode());
-        transactionDO.setChannelTransactionNumber(transaction.getChannelTransactionNumber());
-        transactionDO.setPaymentWay(transaction.getPaymentWay());
-        if (transaction.getOriginalTransactionId() != null) {
-            transactionDO.setOriginalTransactionId(transaction.getOriginalTransactionId().getValue());
-        }
-        transactionDO.setBusinessOrderId(transaction.getBusinessOrderId());
+        transactionDO.setTransactionStatus(transaction.getTransactionStatus().name());
+        transactionDO.setFailureReason(transaction.getFailureReason());
+        transactionDO.setRequestTime(transaction.getRequestTime());
+        transactionDO.setResponseTime(transaction.getResponseTime());
+        transactionDO.setRequestData(transaction.getRequestData());
+        transactionDO.setResponseData(transaction.getResponseData());
+        transactionDO.setNotificationData(transaction.getNotificationData());
+        transactionDO.setRetryCount(transaction.getRetryCount());
+        transactionDO.setNextRetryTime(transaction.getNextRetryTime());
+        transactionDO.setRemarks(transaction.getRemarks());
         transactionDO.setCreateTime(transaction.getCreateTime());
-        transactionDO.setCompleteDatetime(transaction.getCompleteDatetime());
-        transactionDO.setExpirationTime(transaction.getExpirationTime());
-        transactionDO.setBusinessRemark(transaction.getBusinessRemark());
+        transactionDO.setUpdateTime(transaction.getUpdateTime());
         transactionDO.setCreateBy(transaction.getCreateBy());
         transactionDO.setCreateByName(transaction.getCreateByName());
         transactionDO.setUpdateBy(transaction.getUpdateBy());
         transactionDO.setUpdateByName(transaction.getUpdateByName());
-        transactionDO.setUpdateTime(transaction.getUpdateTime());
+        transactionDO.setVersion(transaction.getVersion());
         transactionDO.setDelFlag(transaction.getDelFlag().getValue());
         
         return transactionDO;
@@ -446,20 +486,27 @@ public interface PaymentTransactionMapper extends BaseMapper<PaymentTransactionD
     // 按支付单查询流水
     List<PaymentTransactionDO> selectByPaymentId(@Param("paymentId") String paymentId);
     
-    // 按渠道交易号查询
-    PaymentTransactionDO selectByChannelTransactionNumber(@Param("channelTransactionNumber") String channelTransactionNumber);
+    // 按第三方交易号查询 (对应需求文档业务流程)
+    PaymentTransactionDO selectByThirdPartyTransId(@Param("thirdPartyTransId") String thirdPartyTransId);
     
     // 按交易类型查询
     List<PaymentTransactionDO> selectByTransactionType(@Param("transactionType") String transactionType);
     
-    // 查询可退款的支付流水
-    List<PaymentTransactionDO> selectRefundableTransactions(@Param("paymentId") String paymentId);
+    // 按交易状态查询
+    List<PaymentTransactionDO> selectByTransactionStatus(@Param("transactionStatus") String transactionStatus);
     
-    // 对账查询
+    // 查询失败的交易 (需要重试)
+    List<PaymentTransactionDO> selectFailedTransactions(@Param("paymentId") String paymentId);
+    
+    // 查询待重试的交易
+    List<PaymentTransactionDO> selectRetryableTransactions(@Param("maxRetryTime") LocalDateTime maxRetryTime);
+    
+    // 渠道对账查询
     List<PaymentTransactionDO> selectByDateRangeAndChannel(@Param("startDate") LocalDateTime startDate,
                                                          @Param("endDate") LocalDateTime endDate,
                                                          @Param("channel") String channel);
     
+    // 查询未对账交易
     List<PaymentTransactionDO> selectUnreconciledTransactions(@Param("reconcileDate") LocalDateTime reconcileDate);
 }
 ```
@@ -472,7 +519,7 @@ public interface PaymentTransactionMapper extends BaseMapper<PaymentTransactionD
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payment.infrastructure.mapper.PaymentMapper">
 
-    <!-- 聚合查询ResultMap -->
+    <!-- 聚合查询ResultMap (基于cms_表结构) -->
     <resultMap id="PaymentWithTransactionsResultMap" type="PaymentDO">
         <id property="id" column="p_id"/>
         <result property="orderId" column="p_order_id"/>
@@ -502,24 +549,28 @@ public interface PaymentTransactionMapper extends BaseMapper<PaymentTransactionD
         <collection property="transactions" ofType="PaymentTransactionDO">
             <id property="id" column="t_id"/>
             <result property="paymentId" column="t_payment_id"/>
-            <result property="transactionType" column="t_transaction_type"/>
-            <result property="transactionStatus" column="t_transaction_status"/>
-            <result property="transactionAmount" column="t_transaction_amount"/>
+            <result property="thirdPartyTransId" column="t_third_party_trans_id"/>
             <result property="paymentChannel" column="t_payment_channel"/>
-            <result property="channelTransactionNumber" column="t_channel_transaction_number"/>
-            <result property="paymentWay" column="t_payment_way"/>
-            <result property="originalTransactionId" column="t_original_transaction_id"/>
-            <result property="businessOrderId" column="t_business_order_id"/>
+            <result property="transactionType" column="t_transaction_type"/>
+            <result property="transactionAmount" column="t_transaction_amount"/>
+            <result property="transactionStatus" column="t_transaction_status"/>
+            <result property="failureReason" column="t_failure_reason"/>
+            <result property="requestTime" column="t_request_time"/>
+            <result property="responseTime" column="t_response_time"/>
+            <result property="requestData" column="t_request_data"/>
+            <result property="responseData" column="t_response_data"/>
+            <result property="notificationData" column="t_notification_data"/>
+            <result property="retryCount" column="t_retry_count"/>
+            <result property="nextRetryTime" column="t_next_retry_time"/>
+            <result property="remarks" column="t_remarks"/>
             <result property="createTime" column="t_create_time"/>
-            <result property="completeDatetime" column="t_complete_datetime"/>
-            <result property="expirationTime" column="t_expiration_time"/>
-            <result property="businessRemark" column="t_business_remark"/>
+            <result property="updateTime" column="t_update_time"/>
             <result property="createBy" column="t_create_by"/>
             <result property="createByName" column="t_create_by_name"/>
             <result property="updateBy" column="t_update_by"/>
             <result property="updateByName" column="t_update_by_name"/>
-            <result property="updateTime" column="t_update_time"/>
             <result property="delFlag" column="t_del_flag"/>
+            <result property="version" column="t_version"/>
         </collection>
     </resultMap>
 
@@ -547,60 +598,60 @@ public interface PaymentTransactionMapper extends BaseMapper<PaymentTransactionD
             t.business_remark as t_business_remark, t.create_by as t_create_by,
             t.create_by_name as t_create_by_name, t.update_by as t_update_by,
             t.update_by_name as t_update_by_name, t.update_time as t_update_time, t.del_flag as t_del_flag
-        FROM payment p
-        LEFT JOIN payment_transaction t ON p.id = t.payment_id AND t.del_flag = 0
+        FROM cms_payment p
+        LEFT JOIN cms_payment_transaction t ON p.id = t.payment_id AND t.del_flag = 0
         WHERE p.id = #{id} AND p.del_flag = 0
     </select>
 
-    <!-- 按经销商ID查询 -->
+    <!-- 按经销商ID查询 (基于cms_表结构) -->
     <select id="selectByResellerId" resultType="PaymentDO">
-        SELECT * FROM payment 
+        SELECT * FROM cms_payment 
         WHERE reseller_id = #{resellerId} AND del_flag = 0
         ORDER BY create_time DESC
     </select>
 
-    <!-- 按关联业务查询 -->
+    <!-- 按关联业务查询 (基于cms_表结构) -->
     <select id="selectByRelatedBusiness" resultType="PaymentDO">
-        SELECT * FROM payment 
+        SELECT * FROM cms_payment 
         WHERE related_business_type = #{businessType} 
         AND related_business_id = #{businessId} 
         AND del_flag = 0
         ORDER BY create_time DESC
     </select>
 
-    <!-- 查询未完成支付的支付单 -->
+    <!-- 查询未完成支付的支付单 (基于cms_表结构) -->
     <select id="selectUnpaidOrPartialPaid" resultType="PaymentDO">
-        SELECT * FROM payment 
+        SELECT * FROM cms_payment 
         WHERE reseller_id = #{resellerId} 
         AND payment_status IN ('UNPAID', 'PAYING', 'PARTIAL_PAID')
         AND del_flag = 0
         ORDER BY priority_level ASC, create_time ASC
     </select>
 
-    <!-- 查询有待处理退款的支付单 -->
+    <!-- 查询有待处理退款的支付单 (基于cms_表结构) -->
     <select id="selectPendingRefund" resultType="PaymentDO">
-        SELECT * FROM payment 
+        SELECT * FROM cms_payment 
         WHERE refund_status IN ('REFUNDING', 'REFUND_FAILED')
         AND del_flag = 0
         ORDER BY create_time ASC
     </select>
 
-    <!-- 统计查询 -->
+    <!-- 统计查询 (基于cms_表结构) -->
     <select id="sumAmountByDateRange" resultType="java.math.BigDecimal">
         SELECT COALESCE(SUM(payment_amount), 0) 
-        FROM payment 
+        FROM cms_payment 
         WHERE create_time BETWEEN #{startDate} AND #{endDate}
         AND del_flag = 0
     </select>
 
-    <!-- 查找支付金额最高的经销商 -->
+    <!-- 查找支付金额最高的经销商 (基于cms_表结构) -->
     <select id="selectTopResellersByAmount" resultType="ResellerPaymentSummaryDO">
         SELECT 
             reseller_id,
             COUNT(*) as payment_count,
             SUM(payment_amount) as total_amount,
             SUM(paid_amount) as total_paid_amount
-        FROM payment 
+        FROM cms_payment 
         WHERE del_flag = 0
         GROUP BY reseller_id
         ORDER BY total_amount DESC
@@ -614,26 +665,25 @@ public interface PaymentTransactionMapper extends BaseMapper<PaymentTransactionD
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.payment.infrastructure.mapper.PaymentTransactionMapper">
 
-    <!-- 按渠道交易号查询 -->
-    <select id="selectByChannelTransactionNumber" resultType="PaymentTransactionDO">
-        SELECT * FROM payment_transaction 
-        WHERE channel_transaction_number = #{channelTransactionNumber} 
+    <!-- 按第三方交易号查询 (基于cms_表结构) -->
+    <select id="selectByThirdPartyTransId" resultType="PaymentTransactionDO">
+        SELECT * FROM cms_payment_transaction 
+        WHERE third_party_trans_id = #{thirdPartyTransId} 
         AND del_flag = 0
     </select>
 
-    <!-- 查询可退款的支付流水 -->
-    <select id="selectRefundableTransactions" resultType="PaymentTransactionDO">
-        SELECT * FROM payment_transaction 
+    <!-- 查询失败的交易 (需要重试) -->
+    <select id="selectFailedTransactions" resultType="PaymentTransactionDO">
+        SELECT * FROM cms_payment_transaction 
         WHERE payment_id = #{paymentId} 
-        AND transaction_type = 'PAYMENT'
-        AND transaction_status = 'SUCCESS'
+        AND transaction_status IN ('FAILED', 'TIMEOUT')
         AND del_flag = 0
-        ORDER BY complete_datetime ASC
+        ORDER BY create_time DESC
     </select>
 
-    <!-- 对账查询 -->
+    <!-- 渠道对账查询 (基于cms_表结构) -->
     <select id="selectByDateRangeAndChannel" resultType="PaymentTransactionDO">
-        SELECT * FROM payment_transaction 
+        SELECT * FROM cms_payment_transaction 
         WHERE create_time BETWEEN #{startDate} AND #{endDate}
         AND payment_channel = #{channel}
         AND del_flag = 0
@@ -648,8 +698,8 @@ public interface PaymentTransactionMapper extends BaseMapper<PaymentTransactionD
 ### 表结构设计
 
 ```sql
--- 支付单主表
-CREATE TABLE payment (
+-- 支付单主表 (基于需求文档4.4.3节cms_payment表设计)
+CREATE TABLE cms_payment (
     id VARCHAR(32) PRIMARY KEY COMMENT '支付单号',
     order_id VARCHAR(32) NOT NULL COMMENT '关联订单号', 
     reseller_id VARCHAR(32) NOT NULL COMMENT '经销商ID',
@@ -688,51 +738,52 @@ CREATE TABLE payment (
     -- FOREIGN KEY (reseller_id) REFERENCES resellers(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支付单表';
 
--- 支付交易流水表
-CREATE TABLE payment_transaction (
+-- 支付交易流水表 (基于需求文档4.4.3节cms_payment_transaction表设计)
+CREATE TABLE cms_payment_transaction (
     id VARCHAR(32) PRIMARY KEY COMMENT '交易流水号',
     payment_id VARCHAR(32) NOT NULL COMMENT '支付单号',
-    transaction_type VARCHAR(20) NOT NULL COMMENT '交易类型:PAYMENT,REFUND',
-    transaction_status VARCHAR(20) NOT NULL COMMENT '交易状态:PROCESSING,SUCCESS,FAILED',
+    third_party_trans_id VARCHAR(64) COMMENT '第三方交易号',
+    payment_channel VARCHAR(20) NOT NULL COMMENT '支付渠道:ALIPAY,WECHAT,BANK_CARD,ENTERPRISE_ACCOUNT',
+    transaction_type VARCHAR(20) NOT NULL COMMENT '交易类型:PAYMENT,REFUND,TRANSFER',
     transaction_amount DECIMAL(20,6) NOT NULL COMMENT '交易金额',
-    payment_channel VARCHAR(20) NOT NULL COMMENT '支付渠道:ONLINE_PAYMENT,WALLET_PAYMENT,WIRE_TRANSFER,CREDIT_ACCOUNT',
-    channel_transaction_number VARCHAR(64) COMMENT '渠道交易号',
-    payment_way VARCHAR(50) COMMENT '支付方式',
-    original_transaction_id VARCHAR(32) COMMENT '原交易流水号(退款时关联)',
-    business_order_id VARCHAR(32) COMMENT '业务单号',
+    transaction_status VARCHAR(20) NOT NULL COMMENT '交易状态:PENDING,PROCESSING,SUCCESS,FAILED,TIMEOUT,CANCELLED',
+    failure_reason VARCHAR(500) COMMENT '失败原因',
+    request_time DATETIME COMMENT '请求时间',
+    response_time DATETIME COMMENT '响应时间',
+    request_data JSON COMMENT '请求数据',
+    response_data JSON COMMENT '响应数据',
+    notification_data JSON COMMENT '通知数据',
+    retry_count TINYINT DEFAULT 0 COMMENT '重试次数',
+    next_retry_time DATETIME COMMENT '下次重试时间',
+    remarks VARCHAR(500) COMMENT '备注',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    complete_datetime DATETIME COMMENT '完成时间',
-    expiration_time DATETIME COMMENT '过期时间',
-    business_remark VARCHAR(500) COMMENT '业务备注',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     create_by VARCHAR(32) NOT NULL COMMENT '创建人ID',
     create_by_name VARCHAR(50) NOT NULL COMMENT '创建人姓名',
     update_by VARCHAR(32) COMMENT '更新人ID',
     update_by_name VARCHAR(50) COMMENT '更新人姓名',
-    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     del_flag TINYINT NOT NULL DEFAULT 0 COMMENT '删除标识:0-正常,1-删除',
+    version INT NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
     
     -- 约束定义
     CONSTRAINT chk_transaction_amount CHECK (transaction_amount != 0),
-    CONSTRAINT chk_payment_transaction_amount CHECK (
-        (transaction_type = 'PAYMENT' AND transaction_amount > 0) OR 
-        (transaction_type = 'REFUND' AND transaction_amount < 0)
-    ),
+    CONSTRAINT chk_retry_count CHECK (retry_count >= 0 AND retry_count <= 10),
     
     -- 外键约束
-    FOREIGN KEY (payment_id) REFERENCES payment(id) ON DELETE CASCADE,
+    FOREIGN KEY (payment_id) REFERENCES cms_payment(id) ON DELETE CASCADE,
     INDEX idx_fk_payment_id (payment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支付交易流水表';
 
--- 支付单表索引
+-- cms_payment表索引 (基于需求文档业务查询需求)
 -- 主键索引
 -- PRIMARY KEY (id) 自动创建
 
 -- 单列索引
-CREATE INDEX idx_payment_order_id ON payment(order_id) COMMENT '订单号索引';
-CREATE INDEX idx_payment_reseller_id ON payment(reseller_id) COMMENT '经销商ID索引';
-CREATE INDEX idx_payment_status ON payment(payment_status) COMMENT '支付状态索引';
-CREATE INDEX idx_payment_type ON payment(payment_type) COMMENT '支付类型索引';
-CREATE INDEX idx_payment_refund_status ON payment(refund_status) COMMENT '退款状态索引';
+CREATE INDEX idx_cms_payment_order_id ON cms_payment(order_id) COMMENT '订单号索引';
+CREATE INDEX idx_cms_payment_reseller_id ON cms_payment(reseller_id) COMMENT '经销商ID索引';
+CREATE INDEX idx_cms_payment_status ON cms_payment(payment_status) COMMENT '支付状态索引';
+CREATE INDEX idx_cms_payment_type ON cms_payment(payment_type) COMMENT '支付类型索引';
+CREATE INDEX idx_cms_payment_refund_status ON cms_payment(refund_status) COMMENT '退款状态索引';
 CREATE INDEX idx_payment_create_time ON payment(create_time) COMMENT '创建时间索引';
 CREATE INDEX idx_payment_deadline ON payment(payment_deadline) COMMENT '支付截止时间索引';
 CREATE INDEX idx_payment_business_expire_date ON payment(business_expire_date) COMMENT '业务到期日索引';

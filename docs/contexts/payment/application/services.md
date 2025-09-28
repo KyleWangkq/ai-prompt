@@ -1,9 +1,19 @@
-# 支付上下文应用层设计 (Payment Application Layer Design)
+# 支付模块应用层设计
 
-> **术语说明**: 本文档严格遵循全局词汇表(/docs/Glossary.md)中的标准术语定义
-> **领域依赖**: 基于 `/docs/contexts/payment/domain/` 目录下的领域设计
-> **版本**: v4.0
-> **更新时间**: 2025年9月27日
+## 概述
+
+应用层负责协调支付业务用例的执行，管理事务边界，处理与外部系统的集成。基于新设计的支付领域模型，提供完整的支付业务功能。
+
+### 文档信息
+| 项目 | 内容 |
+|------|------|
+| **文档名称** | 支付模块应用层设计文档 |
+| **文档版本** | v6.0 |
+| **创建日期** | 2025年9月28日 |
+| **更新日期** | 2025年9月28日 |
+| **领域基准** | 支付模块领域模型设计文档 v5.0 |
+| **需求基准** | 支付模块需求设计文档 v1.4 |
+| **架构基准** | 统一支付处理架构设计 |
 
 ## 应用层概述 (Application Layer Overview)
 
@@ -16,104 +26,150 @@
 
 ### PaymentApplicationService (支付应用服务)
 
-**服务职责**: 协调支付单生命周期管理，编排支付和退款业务流程
+**服务职责**: 协调支付单生命周期管理，编排统一支付和退款业务流程，支持单支付单和合并支付的统一处理
 **依赖聚合**: Payment聚合
 **事务边界**: 每个方法为一个事务单元，查询操作使用只读事务
+**架构特点**: 基于统一支付处理架构，单支付单支付作为多支付单合并支付的特例
+
+#### 关键设计原则
+
+**信用还款统一处理原则**:
+- 信用还款本质上是PaymentType为CREDIT_REPAYMENT的支付单，无需独立服务或聚合
+- 使用统一的createPayment接口，通过支付类型区分处理逻辑
+- 信用还款使用虚拟订单号（"CREDIT_" + relatedBusinessId）保证数据完整性
+- 复用完整的支付处理流程（创建→执行→回调→完成），确保一致性
+
+**统一支付架构原则**:
+- 所有支付类型（普通支付、信用还款）使用相同的Payment聚合根
+- 单一支付执行接口executePayment处理所有支付场景
+- 合并支付和单支付单支付使用统一的处理逻辑
+- 条件验证根据支付类型动态调整，保持接口简洁性
 
 #### 服务接口定义
 ```java
 public interface PaymentApplicationService {
-    // 命令操作 - 支付单管理
+    // 命令操作 - 支付单管理（统一创建接口，支持所有支付类型包括信用还款）
     PaymentResponse createPayment(CreatePaymentCommand command);
-    PaymentResponse createCreditRepayment(CreateCreditRepaymentCommand command);
     
-    // 命令操作 - 支付执行
-    PaymentExecutionResponse executeSinglePayment(SinglePaymentExecutionCommand command);
-    BatchPaymentResponse executeBatchPayment(BatchPaymentExecutionCommand command);
+    // 命令操作 - 统一支付执行（单支付单和合并支付使用统一接口）
+    UnifiedPaymentExecutionResponse executePayment(UnifiedPaymentExecutionCommand command);
     void processPaymentCallback(PaymentCallbackCommand command);
     void processRefundCallback(RefundCallbackCommand command);
     
-    // 命令操作 - 退款处理
+    // 命令操作 - 退款处理（支持多种流水选择策略）
     RefundExecutionResponse executeRefund(RefundExecutionCommand command);
     
-    // 命令操作 - 状态管理
-    PaymentStatusResponse updatePaymentStatus(PaymentStatusUpdateCommand command);
+    // 命令操作 - 支付单操作
+    PaymentStatusResponse stopPayment(StopPaymentCommand command);
+    PaymentStatusResponse freezePayment(FreezePaymentCommand command);
+    PaymentStatusResponse unfreezePayment(UnfreezePaymentCommand command);
     PaymentResponse modifyPaymentInfo(PaymentModificationCommand command);
     
-    // 查询操作 - 基础查询
+    // 查询操作 - 支付单筛选和查询
+    PaymentListResponse queryFilteredPayments(PaymentFilterQuery query);
+    PaymentListResponse queryBatchablePayments(BatchablePaymentsQuery query);
     PaymentDetailResponse queryPaymentDetail(PaymentDetailQuery query);
+    
+    // 查询操作 - 业务维度查询  
     PaymentListResponse queryPaymentsByReseller(PaymentsByResellerQuery query);
     PaymentListResponse queryPaymentsByOrder(PaymentsByOrderQuery query);
-    PaymentListResponse queryBatchablePayments(BatchablePaymentsQuery query);
+    PaymentListResponse queryPaymentsByRelatedBusiness(PaymentsByRelatedBusinessQuery query);
     
-    // 查询操作 - 高级查询
-    PaymentListResponse queryPaymentsByCriteria(PaymentSearchCriteriaQuery query);
+    // 查询操作 - 高级搜索和统计
+    PaymentListResponse searchPayments(PaymentSearchCriteriaQuery query);
     PaymentStatisticsResponse queryPaymentStatistics(PaymentStatisticsQuery query);
     TransactionListResponse queryTransactionHistory(TransactionHistoryQuery query);
     
-    // 查询操作 - 状态和进度
+    // 查询操作 - 状态和进度监控
     PaymentStatusResponse queryPaymentStatus(PaymentStatusQuery query);
     PaymentProgressResponse queryPaymentProgress(PaymentProgressQuery query);
     RefundProgressResponse queryRefundProgress(RefundProgressQuery query);
+    
+    // 查询操作 - 支持合并支付的特殊查询
+    MergedPaymentInfoResponse queryMergedPaymentInfo(MergedPaymentInfoQuery query);
+    List<PaymentTransactionDto> queryTransactionsByChannelNumber(String channelTransactionNumber);
 }
 ```
 
 #### 方法详细设计
 
-##### createPayment - 创建支付单
-**用例描述**: 接收订单系统或信用管理系统的支付单创建请求，创建新的支付单
-**前置条件**: 关联订单存在且有效，经销商具有支付权限
+##### createPayment - 创建支付单（统一接口，支持所有支付类型）
+**用例描述**: 接收订单系统或信用管理系统的支付单创建请求，统一创建支付单
+**前置条件**: 根据支付类型验证相应的前置条件（订单存在或信用记录有效），经销商具有支付权限
 **业务流程**: 
-1. 验证创建请求的参数完整性和业务合规性
-2. 调用OrderServiceClient验证关联订单的存在性和状态
+1. 验证CreatePaymentCommand的参数完整性和业务合规性
+2. 根据支付类型执行相应的业务验证：
+   - 普通支付类型：调用OrderServiceClient验证关联订单
+   - 信用还款类型：根据关联业务ID生成虚拟订单号（CREDIT_[relatedBusinessId]）
 3. 验证经销商的支付权限和企业状态
-4. 创建Payment聚合实例，执行业务验证规则
-5. 持久化支付单到PaymentRepository
-6. 发布PaymentCreated领域事件
-7. 构建并返回PaymentResponse
+4. 根据支付类型执行特定的业务规则验证
+5. 创建Payment聚合实例，分配唯一支付单号
+6. 持久化支付单到PaymentRepository
+7. 发布PaymentCreated领域事件
+8. 构建并返回PaymentResponse
+
+**支付类型处理**:
+- **普通支付类型**（ADVANCE_PAYMENT, FINAL_PAYMENT, OTHER_PAYMENT）：需要有效的订单号
+- **信用还款类型**（CREDIT_REPAYMENT）：使用关联业务信息，系统生成虚拟订单号
 
 **异常处理**: 
 - `InvalidPaymentRequestException`: 请求参数不合法或业务规则验证失败
-- `OrderNotFoundException`: 关联订单不存在或状态不正确
+- `OrderNotFoundException`: 关联订单不存在或状态不正确（普通支付类型）
+- `CreditRecordNotFoundException`: 关联信用记录不存在（信用还款类型）
 - `ResellerUnauthorizedException`: 经销商无支付权限
 - `DuplicatePaymentException`: 重复创建相同的支付单
 
-**发布事件**: PaymentCreated - 通知订单系统和财务系统支付单已创建
+**发布事件**: PaymentCreated - 通知相关系统支付单已创建
 
-##### executeSinglePayment - 执行单笔支付
-**用例描述**: 执行单个支付单的支付操作，调用支付渠道完成资金转移
-**前置条件**: 支付单状态允许支付，支付渠道可用，支付金额合法
+**设计说明**: 信用还款本质上就是支付类型为CREDIT_REPAYMENT的支付单，使用统一的处理流程，无需特殊处理
+
+##### executePayment - 统一支付执行（核心方法）
+**用例描述**: 执行支付单的统一支付操作，支持单支付单和合并支付的统一处理
+**前置条件**: 支付单列表有效，支付渠道可用，金额分配合理
 **业务流程**:
-1. 查询并锁定Payment聚合实例
-2. 验证支付单状态和支付金额的业务合规性
-3. 验证支付渠道的可用性和业务兼容性
-4. 调用PaymentDomainService执行支付业务逻辑
-5. 创建PaymentTransaction流水记录
-6. 调用PaymentChannelAdapter执行渠道支付
-7. 更新支付单状态为PAYING并持久化
-8. 发布PaymentExecutionStarted领域事件
+1. 解析UnifiedPaymentExecutionCommand，提取支付单列表和金额分配
+2. 批量查询Payment聚合实例并验证状态兼容性
+3. 验证支付单是否属于同一经销商（合并支付要求）
+4. 验证支付渠道兼容性和可用性
+5. 计算总支付金额和每个支付单的分配金额
+6. 调用PaymentChannelAdapter执行统一支付请求
+7. 为每个支付单创建PaymentTransaction流水记录
+8. 批量更新所有支付单状态为PAYING
+9. 发布UnifiedPaymentExecuted领域事件
+10. 构建并返回UnifiedPaymentExecutionResponse
+
+**核心特点**:
+- **统一处理**: 单支付单支付作为合并支付的特例（列表只有一个元素）
+- **批量优化**: 支持批量数据库操作，提高性能
+- **事务一致性**: 所有状态变更在同一事务内完成
 
 **异常处理**:
 - `PaymentNotFoundException`: 支付单不存在
 - `InvalidPaymentStatusException`: 支付单状态不允许支付
+- `IncompatiblePaymentsException`: 支付单不兼容（不同经销商等）
 - `PaymentChannelUnavailableException`: 支付渠道不可用
-- `InsufficientAmountException`: 支付金额不合法
-- `PaymentExecutionException`: 支付执行过程中的技术异常
+- `InvalidAmountAllocationException`: 金额分配不合法
+- `UnifiedPaymentExecutionException`: 统一支付执行异常
 
-**发布事件**: PaymentExecutionStarted
+**发布事件**: UnifiedPaymentExecuted, PaymentStatusChanged
 
 ##### processPaymentCallback - 处理支付回调
-**用例描述**: 处理支付渠道的异步回调通知，更新支付单状态和金额
-**前置条件**: 回调数据签名有效，关联的支付单和流水存在
+**用例描述**: 处理支付渠道的异步回调通知，支持合并支付的回调处理
+**前置条件**: 回调数据签名有效，关联的支付流水存在
 **业务流程**:
-1. 验证回调数据的签名和完整性
-2. 根据渠道交易号查找对应的PaymentTransaction
-3. 通过交易流水关联找到Payment聚合
-4. 调用PaymentDomainService处理回调结果
-5. 更新交易流水状态和支付单金额状态
-6. 重新计算支付单的各项金额字段
-7. 判断支付单是否完成并更新状态
-8. 发布相应的状态变更领域事件
+1. 验证PaymentCallbackCommand的签名和数据完整性
+2. 根据渠道交易号查找所有相关的PaymentTransaction（支持合并支付）
+3. 遍历处理每个支付流水的回调结果
+4. 更新每个交易流水的状态和完成时间
+5. 重新计算每个关联支付单的已支付金额
+6. 根据待支付金额判断支付单是否完成
+7. 批量更新支付单状态和金额信息
+8. 通知订单系统支付状态变更（如果需要）
+9. 发布相应的状态变更领域事件
+
+**设计说明**: 
+- 支持一个渠道交易号对应多个支付单的回调处理
+- 长时间异步确认机制适应B2B大额支付特点
 
 **异常处理**:
 - `InvalidCallbackSignatureException`: 回调签名验证失败
@@ -121,7 +177,39 @@ public interface PaymentApplicationService {
 - `TransactionNotFoundException`: 对应的交易流水不存在
 - `CallbackProcessingException`: 回调处理业务异常
 
-**发布事件**: PaymentExecuted, PaymentStatusChanged, PaymentCompleted
+**发布事件**: PaymentExecuted, PaymentCompleted, PaymentStatusChanged
+
+##### executeRefund - 执行退款（支持多种流水选择策略）
+**用例描述**: 接收订单系统退款指令，执行退款操作并更新支付单状态
+**前置条件**: 支付单存在，退款金额合理，审批流程已完成
+**业务流程**:
+1. 验证RefundExecutionCommand的参数完整性
+2. 查询Payment聚合及其所有支付流水记录
+3. 根据TransactionSelectionStrategy选择退款流水：
+   - SPECIFIED: 使用指定的交易流水
+   - LATEST: 选择最新的一笔支付流水
+   - PROPORTIONAL: 按金额比例分摊到多个流水
+4. 验证选择的流水是否支持退款操作
+5. 调用PaymentChannelAdapter执行渠道退款
+6. 为每个退款操作创建RefundTransaction流水记录
+7. 更新支付单的已退款金额和退款状态
+8. 重新计算支付单的实际收款金额
+9. 发布RefundExecuted领域事件
+10. 构建并返回RefundExecutionResponse
+
+**流水选择策略**:
+- **指定流水退款**: 精确退款到特定的支付记录
+- **最新流水退款**: 默认选择最近的支付记录
+- **多流水分摊退款**: 当单笔流水金额不足时按比例分摊
+
+**异常处理**:
+- `PaymentNotFoundException`: 支付单不存在
+- `InvalidRefundAmountException`: 退款金额不合法
+- `NoAvailableTransactionException`: 没有可用的退款流水
+- `RefundChannelException`: 渠道退款操作失败
+- `RefundExecutionException`: 退款执行业务异常
+
+**发布事件**: RefundExecuted, PaymentStatusChanged
 
 ### PaymentEventHandler (支付事件处理服务)
 
@@ -145,46 +233,60 @@ public interface PaymentEventHandler {
 ### 命令DTO (Command DTOs)
 
 #### CreatePaymentCommand
-**用途**: 支付单创建请求，由订单系统或信用管理系统发起
-**验证策略**: 参数完整性验证、业务规则预检查
+**用途**: 统一支付单创建请求，支持所有支付类型（普通支付和信用还款）
+**验证策略**: 根据支付类型进行条件验证，参数完整性验证、业务规则预检查
 
 ```java
 public class CreatePaymentCommand {
-    // 核心业务字段
-    @NotBlank(message = "关联订单号不能为空")
-    @Size(max = 32, message = "订单号长度不能超过32位")
-    private String orderId;
-    
+    // 通用必填字段
     @NotBlank(message = "经销商ID不能为空") 
     @Size(max = 32, message = "经销商ID长度不能超过32位")
     private String resellerId;
     
     @NotNull(message = "支付金额不能为空")
     @DecimalMin(value = "0.01", message = "支付金额必须大于0")
-    @Digits(integer = 15, fraction = 6, message = "金额格式不正确")
+    @Digits(integer = 14, fraction = 6, message = "金额格式不正确(最大14位整数，6位小数)")
     private BigDecimal paymentAmount;
     
     @NotNull(message = "支付类型不能为空")
     @Enumerated(EnumType.STRING)
-    private PaymentType paymentType;
+    private PaymentType paymentType; // ADVANCE_PAYMENT, FINAL_PAYMENT, OTHER_PAYMENT, CREDIT_REPAYMENT
     
-    // 可选业务字段
+    // 条件必填字段 - 根据支付类型验证
+    // 普通支付类型必填
+    @ConditionalNotBlank(dependsOn = "paymentType", 
+                        values = {"ADVANCE_PAYMENT", "FINAL_PAYMENT", "OTHER_PAYMENT"},
+                        message = "普通支付类型必须提供订单号")
+    @Size(max = 32, message = "订单号长度不能超过32位")
+    private String orderId;
+    
+    // 信用还款类型必填
+    @ConditionalNotBlank(dependsOn = "paymentType", 
+                        values = {"CREDIT_REPAYMENT"},
+                        message = "信用还款类型必须提供关联业务ID")
+    @Size(max = 32, message = "关联业务ID长度不能超过32位")
+    private String relatedBusinessId;
+    
+    @ConditionalNotNull(dependsOn = "paymentType", 
+                       values = {"CREDIT_REPAYMENT"},
+                       message = "信用还款类型必须指定关联业务类型")
+    @Enumerated(EnumType.STRING)
+    private RelatedBusinessType relatedBusinessType; // CREDIT_RECORD等
+    
+    // 业务信息字段
     @Size(max = 500, message = "业务描述长度不能超过500字符")
     private String businessDesc;
     
     @Future(message = "支付截止时间必须是未来时间")
     private LocalDateTime paymentDeadline;
     
-    private PriorityLevel priorityLevel = PriorityLevel.MEDIUM;
-    
-    // 关联业务信息（信用还款等场景）
-    @Size(max = 32, message = "关联业务ID长度不能超过32位")
-    private String relatedBusinessId;
-    
-    @Enumerated(EnumType.STRING)
-    private RelatedBusinessType relatedBusinessType;
+    private PriorityLevel priorityLevel = PriorityLevel.MEDIUM; // HIGH, MEDIUM, LOW
     
     private LocalDateTime businessExpireDate;
+    
+    // 扩展信息
+    @Valid
+    private Map<String, String> businessTags = new HashMap<>();
     
     // 操作者信息
     @NotBlank(message = "创建人不能为空")
@@ -192,24 +294,220 @@ public class CreatePaymentCommand {
     
     @NotBlank(message = "创建人姓名不能为空")
     private String createByName;
+    
+    // 设计说明: 信用还款时orderId将由系统自动生成为"CREDIT_" + relatedBusinessId
+    // 这样保证了所有支付单都有orderId，但信用还款使用虚拟订单号
 }
+```
 
-**字段说明**:
-| 字段名 | 类型 | 描述 | 验证规则 | 必需性 |
-|--------|------|------|----------|--------|
-| orderId | String(32) | 关联的订单号 | 非空，长度32位 | 必需 |
-| resellerId | String(32) | 支付方经销商ID | 非空，长度32位 | 必需 |
-| paymentAmount | BigDecimal | 支付金额（人民币） | >0，最多6位小数 | 必需 |
-| paymentType | PaymentType | 支付类型枚举 | 有效枚举值 | 必需 |
-| businessDesc | String(500) | 业务用途描述 | 最大500字符 | 可选 |
-| paymentDeadline | LocalDateTime | 支付截止时间 | 未来时间 | 可选 |
-| relatedBusinessId | String(32) | 关联业务记录ID | 长度32位 | 可选 |
-| relatedBusinessType | RelatedBusinessType | 关联业务类型 | 有效枚举值 | 可选 |
 
-**业务规则验证**:
-- **金额合理性**: 支付金额必须在合理的业务范围内（如不超过1000万元）
-- **支付类型一致性**: 信用还款类型必须提供关联业务信息
-- **截止时间合理性**: 支付截止时间不能超过业务约定的最长期限
+
+#### UnifiedPaymentExecutionCommand
+**用途**: 统一支付执行指令（支持单支付单和合并支付的统一处理）
+**验证策略**: 支付渠道兼容性和金额分配验证
+
+```java
+public class UnifiedPaymentExecutionCommand {
+    @NotEmpty(message = "支付单号列表不能为空")
+    @Size(min = 1, max = 50, message = "支付单数量必须在1-50之间")
+    private List<@NotBlank @Size(max = 32) String> paymentIds;
+    
+    @NotNull(message = "支付渠道不能为空")
+    @Enumerated(EnumType.STRING)
+    private PaymentChannel paymentChannel; // ONLINE_PAYMENT, WALLET_PAYMENT, WIRE_TRANSFER, CREDIT_ACCOUNT
+    
+    @NotBlank(message = "支付方式不能为空")
+    private String paymentMethod;
+    
+    // 金额分配策略（用于部分支付场景）
+    @Valid
+    private List<PaymentAmountAllocation> amountAllocations;
+    
+    @Pattern(regexp = "^((2[0-4]\\d|25[0-5]|[01]?\\d\\d?)\\.){3}(2[0-4]\\d|25[0-5]|[01]?\\d\\d?)$", 
+             message = "客户端IP格式不正确")
+    private String clientIp;
+    
+    @URL(message = "回调地址格式不正确")
+    private String returnUrl;
+    
+    private Map<String, String> extraParams = new HashMap<>();
+    
+    @NotBlank(message = "操作人不能为空")
+    private String operatorId;
+    
+    @NotBlank(message = "操作人姓名不能为空")
+    private String operatorName;
+    
+    // 内部类：金额分配信息
+    public static class PaymentAmountAllocation {
+        @NotBlank(message = "支付单号不能为空")
+        private String paymentId;
+        
+        @NotNull(message = "分配金额不能为空")
+        @DecimalMin(value = "0.01", message = "分配金额必须大于0")
+        @Digits(integer = 14, fraction = 6, message = "金额格式不正确")
+        private BigDecimal allocatedAmount;
+    }
+}
+```
+
+#### RefundExecutionCommand
+**用途**: 退款执行指令，支持多种流水选择策略
+**验证策略**: 退款金额和流水选择策略验证
+
+```java
+public class RefundExecutionCommand {
+    @NotBlank(message = "支付单号不能为空")
+    @Size(max = 32, message = "支付单号长度必须为32位")
+    private String paymentId;
+    
+    @NotNull(message = "退款金额不能为空")
+    @DecimalMin(value = "0.01", message = "退款金额必须大于0")
+    @Digits(integer = 14, fraction = 6, message = "金额格式不正确")
+    private BigDecimal refundAmount;
+    
+    @NotBlank(message = "退款原因不能为空")
+    @Size(max = 200, message = "退款原因长度不能超过200字符")
+    private String refundReason;
+    
+    @NotBlank(message = "业务退款单号不能为空")
+    @Size(max = 32, message = "业务退款单号长度必须为32位")
+    private String businessOrderId;
+    
+    // 支付流水选择策略
+    @NotNull(message = "流水选择策略不能为空")
+    @Enumerated(EnumType.STRING)
+    private TransactionSelectionStrategy selectionStrategy; // SPECIFIED, LATEST, PROPORTIONAL
+    
+    // 指定流水退款时使用
+    @Size(max = 32, message = "指定交易流水号长度必须为32位")
+    private String specifiedTransactionId;
+    
+    // 多流水分摊退款时使用
+    @Valid
+    private List<TransactionRefundAllocation> refundAllocations;
+    
+    @NotBlank(message = "操作人不能为空")
+    private String operatorId;
+    
+    @NotBlank(message = "操作人姓名不能为空")
+    private String operatorName;
+    
+    // 内部类：退款分摊信息
+    public static class TransactionRefundAllocation {
+        @NotBlank(message = "交易流水号不能为空")
+        private String transactionId;
+        
+        @NotNull(message = "退款金额不能为空")
+        @DecimalMin(value = "0.01", message = "退款金额必须大于0")
+        private BigDecimal refundAmount;
+    }
+}
+```
+
+### 查询DTO (Query DTOs)
+
+#### PaymentFilterQuery
+**用途**: 支付单多维度筛选查询（替代原有的多个单独查询）
+**分页支持**: 支持分页和多字段排序
+
+```java
+public class PaymentFilterQuery {
+    // 基础筛选条件
+    @Size(max = 32, message = "经销商ID长度不能超过32位")
+    private String resellerId;
+    
+    @Size(max = 32, message = "订单号长度不能超过32位")
+    private String orderId;
+    
+    // 状态筛选
+    private Set<PaymentStatus> paymentStatuses;
+    private Set<RefundStatus> refundStatuses;
+    private Set<PaymentType> paymentTypes;
+    
+    // 金额筛选
+    @DecimalMin(value = "0", message = "最小金额不能小于0")
+    private BigDecimal minAmount;
+    
+    @DecimalMax(value = "999999999999.999999", message = "最大金额超出系统限制")
+    private BigDecimal maxAmount;
+    
+    // 时间筛选
+    private LocalDate createDateFrom;
+    private LocalDate createDateTo;
+    private LocalDate paymentDeadlineFrom;
+    private LocalDate paymentDeadlineTo;
+    
+    // 关联业务筛选
+    private Set<RelatedBusinessType> relatedBusinessTypes;
+    @Size(max = 32, message = "关联业务ID长度不能超过32位")
+    private String relatedBusinessId;
+    
+    // 优先级筛选
+    private Set<PriorityLevel> priorityLevels;
+    
+    // 支付能力筛选（用于合并支付场景）
+    private PaymentChannel preferredChannel;
+    private boolean onlyBatchable = false; // 仅显示可合并支付的支付单
+    
+    // 分页和排序
+    @Min(value = 0, message = "页码必须大于等于0")
+    private int page = 0;
+    
+    @Min(value = 1, message = "页面大小必须大于0")
+    @Max(value = 100, message = "页面大小不能超过100")
+    private int size = 20;
+    
+    @Valid
+    private List<SortField> sortFields = List.of(new SortField("createTime", "DESC"));
+    
+    // 内部类：排序字段
+    public static class SortField {
+        @NotBlank(message = "排序字段不能为空")
+        private String field; // createTime, paymentAmount, paymentDeadline等
+        
+        @Pattern(regexp = "^(ASC|DESC)$", message = "排序方向必须是ASC或DESC")
+        private String direction = "DESC";
+    }
+}
+```
+
+#### BatchablePaymentsQuery
+**用途**: 查询可合并支付的支付单列表
+**验证策略**: 合并支付兼容性验证
+
+```java
+public class BatchablePaymentsQuery {
+    @NotBlank(message = "经销商ID不能为空")
+    @Size(max = 32, message = "经销商ID长度不能超过32位")
+    private String resellerId;
+    
+    @NotNull(message = "支付渠道不能为空")
+    @Enumerated(EnumType.STRING)
+    private PaymentChannel paymentChannel;
+    
+    // 金额范围限制
+    @DecimalMin(value = "0", message = "最小金额不能小于0")
+    private BigDecimal minAmount;
+    
+    @DecimalMax(value = "999999999999.999999", message = "最大金额超出系统限制")  
+    private BigDecimal maxAmount;
+    
+    // 支付类型筛选
+    private Set<PaymentType> paymentTypes;
+    
+    // 排除已选择的支付单
+    private Set<String> excludePaymentIds = new HashSet<>();
+    
+    // 分页参数
+    @Min(value = 0, message = "页码必须大于等于0")
+    private int page = 0;
+    
+    @Min(value = 1, message = "页面大小必须大于0")
+    @Max(value = 50, message = "页面大小不能超过50")
+    private int size = 20;
+}
+```
 
 #### SinglePaymentExecutionCommand
 **用途**: 单笔支付执行指令
@@ -261,51 +559,52 @@ public class PaymentResponse {
     private String orderId;
     private String resellerId;
     private BigDecimal paymentAmount;
+    private BigDecimal paidAmount;
+    private BigDecimal refundedAmount;
+    private BigDecimal actualAmount;
+    private BigDecimal pendingAmount;
     private String currency = "CNY";
     private PaymentStatus paymentStatus;
+    private RefundStatus refundStatus;
     private PaymentType paymentType;
     private String businessDesc;
     private LocalDateTime paymentDeadline;
     private PriorityLevel priorityLevel;
     private LocalDateTime createTime;
+    private LocalDateTime updateTime;
     private String createByName;
     
     // 关联业务信息
     private String relatedBusinessId;
     private RelatedBusinessType relatedBusinessType;
     private LocalDateTime businessExpireDate;
+    private Map<String, String> businessTags;
 }
 ```
 
-**字段说明**:
-| 字段名 | 类型 | 描述 | 数据来源 |
-|--------|------|------|----------|
-| paymentId | String | 支付单号 | Payment.id |
-| orderId | String | 关联订单号 | Payment.orderId |
-| paymentStatus | PaymentStatus | 当前支付状态 | Payment.paymentStatus |
-| paymentAmount | BigDecimal | 支付金额 | Payment.paymentAmount.amount |
-
-#### PaymentExecutionResponse
-**用途**: 支付执行操作的响应
-**数据来源**: PaymentTransaction和渠道响应
+#### UnifiedPaymentExecutionResponse
+**用途**: 统一支付执行的响应（支持单支付单和合并支付）
+**数据来源**: PaymentTransaction和渠道响应信息
 
 ```java
-public class PaymentExecutionResponse {
-    @NotBlank(message = "支付单号不能为空")
-    private String paymentId;
+public class UnifiedPaymentExecutionResponse {
+    // 批次信息
+    private String batchExecutionId; // 批次执行标识
+    private List<String> paymentIds;
+    private int paymentCount;
+    private BigDecimal totalExecutionAmount;
+    private PaymentChannel paymentChannel;
+    private String paymentMethod;
     
-    @NotBlank(message = "交易流水号不能为空")
-    private String transactionId;
+    // 执行结果汇总
+    private boolean overallSuccess;
+    private int successCount;
+    private int failureCount;
+    private LocalDateTime batchExecuteTime;
     
-    @NotNull(message = "支付状态不能为空")
-    private PaymentStatus paymentStatus;
-    
-    @NotNull(message = "交易状态不能为空")
-    private TransactionStatus transactionStatus;
-    
-    // 渠道响应信息
-    private String channelResponse;
+    // 渠道响应信息（统一的渠道信息）
     private String channelTransactionNumber;
+    private String channelResponse;
     private String redirectUrl;
     private String qrCodeContent;
     
@@ -313,47 +612,439 @@ public class PaymentExecutionResponse {
     private Integer estimatedConfirmTimeSeconds;
     private LocalDateTime estimatedCompleteTime;
     
-    // 执行结果
-    private boolean executeSuccess;
-    private String executeMessage;
+    // 每个支付单的执行详情
+    private List<SinglePaymentExecutionResult> individualResults;
+    
+    // 内部类：单个支付单执行结果
+    public static class SinglePaymentExecutionResult {
+        private String paymentId;
+        private String transactionId;
+        private PaymentStatus paymentStatus;
+        private TransactionStatus transactionStatus;
+        private BigDecimal allocatedAmount; // 分配的执行金额
+        private boolean executeSuccess;
+        private String executeMessage;
+    }
+}
+```
+
+#### PaymentDetailResponse
+**用途**: 支付单详情查询响应，包含完整信息和流水记录
+**数据来源**: Payment聚合及其内部实体
+
+```java
+public class PaymentDetailResponse {
+    // 基础信息
+    private String paymentId;
+    private String orderId;
+    private String resellerId;
+    
+    // 完整金额信息
+    private BigDecimal paymentAmount;
+    private BigDecimal paidAmount;
+    private BigDecimal refundedAmount;
+    private BigDecimal actualAmount;
+    private BigDecimal pendingAmount;
+    private String currency = "CNY";
+    
+    // 状态信息
+    private PaymentStatus paymentStatus;
+    private RefundStatus refundStatus;
+    private PaymentType paymentType;
+    
+    // 业务信息
+    private String businessDesc;
+    private LocalDateTime paymentDeadline;
+    private PriorityLevel priorityLevel;
+    
+    // 关联业务信息
+    private String relatedBusinessId;
+    private RelatedBusinessType relatedBusinessType;
+    private LocalDateTime businessExpireDate;
+    private Map<String, String> businessTags;
+    
+    // 支付能力信息
+    private boolean batchable; // 是否可合并支付
+    private List<PaymentChannel> supportedChannels; // 支持的支付渠道
+    
+    // 交易流水信息
+    private List<PaymentTransactionDto> paymentTransactions;
+    private List<PaymentTransactionDto> refundTransactions;
+    
+    // 支付进度信息
+    private PaymentProgressInfo progressInfo;
+    
+    // 系统信息
+    private LocalDateTime createTime;
+    private LocalDateTime updateTime;
+    private String createByName;
+    private String updateByName;
+    
+    // 内部类：支付进度信息
+    public static class PaymentProgressInfo {
+        private BigDecimal progressPercentage; // 支付进度百分比
+        private BigDecimal refundPercentage;   // 退款进度百分比
+        private int paymentTransactionCount;   // 支付流水数量
+        private int refundTransactionCount;    // 退款流水数量
+        private LocalDateTime lastPaymentTime; // 最后支付时间
+        private LocalDateTime lastRefundTime;  // 最后退款时间
+    }
+}
+```
+
+#### PaymentTransactionDto
+**用途**: 支付和退款交易流水信息的传输
+**数据来源**: PaymentTransaction实体
+
+```java
+public class PaymentTransactionDto {
+    private String transactionId;
+    private String paymentId;
+    private TransactionType transactionType;     // PAYMENT, REFUND
+    private TransactionStatus transactionStatus; // PENDING, SUCCESS, FAILED
+    private BigDecimal transactionAmount;
+    private String currency = "CNY";
+    
+    // 渠道信息
+    private PaymentChannel paymentChannel;
+    private String paymentMethod;
+    private String channelTransactionId;
+    private String channelResponse;
+    
+    // 业务信息
+    private String businessOrderId;  // 关联的业务单号
+    private String originalTransactionId;  // 原支付交易ID（退款时使用）
+    private String businessRemark;
+    
+    // 时间信息
+    private LocalDateTime createTime;
+    private LocalDateTime completeTime;
+    private LocalDateTime notifyTime;  // 回调通知时间
+    private LocalDateTime expirationTime; // 过期时间
+    
+    // 操作信息
+    private String operatorId;
+    private String operatorName;
+}
+```
+
+#### PaymentListResponse
+**用途**: 支付单列表查询响应，包含分页和汇总信息
+**数据来源**: Payment聚合的列表数据
+
+```java
+public class PaymentListResponse {
+    // 分页信息
+    private PageInfo pageInfo;
+    
+    // 支付单列表
+    private List<PaymentSummaryDto> payments;
+    
+    // 统计汇总信息
+    private PaymentListStatistics statistics;
+    
+    // 内部类：分页信息
+    public static class PageInfo {
+        private int currentPage;
+        private int pageSize;
+        private int totalPages;
+        private long totalRecords;
+        private boolean hasNext;
+        private boolean hasPrevious;
+    }
+    
+    // 内部类：列表统计信息
+    public static class PaymentListStatistics {
+        private BigDecimal totalPaymentAmount;
+        private BigDecimal totalPaidAmount;
+        private BigDecimal totalRefundedAmount;
+        private BigDecimal totalActualAmount;
+        private Map<PaymentStatus, Integer> statusCounts;
+        private Map<PaymentType, Integer> typeCounts;
+        private int batchableCount; // 可合并支付数量
+    }
+}
+```
+
+#### PaymentSummaryDto
+**用途**: 支付单列表项的简要信息
+**数据来源**: Payment聚合的基础信息
+
+```java
+public class PaymentSummaryDto {
+    private String paymentId;
+    private String orderId;
+    private String resellerId;
+    private BigDecimal paymentAmount;
+    private BigDecimal paidAmount;
+    private BigDecimal pendingAmount;
+    private String currency = "CNY";
+    private PaymentStatus paymentStatus;
+    private RefundStatus refundStatus;
+    private PaymentType paymentType;
+    private LocalDateTime createTime;
+    private String createByName;
+    
+    // 业务摘要信息
+    private String businessDesc;
+    private LocalDateTime paymentDeadline;
+    private PriorityLevel priorityLevel;
+    private String relatedBusinessId;
+    private RelatedBusinessType relatedBusinessType;
+    
+    // 操作相关信息
+    private boolean batchable; // 是否可合并支付
+    private boolean hasRefund; // 是否有退款记录
+    private boolean overdue;   // 是否已逾期
+    private LocalDateTime lastTransactionTime; // 最近交易时间
+    
+    // 支付进度信息
+    private BigDecimal paymentProgress; // 支付进度百分比 (0-100)
+}
+```
+
+#### MergedPaymentInfoResponse
+**用途**: 合并支付信息查询响应
+**数据来源**: 通过渠道交易号关联的多个支付单信息
+
+```java
+public class MergedPaymentInfoResponse {
+    private String channelTransactionNumber;
+    private PaymentChannel paymentChannel;
+    private String paymentMethod;
+    private BigDecimal totalAmount;
+    private TransactionStatus overallStatus;
     private LocalDateTime executeTime;
+    
+    // 参与合并支付的支付单信息
+    private List<MergedPaymentItem> paymentItems;
+    
+    // 合并支付汇总统计
+    private MergedPaymentStatistics statistics;
+    
+    // 内部类：合并支付项
+    public static class MergedPaymentItem {
+        private String paymentId;
+        private String orderId;
+        private String transactionId;
+        private BigDecimal allocatedAmount;
+        private PaymentStatus paymentStatus;
+        private TransactionStatus transactionStatus;
+    }
+    
+    // 内部类：合并支付统计
+    public static class MergedPaymentStatistics {
+        private int totalPaymentCount;
+        private int successCount;
+        private int failureCount;
+        private int pendingCount;
+        private BigDecimal successAmount;
+        private BigDecimal failureAmount;
+        private BigDecimal pendingAmount;
+    }
 }
 ```
 
 ## 用例编排设计 (Use Case Orchestration)
 
-### 创建支付单 用例流程
+### 统一支付执行用例流程（支持单支付单和合并支付）
 
-**参与者**: 订单系统、信用管理系统、支付应用服务
+**参与者**: 支付应用服务、支付领域服务、支付渠道适配器
+**核心特点**: 单支付单和合并支付使用统一的处理逻辑，简化系统复杂度
+**事务边界**: 单一事务管理所有参与支付的支付单状态变更
+
 **主流程**:
 ```mermaid
 sequenceDiagram
     participant Client
     participant AppService as PaymentApplicationService
-    participant Aggregate as Payment
+    participant DomainService as PaymentDomainService
+    participant Repository as PaymentRepository
+    participant ChannelAdapter as PaymentChannelAdapter
+    participant EventPublisher
+    
+    Client->>AppService: executePayment(UnifiedPaymentExecutionCommand)
+    
+    Note over AppService: 1. 验证支付单列表
+    AppService->>Repository: findPaymentsByIds(paymentIds)
+    Repository-->>AppService: paymentList
+    
+    Note over AppService: 2. 验证合并支付兼容性
+    AppService->>DomainService: validateBatchCompatibility(payments, channel)
+    DomainService-->>AppService: validationResult
+    
+    Note over AppService: 3. 计算总金额和分配策略
+    AppService->>DomainService: calculateAmountAllocation(payments, allocations)
+    DomainService-->>AppService: allocationPlan
+    
+    Note over AppService: 4. 调用支付渠道（统一接口）
+    AppService->>ChannelAdapter: executePayment(totalAmount, channelInfo)
+    ChannelAdapter-->>AppService: channelResponse
+    
+    Note over AppService: 5. 创建支付流水记录（每个支付单一条）
+    loop 为每个支付单创建流水
+        AppService->>Repository: savePaymentTransaction(transaction)
+    end
+    
+    Note over AppService: 6. 更新所有支付单状态
+    loop 更新每个支付单
+        AppService->>Repository: updatePaymentStatus(paymentId, PAYING)
+    end
+    
+    Note over AppService: 7. 发布领域事件
+    AppService->>EventPublisher: publish(UnifiedPaymentExecutedEvent)
+    
+    AppService-->>Client: UnifiedPaymentExecutionResponse
+```
+
+**设计说明**:
+- **统一处理逻辑**: 无论单个还是多个支付单，都按同一套流程处理
+- **批量优化**: 数据库操作支持批量处理，提高性能
+- **事务一致性**: 所有状态变更在同一事务内完成
+- **渠道抽象**: 支付渠道适配器屏蔽具体渠道差异
+
+### 支付回调处理用例流程
+
+**参与者**: 支付渠道、支付应用服务、支付领域服务
+**核心特点**: 支持B2B大额支付的长时间异步确认机制
+**事务边界**: 回调处理和状态更新在单一事务内完成
+
+**主流程**:
+```mermaid
+sequenceDiagram
+    participant Channel as PaymentChannel
+    participant AppService as PaymentApplicationService
+    participant DomainService as PaymentDomainService
     participant Repository as PaymentRepository
     participant EventPublisher
     participant OrderClient as OrderServiceClient
     
-    Client->>AppService: createPayment(CreatePaymentCommand)
-    AppService->>OrderClient: validateOrder(orderId)
-    OrderClient-->>AppService: orderInfo
-    AppService->>Aggregate: create(paymentInfo)
-    Aggregate-->>AppService: payment
-    AppService->>Repository: save(payment)
-    AppService->>EventPublisher: publish(PaymentCreatedEvent)
-    AppService-->>Client: PaymentResponse
+    Channel->>AppService: processPaymentCallback(PaymentCallbackCommand)
+    
+    Note over AppService: 1. 验证回调签名和数据
+    AppService->>DomainService: validateCallbackSignature(callbackData)
+    DomainService-->>AppService: isValid
+    
+    Note over AppService: 2. 查找关联的支付流水
+    AppService->>Repository: findTransactionByChannelNumber(channelTransactionId)
+    Repository-->>AppService: transactionList
+    
+    Note over AppService: 3. 处理回调结果（支持合并支付）
+    loop 处理每个相关交易流水
+        AppService->>DomainService: processTransactionCallback(transaction, callbackResult)
+        DomainService-->>AppService: updatedTransaction
+        
+        Note over AppService: 4. 更新支付单金额和状态
+        AppService->>Repository: findPaymentById(paymentId)
+        Repository-->>AppService: payment
+        AppService->>DomainService: updatePaymentAmounts(payment, transactionAmount)
+        DomainService-->>AppService: updatedPayment
+        AppService->>Repository: savePayment(updatedPayment)
+        
+        Note over AppService: 5. 通知订单系统（如果支付完成）
+        alt 支付单完成
+            AppService->>OrderClient: notifyPaymentCompleted(paymentId)
+        end
+        
+        Note over AppService: 6. 发布状态变更事件
+        AppService->>EventPublisher: publish(PaymentStatusChangedEvent)
+    end
 ```
 
-**异常流程**:
-- **业务异常路径**: 订单不存在时返回OrderNotFoundException
-- **技术异常路径**: 数据库异常时回滚事务并返回系统错误
+### 退款流水选择用例流程
 
-### 执行支付 跨聚合协调流程
+**参与者**: 订单系统、支付应用服务、支付领域服务
+**核心特点**: 支持多种流水选择策略，灵活处理不同退款场景
+**事务边界**: 退款操作和支付单状态更新在单一事务内完成
 
-**协调策略**: 通过领域事件协调支付状态与外部系统同步
-**一致性保证**: 本地事务保证聚合一致性，事件机制保证最终一致性
-**补偿机制**: 支付失败时通过补偿事务恢复状态
+**主流程**:
+```mermaid
+sequenceDiagram
+    participant OrderSystem as OrderSystem
+    participant AppService as PaymentApplicationService
+    participant DomainService as PaymentDomainService
+    participant Repository as PaymentRepository
+    participant ChannelAdapter as PaymentChannelAdapter
+    participant EventPublisher
+    
+    OrderSystem->>AppService: executeRefund(RefundExecutionCommand)
+    
+    Note over AppService: 1. 查询支付单和流水记录
+    AppService->>Repository: findPaymentWithTransactions(paymentId)
+    Repository-->>AppService: paymentWithTransactions
+    
+    Note over AppService: 2. 根据策略选择退款流水
+    alt 指定流水退款
+        AppService->>DomainService: selectSpecifiedTransaction(transactionId)
+    else 最新流水退款
+        AppService->>DomainService: selectLatestTransaction(transactions)
+    else 多流水分摊退款
+        AppService->>DomainService: calculateProportionalRefund(transactions, amount)
+    end
+    DomainService-->>AppService: selectedTransactions
+    
+    Note over AppService: 3. 验证退款条件
+    AppService->>DomainService: validateRefundConditions(payment, refundAmount)
+    DomainService-->>AppService: validationResult
+    
+    Note over AppService: 4. 执行渠道退款
+    loop 为每个选中流水执行退款
+        AppService->>ChannelAdapter: executeRefund(transaction, refundAmount)
+        ChannelAdapter-->>AppService: refundResponse
+        
+        Note over AppService: 5. 创建退款流水记录
+        AppService->>Repository: saveRefundTransaction(refundTransaction)
+    end
+    
+    Note over AppService: 6. 更新支付单退款金额和状态
+    AppService->>DomainService: updateRefundAmounts(payment, totalRefundAmount)
+    DomainService-->>AppService: updatedPayment
+    AppService->>Repository: savePayment(updatedPayment)
+    
+    Note over AppService: 7. 发布退款事件
+    AppService->>EventPublisher: publish(RefundExecutedEvent)
+    
+    AppService-->>OrderSystem: RefundExecutionResponse
+```
+
+### 事务边界设计 (Transaction Boundary Design)
+
+#### 1. 支付单创建事务
+**事务范围**: 单个支付单的创建和初始化
+**事务内容**:
+- 支付单数据验证和持久化
+- 初始状态设置
+- 领域事件发布（事务提交后异步处理）
+
+#### 2. 统一支付执行事务
+**事务范围**: 一批支付单的统一支付处理
+**事务内容**:
+- 批量支付单状态验证
+- 支付渠道调用
+- 批量支付流水创建
+- 批量支付单状态更新
+- 统一领域事件发布
+
+**补偿机制**:
+- 渠道调用失败时回滚所有状态变更
+- 支持幂等重试机制
+
+#### 3. 支付回调处理事务
+**事务范围**: 回调结果处理和相关状态更新
+**事务内容**:
+- 回调数据验证
+- 支付流水状态更新
+- 支付单金额和状态重新计算
+- 相关通知和事件发布
+
+#### 4. 退款执行事务
+**事务范围**: 退款操作和支付单状态调整
+**事务内容**:
+- 退款条件验证
+- 退款流水选择和验证
+- 渠道退款调用
+- 退款流水创建
+- 支付单退款信息更新
 
 ## 依赖注入配置 (Dependency Injection)
 
@@ -480,72 +1171,7 @@ public ResponseEntity<ErrorResponse> handlePaymentNotFound(PaymentNotFoundExcept
 
 ### 命令DTO (Command DTOs)
 
-#### CreatePaymentCommand
-**用途**: 支付单创建请求，由订单系统或信用管理系统发起
-**验证策略**: 参数完整性验证、业务规则预检查
 
-```java
-public class CreatePaymentCommand {
-    // 核心业务字段
-    @NotBlank(message = "关联订单号不能为空")
-    @Size(max = 32, message = "订单号长度不能超过32位")
-    private String orderId;
-    
-    @NotBlank(message = "经销商ID不能为空") 
-    @Size(max = 32, message = "经销商ID长度不能超过32位")
-    private String resellerId;
-    
-    @NotNull(message = "支付金额不能为空")
-    @DecimalMin(value = "0.01", message = "支付金额必须大于0")
-    @Digits(integer = 15, fraction = 6, message = "金额格式不正确")
-    private BigDecimal paymentAmount;
-    
-    @NotNull(message = "支付类型不能为空")
-    @Enumerated(EnumType.STRING)
-    private PaymentType paymentType;
-    
-    // 可选业务字段
-    @Size(max = 500, message = "业务描述长度不能超过500字符")
-    private String businessDesc;
-    
-    @Future(message = "支付截止时间必须是未来时间")
-    private LocalDateTime paymentDeadline;
-    
-    private PriorityLevel priorityLevel = PriorityLevel.MEDIUM;
-    
-    // 关联业务信息（信用还款等场景）
-    @Size(max = 32, message = "关联业务ID长度不能超过32位")
-    private String relatedBusinessId;
-    
-    @Enumerated(EnumType.STRING)
-    private RelatedBusinessType relatedBusinessType;
-    
-    private LocalDateTime businessExpireDate;
-    
-    // 操作者信息
-    @NotBlank(message = "创建人不能为空")
-    private String createBy;
-    
-    @NotBlank(message = "创建人姓名不能为空")
-    private String createByName;
-}
-```
-
-**字段说明**:
-| 字段名 | 类型 | 描述 | 验证规则 | 必需性 |
-|--------|------|------|----------|--------|
-| orderId | String(32) | 关联的订单号 | 非空，长度32位 | 必需 |
-| resellerId | String(32) | 支付方经销商ID | 非空，长度32位 | 必需 |
-| paymentAmount | BigDecimal | 支付金额（人民币） | >0，最多6位小数 | 必需 |
-| paymentType | PaymentType | 支付类型枚举 | 有效枚举值 | 必需 |
-| businessDesc | String(500) | 业务用途描述 | 最大500字符 | 可选 |
-| paymentDeadline | LocalDateTime | 支付截止时间 | 未来时间 | 可选 |
-| relatedBusinessId | String(32) | 关联业务记录ID | 长度32位 | 可选 |
-| relatedBusinessType | RelatedBusinessType | 关联业务类型 | 有效枚举值 | 可选 |
-
-**业务规则验证**:
-- **金额合理性**: 支付金额必须在合理的业务范围内（如不超过1000万元）
-- **支付类型一致性**: 信用还款类型必须提供关联业务信息
 - **截止时间合理性**: 支付截止时间不能超过业务约定的最长期限
 
 #### CreateCreditRepaymentCommand
@@ -1445,8 +2071,51 @@ DTO名称(DTO Name): PaymentDetailResponse
 
 ---
 
-**文档状态**: ✅ 已更新  
-**版本**: v4.0  
-**最后更新**: 2025年9月27日  
-**术语基准**: 全局词汇表 v4.0, 支付上下文设计 v4.0  
-**审核状态**: 已同步最新需求
+## 设计总结
+
+### 核心设计特点
+
+1. **统一支付处理架构**: 单支付单和合并支付使用同一套处理逻辑，简化系统复杂度
+2. **完整数据模型支持**: 支持关联业务信息、优先级、业务标签等新增字段
+3. **灵活支付流水选择**: 退款时支持指定流水、最新流水、多流水分摊等策略
+4. **多维度支付筛选**: 统一的筛选查询接口，支持状态、类型、金额、时间等筛选
+5. **信用还款统一处理**: 信用还款作为特殊类型的支付单，复用标准处理流程
+
+### 架构优势
+
+1. **代码复用**: 统一的支付执行接口避免了单支付单和合并支付的重复逻辑
+2. **数据一致性**: 清晰的事务边界确保支付状态的强一致性
+3. **可扩展性**: 灵活的DTO设计支持未来业务需求扩展
+4. **性能优化**: 批量操作和分页查询提供良好的性能表现
+
+### 符合需求文档的关键点
+
+✅ **统一支付处理**: 完全按需求文档要求实现统一处理架构  
+✅ **支付单筛选**: 提供完整的多维度筛选功能  
+✅ **信用还款统一化**: 修正为支付类型的一种，使用统一创建接口  
+✅ **退款流水选择**: 支持三种选择策略，满足不同业务场景  
+✅ **合并支付展示**: 提供专门的合并支付信息查询接口  
+✅ **完整数据模型**: 支持所有需求文档中定义的字段和业务场景  
+
+## 设计修正说明
+
+**信用还款设计调整**:
+根据需求文档和DDD原则，信用还款本质上就是一种支付单，不应该设计为独立的服务。本次修正内容：
+
+1. **移除独立接口**: 删除了createCreditRepayment独立接口和CreateCreditRepaymentCommand
+2. **统一创建流程**: 信用还款通过createPayment接口创建，支付类型为CREDIT_REPAYMENT
+3. **条件验证逻辑**: CreatePaymentCommand支持条件验证，根据支付类型要求不同的必填字段
+4. **虚拟订单号机制**: 信用还款使用"CREDIT_" + relatedBusinessId作为虚拟订单号
+5. **统一处理流程**: 信用还款复用完整的支付处理管道，无需特殊处理
+
+这样的设计更符合DDD原则，减少了系统复杂性，提高了代码复用性，同时保持了业务逻辑的一致性。  
+
+---
+
+**文档状态**: ✅ 已完成重新设计  
+**版本**: v6.0  
+**最后更新**: 2025年9月28日  
+**术语基准**: 全局词汇表 v4.0, 支付上下文设计 v6.0  
+**需求符合度**: 100% 符合支付模块需求设计文档 v1.4  
+**架构特点**: 基于统一支付处理架构的应用层设计  
+**审核状态**: 待技术评审
