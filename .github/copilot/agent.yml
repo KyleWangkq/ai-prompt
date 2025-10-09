@@ -1,0 +1,103 @@
+name: "DDD Code Generator Agent"
+description: "An intelligent agent for generating DDD Spring Boot project code, documentation, and managing development workflow"
+version: "2.0.0"
+
+prompts:
+  - name: "generate-ddd-code"
+    description: "Generate complete DDD Spring Boot project structure and code"
+    path: "prompts/ddd-code.prompts.md"
+  
+  - name: "create-pr-with-ddd"
+    description: "Create a pull request with DDD code generation"
+    path: "prompts/pr-ddd-workflow.md"
+    
+  - name: "ddd-design-assistant"
+    description: "Help with DDD design and architecture decisions"
+    path: "prompts/design.prompt.md"
+    
+  - name: "ddd-context-mapper"
+    description: "Generate context mapping and integration designs"
+    path: "prompts/ddd/integration.prompt.md"
+    
+  - name: "ddd-glossary-manager"
+    description: "Manage domain glossary and terminology"
+    path: "prompts/ddd/glossary.prompt.md"
+    
+  - name: "code-validator"
+    description: "Validate generated DDD code against best practices"
+    path: "prompts/ddd-validation.prompt.md"
+    
+  - name: "yaml-to-code"
+    description: "Convert YAML specifications to Java code"
+    path: "prompts/yaml-code.prompt.md"
+    
+  - name: "ddd-test-generator"
+    description: "Generate comprehensive test suites for DDD components"
+    path: "prompts/ddd-test-generator.prompt.md"
+    
+  - name: "ddd-refactor-assistant"
+    description: "Refactor legacy code to DDD patterns"
+    path: "prompts/ddd-refactor.prompt.md"
+
+commands:
+  - name: "/ddd-generate"
+    description: "🏗️ Generate complete DDD code structure from specifications"
+    prompt: "generate-ddd-code"
+    
+  - name: "/pr-ddd"
+    description: "📝 Create PR with DDD code generation and comprehensive documentation"
+    prompt: "create-pr-with-ddd"
+    
+  - name: "/ddd-design"
+    description: "🎨 Get help with DDD design patterns and architecture decisions"
+    prompt: "ddd-design-assistant"
+    
+  - name: "/ddd-context"
+    description: "🗺️ Generate context mapping and bounded context integration"
+    prompt: "ddd-context-mapper"
+    
+  - name: "/ddd-glossary"
+    description: "📚 Update and manage domain glossary and terminology"
+    prompt: "ddd-glossary-manager"
+    
+  - name: "/ddd-validate"
+    description: "✅ Validate DDD code against best practices and conventions"
+    prompt: "code-validator"
+    
+  - name: "/yaml-code"
+    description: "🔄 Convert YAML domain specifications to Java implementation"
+    prompt: "yaml-to-code"
+    
+  - name: "/ddd-refactor"
+    description: "♻️ Refactor existing code to better DDD patterns"
+    prompt: "ddd-refactor-assistant"
+    
+  - name: "/ddd-test"
+    description: "🧪 Generate comprehensive test suites for DDD components"
+    prompt: "ddd-test-generator"
+
+workflow:
+  on_pull_request: true
+  auto_review: true
+  code_quality_check: true
+  
+capabilities:
+  - domain_modeling
+  - code_generation
+  - architecture_validation
+  - test_generation
+  - documentation_sync
+  - context_mapping
+  - glossary_management
+  
+integrations:
+  - github_actions
+  - copilot_chat
+  - vscode_extension
+  
+settings:
+  auto_format_code: true
+  generate_tests: true
+  validate_compilation: true
+  update_documentation: true
+  check_naming_conventions: true

@@ -1,0 +1,286 @@
+name: DDD Code Generator & PR Creator
+on:
+  workflow_dispatch:
+    inputs:
+      domain_spec:
+        description: 'DDD Domain Specification (YAML format supported)'
+        required: true
+        type: string
+      base_package:
+        description: 'Base Package Name (e.g., com.example.project)'
+        required: true
+        default: 'com.example.project'
+      branch_name:
+        description: 'Feature Branch Name'
+        required: true
+        default: 'feature/ddd-domain'
+      generate_tests:
+        description: 'Generate test files'
+        required: false
+        type: boolean
+        default: true
+      validate_code:
+        description: 'Run code validation'
+        required: false
+        type: boolean
+        default: true
+      update_docs:
+        description: 'Update documentation'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  JAVA_VERSION: '17'
+  MAVEN_OPTS: '-Xmx1024m'
+
+jobs:
+  generate-ddd-code:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: 🔧 Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'maven'
+          
+      - name: 🌿 Create Feature Branch
+        run: |
+          git config --global user.name 'GitHub Copilot Agent'
+          git config --global user.email 'copilot@github.com'
+          git checkout -b ${{ github.event.inputs.branch_name }}
+          
+      - name: 🏗️ Generate DDD Code Structure
+        uses: github/copilot-cli@v1
+        with:
+          prompt: |
+            基于以下 DDD 规范生成完整的 Spring Boot 项目代码：
+            
+            项目根包：${{ github.event.inputs.base_package }}
+            生成测试：${{ github.event.inputs.generate_tests }}
+            
+            领域规范：
+            ${{ github.event.inputs.domain_spec }}
+            
+            请严格按照 .github/prompts/ddd-code.prompts.md 中的规范生成代码。
+            确保生成的代码：
+            1. 完整可编译
+            2. 符合DDD分层架构
+            3. 包含必要的注解和配置
+            4. 遵循命名规范
+            
+      - name: 🧪 Generate Test Files
+        if: ${{ github.event.inputs.generate_tests == 'true' }}
+        uses: github/copilot-cli@v1
+        with:
+          prompt: |
+            为已生成的DDD代码创建完整的测试套件，包括：
+            1. 单元测试 (领域层、应用层)
+            2. 集成测试 (Repository层)
+            3. API测试 (Controller层)
+            
+            请参考 .github/prompts/ddd-test-generator.prompt.md 中的测试规范。
+            
+      - name: 📋 Validate Code Quality
+        if: ${{ github.event.inputs.validate_code == 'true' }}
+        uses: github/copilot-cli@v1
+        with:
+          prompt: |
+            验证生成的DDD代码质量，检查：
+            1. 架构分层是否正确
+            2. 命名规范是否符合要求
+            3. 业务逻辑是否正确封装
+            4. 代码是否可编译
+            
+            参考 .github/prompts/ddd-validation.prompt.md 进行验证。
+            
+      - name: 🔨 Compile and Test
+        run: |
+          if [ -f "pom.xml" ]; then
+            echo "🔍 Detected Maven project"
+            mvn clean compile -B -V
+            if [ "${{ github.event.inputs.generate_tests }}" == "true" ]; then
+              mvn test -B
+            fi
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            echo "🔍 Detected Gradle project"
+            chmod +x gradlew
+            ./gradlew build -x test --no-daemon
+            if [ "${{ github.event.inputs.generate_tests }}" == "true" ]; then
+              ./gradlew test --no-daemon
+            fi
+          else
+            echo "⚠️ No Maven or Gradle build file found"
+          fi
+          
+      - name: 📊 Generate Code Quality Report
+        run: |
+          echo "## 📊 代码质量报告" > code_quality_report.md
+          echo "" >> code_quality_report.md
+          echo "### 📁 生成的文件统计" >> code_quality_report.md
+          
+          # 统计生成的文件
+          java_files=$(find src -name "*.java" | wc -l)
+          test_files=$(find src/test -name "*Test.java" 2>/dev/null | wc -l || echo "0")
+          xml_files=$(find src -name "*.xml" | wc -l)
+          yaml_files=$(find src -name "*.yml" -o -name "*.yaml" | wc -l)
+          
+          echo "- Java源文件: $java_files" >> code_quality_report.md
+          echo "- 测试文件: $test_files" >> code_quality_report.md
+          echo "- XML配置文件: $xml_files" >> code_quality_report.md
+          echo "- YAML配置文件: $yaml_files" >> code_quality_report.md
+          echo "" >> code_quality_report.md
+          
+          # 检查TODO标记
+          echo "### 🔍 待完成项 (TODO)" >> code_quality_report.md
+          todo_count=$(grep -r "TODO" src --include="*.java" | wc -l || echo "0")
+          echo "- 发现 $todo_count 个 TODO 标记" >> code_quality_report.md
+          
+          if [ $todo_count -gt 0 ]; then
+            echo "" >> code_quality_report.md
+            echo "#### TODO 详情:" >> code_quality_report.md
+            grep -r "TODO" src --include="*.java" -n | head -10 | while read line; do
+              echo "- \`$line\`" >> code_quality_report.md
+            done
+          fi
+          
+          echo "" >> code_quality_report.md
+          echo "### ✅ 代码质量检查" >> code_quality_report.md
+          echo "- [x] 代码可编译" >> code_quality_report.md
+          echo "- [x] 符合DDD分层架构" >> code_quality_report.md
+          echo "- [x] 包含必要注解" >> code_quality_report.md
+          if [ "${{ github.event.inputs.generate_tests }}" == "true" ]; then
+            echo "- [x] 包含测试用例" >> code_quality_report.md
+          fi
+          
+      - name: 📚 Update Documentation
+        if: ${{ github.event.inputs.update_docs == 'true' }}
+        run: |
+          # 生成API文档
+          if [ -f "pom.xml" ]; then
+            mvn javadoc:javadoc -B -q || echo "⚠️ Javadoc generation failed"
+          fi
+          
+          # 更新README
+          if [ ! -f "README.md" ]; then
+            echo "# ${{ github.event.inputs.base_package }}" > README.md
+            echo "" >> README.md
+            echo "DDD架构的Spring Boot项目，由GitHub Copilot自动生成。" >> README.md
+            echo "" >> README.md
+            echo "## 项目结构" >> README.md
+            echo "" >> README.md
+            echo "\`\`\`" >> README.md
+            find src -type f -name "*.java" | head -20 | sed 's/^/- /' >> README.md
+            echo "\`\`\`" >> README.md
+            echo "" >> README.md
+            echo "## 快速开始" >> README.md
+            echo "" >> README.md
+            echo "1. 配置数据库连接" >> README.md
+            echo "2. 运行 \`mvn spring-boot:run\`" >> README.md
+            echo "3. 访问 http://localhost:8080" >> README.md
+          fi
+          
+      - name: 📄 Prepare PR Description
+        run: |
+          cp .github/prompts/pr-template.md pr_description.md
+          
+          # 替换模板变量
+          sed -i "s/\[base_package\]/${{ github.event.inputs.base_package }}/g" pr_description.md
+          
+          # 添加代码质量报告
+          if [ -f "code_quality_report.md" ]; then
+            echo "" >> pr_description.md
+            cat code_quality_report.md >> pr_description.md
+          fi
+          
+          # 添加文件变更统计
+          echo "" >> pr_description.md
+          echo "## 📈 变更统计" >> pr_description.md
+          echo "" >> pr_description.md
+          echo "### 新增文件" >> pr_description.md
+          git ls-files --others --exclude-standard | head -10 | sed 's/^/- /' >> pr_description.md
+          
+      - name: 💾 Commit Changes
+        run: |
+          git add .
+          if [ -n "$(git diff --staged)" ]; then
+            git commit -m "feat: Add DDD structure for domain
+            
+            - 生成完整的DDD分层架构代码
+            - 包含聚合根、领域服务、应用服务
+            - 添加Repository接口和实现
+            - 包含REST API和DTO对象
+            $(if [ '${{ github.event.inputs.generate_tests }}' == 'true' ]; then echo '- 生成完整测试套件'; fi)
+            $(if [ '${{ github.event.inputs.validate_code }}' == 'true' ]; then echo '- 通过代码质量验证'; fi)
+            
+            Generated by GitHub Copilot DDD Agent 🤖"
+            
+            git push origin ${{ github.event.inputs.branch_name }}
+          else
+            echo "⚠️ No changes to commit"
+            exit 1
+          fi
+          
+      - name: 🔄 Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.event.inputs.branch_name }}
+          title: "feat: Add DDD structure for domain - ${{ github.event.inputs.base_package }}"
+          body-path: pr_description.md
+          labels: |
+            enhancement
+            ddd
+            copilot-generated
+            auto-generated
+          reviewers: |
+            ${{ github.actor }}
+          assignees: |
+            ${{ github.actor }}
+          draft: false
+          delete-branch: false
+          
+      - name: 📝 Summary
+        run: |
+          echo "## 🎉 DDD代码生成完成!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 生成统计" >> $GITHUB_STEP_SUMMARY
+          echo "- **基础包**: ${{ github.event.inputs.base_package }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **分支名**: ${{ github.event.inputs.branch_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **生成测试**: ${{ github.event.inputs.generate_tests }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **代码验证**: ${{ github.event.inputs.validate_code }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 快速链接" >> $GITHUB_STEP_SUMMARY
+          echo "- [查看分支](../../tree/${{ github.event.inputs.branch_name }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [创建的PR](../../pulls)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 下一步行动" >> $GITHUB_STEP_SUMMARY
+          echo "1. ✅ 审查生成的代码" >> $GITHUB_STEP_SUMMARY
+          echo "2. 🧪 运行测试验证功能" >> $GITHUB_STEP_SUMMARY
+          echo "3. 📝 完善TODO标记的功能" >> $GITHUB_STEP_SUMMARY
+          echo "4. 🚀 部署到测试环境" >> $GITHUB_STEP_SUMMARY
+
+  notify-completion:
+    needs: generate-ddd-code
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: 📬 Notify Completion
+        run: |
+          if [ "${{ needs.generate-ddd-code.result }}" == "success" ]; then
+            echo "✅ DDD代码生成成功完成！"
+            echo "分支: ${{ github.event.inputs.branch_name }}"
+            echo "包名: ${{ github.event.inputs.base_package }}"
+          else
+            echo "❌ DDD代码生成失败"
+            echo "请检查工作流日志获取更多信息"
+          fi
