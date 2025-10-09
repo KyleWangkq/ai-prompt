@@ -236,3 +236,4 @@ globalBehaviors: []
 4. 确保数据类型和约束条件准确转换
 5. 验证 YAML 格式的正确性
 6. 输出完整的 YAML 结果
+所有输出存放到 docs/yaml文件夹下
