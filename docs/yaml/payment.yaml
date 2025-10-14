@@ -1,0 +1,282 @@
+parentRoot: com.bytz
+businessName: "Payment"
+db:
+  generateMapperXml: true
+  useSoftDelete: true
+  auditFields: [createdTime, createdBy, updatedTime, updatedBy]
+aggregates:
+  - name: PaymentModel
+    table: t_payment
+    aggregateRoot: Payment
+    entities:
+      - name: Payment
+        fields:
+          - name: id
+            type: String
+            dbColumn: id
+            pk: true
+            comment: "支付单号"
+            constraints: [not null]
+          - name: orderId
+            type: String
+            dbColumn: order_id
+            pk: false
+            comment: "关联订单号"
+            constraints: [not null, length=32]
+          - name: resellerId
+            type: String
+            dbColumn: reseller_id
+            pk: false
+            comment: "经销商ID"
+            constraints: [not null, length=32]
+          - name: paymentAmount
+            type: BigDecimal
+            dbColumn: payment_amount
+            pk: false
+            comment: "支付金额"
+            constraints: [not null]
+          - name: paidAmount
+            type: BigDecimal
+            dbColumn: paid_amount
+            pk: false
+            comment: "已支付金额"
+            constraints: [not null]
+          - name: refundedAmount
+            type: BigDecimal
+            dbColumn: refunded_amount
+            pk: false
+            comment: "已退款金额"
+            constraints: [not null]
+          - name: actualAmount
+            type: BigDecimal
+            dbColumn: actual_amount
+            pk: false
+            comment: "实际收款金额"
+            constraints: [not null]
+          - name: paymentType
+            type: String
+            dbColumn: payment_type
+            pk: false
+            comment: "支付类型"
+            constraints: [not null, length=32]
+          - name: paymentStatus
+            type: String
+            dbColumn: payment_status
+            pk: false
+            comment: "支付状态"
+            constraints: [not null, length=32]
+          - name: refundStatus
+            type: String
+            dbColumn: refund_status
+            pk: false
+            comment: "退款状态"
+            constraints: [not null, length=32]
+          - name: businessDesc
+            type: String
+            dbColumn: business_desc
+            pk: false
+            comment: "业务描述"
+            constraints: [length=500]
+          - name: paymentDeadline
+            type: LocalDateTime
+            dbColumn: payment_deadline
+            pk: false
+            comment: "支付截止时间"
+          - name: priorityLevel
+            type: Integer
+            dbColumn: priority_level
+            pk: false
+            comment: "优先级"
+            constraints: [not null]
+          - name: relatedBusinessId
+            type: String
+            dbColumn: related_business_id
+            pk: false
+            comment: "关联业务ID"
+            constraints: [length=32]
+          - name: relatedBusinessType
+            type: String
+            dbColumn: related_business_type
+            pk: false
+            comment: "关联业务类型"
+            constraints: [length=32]
+          - name: businessExpireDate
+            type: LocalDateTime
+            dbColumn: business_expire_date
+            pk: false
+            comment: "业务到期日"
+          - name: businessTags
+            type: String
+            dbColumn: business_tags
+            pk: false
+            comment: "业务标签"
+            constraints: [length=1000]
+          - name: createdTime
+            type: LocalDateTime
+            dbColumn: created_time
+            pk: false
+            comment: "创建时间"
+          - name: createdBy
+            type: String
+            dbColumn: created_by
+            pk: false
+            comment: "创建人"
+          - name: updatedTime
+            type: LocalDateTime
+            dbColumn: updated_time
+            pk: false
+            comment: "更新时间"
+          - name: updatedBy
+            type: String
+            dbColumn: updated_by
+            pk: false
+            comment: "更新人"
+      - name: PaymentTransaction
+        fields:
+          - name: id
+            type: String
+            dbColumn: id
+            pk: true
+            comment: "流水号"
+            constraints: [not null]
+          - name: paymentId
+            type: String
+            dbColumn: payment_id
+            pk: false
+            comment: "关联支付单号"
+            constraints: [not null, length=32]
+          - name: transactionType
+            type: String
+            dbColumn: transaction_type
+            pk: false
+            comment: "流水类型"
+            constraints: [not null, length=16]
+          - name: transactionStatus
+            type: String
+            dbColumn: transaction_status
+            pk: false
+            comment: "流水状态"
+            constraints: [not null, length=16]
+          - name: transactionAmount
+            type: BigDecimal
+            dbColumn: transaction_amount
+            pk: false
+            comment: "交易金额"
+            constraints: [not null]
+          - name: paymentChannel
+            type: String
+            dbColumn: payment_channel
+            pk: false
+            comment: "支付渠道"
+            constraints: [not null, length=32]
+          - name: channelTransactionNumber
+            type: String
+            dbColumn: channel_transaction_number
+            pk: false
+            comment: "渠道交易号"
+            constraints: [length=64]
+          - name: paymentWay
+            type: String
+            dbColumn: payment_way
+            pk: false
+            comment: "支付方式"
+            constraints: [length=32]
+          - name: originalTransactionId
+            type: String
+            dbColumn: original_transaction_id
+            pk: false
+            comment: "原流水号"
+            constraints: [length=32]
+          - name: businessOrderId
+            type: String
+            dbColumn: business_order_id
+            pk: false
+            comment: "业务单号"
+            constraints: [length=32]
+          - name: createdTime
+            type: LocalDateTime
+            dbColumn: created_time
+            pk: false
+            comment: "创建时间"
+          - name: completeDatetime
+            type: LocalDateTime
+            dbColumn: complete_datetime
+            pk: false
+            comment: "交易完成时间"
+          - name: expirationTime
+            type: LocalDateTime
+            dbColumn: expiration_time
+            pk: false
+            comment: "支付过期时间"
+          - name: createdBy
+            type: String
+            dbColumn: created_by
+            pk: false
+            comment: "创建人"
+          - name: updatedTime
+            type: LocalDateTime
+            dbColumn: updated_time
+            pk: false
+            comment: "更新时间"
+          - name: updatedBy
+            type: String
+            dbColumn: updated_by
+            pk: false
+            comment: "更新人"
+          - name: remark
+            type: String
+            dbColumn: remark
+            pk: false
+            comment: "业务备注"
+            constraints: [length=500]
+    valueObjects:
+      - name: PaymentChannel
+        fields:
+          - name: channelCode
+            type: String
+            dbColumn: channel_code
+            pk: false
+            comment: "支付渠道代码"
+          - name: channelName
+            type: String
+            dbColumn: channel_name
+            pk: false
+            comment: "支付渠道名称"
+          - name: channelType
+            type: String
+            dbColumn: channel_type
+            pk: false
+            comment: "渠道分类"
+      - name: RelatedBusinessInfo
+        fields:
+          - name: businessId
+            type: String
+            dbColumn: business_id
+            pk: false
+            comment: "关联的业务记录标识"
+          - name: businessType
+            type: String
+            dbColumn: business_type
+            pk: false
+            comment: "关联业务类型"
+          - name: expireDate
+            type: LocalDateTime
+            dbColumn: expire_date
+            pk: false
+            comment: "业务相关的到期日期"
+    repository:
+      interface: IPaymentRepository
+      extends: IService<Payment>
+      methods:
+        - signature: "findByOrderId(String orderNo): Payment"
+        - signature: "findByResellerId(Long resellerId): List<Payment>"
+        - signature: "countByStatus(String status): Integer"
+    domainServices:
+      - PaymentExecutionService
+      - PaymentValidationService
+      - PaymentAmountCalculationService
+    events:
+      - PaymentCreatedEvent
+      - PaymentExecutedEvent
+      - RefundExecutedEvent
+globalBehaviors: []

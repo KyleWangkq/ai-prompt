@@ -1,0 +1,324 @@
+parentRoot: com.bytz
+businessName: "PaymentApplication"
+db:
+  generateMapperXml: true
+  useSoftDelete: true
+  auditFields: [createTime, createBy, updateTime, updateBy]
+aggregates:
+  - name: PaymentApplicationModel
+    table: cms_payment_application
+    aggregateRoot: PaymentApplicationService
+    entities:
+      - name: PaymentApplicationService
+        fields:
+          - name: serviceId
+            type: String
+            dbColumn: service_id
+            pk: true
+            comment: "应用服务标识"
+            constraints: [not null, length=32]
+          - name: serviceName
+            type: String
+            dbColumn: service_name
+            pk: false
+            comment: "服务名称"
+            constraints: [not null, length=128]
+          - name: serviceVersion
+            type: String
+            dbColumn: service_version
+            pk: false
+            comment: "服务版本"
+            constraints: [not null, length=16]
+    valueObjects:
+      - name: CreatePaymentCommand
+        fields:
+          - name: resellerId
+            type: String
+            dbColumn: reseller_id
+            pk: false
+            comment: "经销商ID"
+          - name: paymentAmount
+            type: BigDecimal
+            dbColumn: payment_amount
+            pk: false
+            comment: "支付金额"
+          - name: paymentType
+            type: String
+            dbColumn: payment_type
+            pk: false
+            comment: "支付类型"
+          - name: orderId
+            type: String
+            dbColumn: order_id
+            pk: false
+            comment: "订单号"
+          - name: relatedBusinessId
+            type: String
+            dbColumn: related_business_id
+            pk: false
+            comment: "关联业务ID"
+          - name: relatedBusinessType
+            type: String
+            dbColumn: related_business_type
+            pk: false
+            comment: "关联业务类型"
+          - name: businessDesc
+            type: String
+            dbColumn: business_desc
+            pk: false
+            comment: "业务描述"
+          - name: paymentDeadline
+            type: LocalDateTime
+            dbColumn: payment_deadline
+            pk: false
+            comment: "支付截止时间"
+          - name: priorityLevel
+            type: String
+            dbColumn: priority_level
+            pk: false
+            comment: "优先级"
+          - name: businessExpireDate
+            type: LocalDateTime
+            dbColumn: business_expire_date
+            pk: false
+            comment: "业务到期日期"
+          - name: businessTags
+            type: String
+            dbColumn: business_tags
+            pk: false
+            comment: "业务标签"
+          - name: createBy
+            type: String
+            dbColumn: create_by
+            pk: false
+            comment: "创建人"
+          - name: createByName
+            type: String
+            dbColumn: create_by_name
+            pk: false
+            comment: "创建人姓名"
+      - name: UnifiedPaymentExecutionCommand
+        fields:
+          - name: paymentIds
+            type: String
+            dbColumn: payment_ids
+            pk: false
+            comment: "支付单号列表，JSON格式"
+          - name: paymentChannel
+            type: String
+            dbColumn: payment_channel
+            pk: false
+            comment: "支付渠道"
+          - name: paymentMethod
+            type: String
+            dbColumn: payment_method
+            pk: false
+            comment: "支付方式"
+          - name: amountAllocations
+            type: String
+            dbColumn: amount_allocations
+            pk: false
+            comment: "金额分配策略，JSON格式"
+          - name: clientIp
+            type: String
+            dbColumn: client_ip
+            pk: false
+            comment: "客户端IP"
+          - name: returnUrl
+            type: String
+            dbColumn: return_url
+            pk: false
+            comment: "回调地址"
+          - name: extraParams
+            type: String
+            dbColumn: extra_params
+            pk: false
+            comment: "额外参数，JSON格式"
+          - name: operatorId
+            type: String
+            dbColumn: operator_id
+            pk: false
+            comment: "操作人ID"
+          - name: operatorName
+            type: String
+            dbColumn: operator_name
+            pk: false
+            comment: "操作人姓名"
+      - name: RefundExecutionCommand
+        fields:
+          - name: paymentId
+            type: String
+            dbColumn: payment_id
+            pk: false
+            comment: "支付单号"
+          - name: refundAmount
+            type: BigDecimal
+            dbColumn: refund_amount
+            pk: false
+            comment: "退款金额"
+          - name: refundReason
+            type: String
+            dbColumn: refund_reason
+            pk: false
+            comment: "退款原因"
+          - name: businessOrderId
+            type: String
+            dbColumn: business_order_id
+            pk: false
+            comment: "业务退款单号"
+          - name: selectionStrategy
+            type: String
+            dbColumn: selection_strategy
+            pk: false
+            comment: "流水选择策略"
+          - name: specifiedTransactionId
+            type: String
+            dbColumn: specified_transaction_id
+            pk: false
+            comment: "指定交易流水号"
+          - name: refundAllocations
+            type: String
+            dbColumn: refund_allocations
+            pk: false
+            comment: "退款分摊信息，JSON格式"
+          - name: operatorId
+            type: String
+            dbColumn: operator_id
+            pk: false
+            comment: "操作人ID"
+          - name: operatorName
+            type: String
+            dbColumn: operator_name
+            pk: false
+            comment: "操作人姓名"
+      - name: PaymentFilterQuery
+        fields:
+          - name: resellerId
+            type: String
+            dbColumn: reseller_id
+            pk: false
+            comment: "经销商ID"
+          - name: orderId
+            type: String
+            dbColumn: order_id
+            pk: false
+            comment: "订单号"
+          - name: paymentStatuses
+            type: String
+            dbColumn: payment_statuses
+            pk: false
+            comment: "支付状态列表，JSON格式"
+          - name: refundStatuses
+            type: String
+            dbColumn: refund_statuses
+            pk: false
+            comment: "退款状态列表，JSON格式"
+          - name: paymentTypes
+            type: String
+            dbColumn: payment_types
+            pk: false
+            comment: "支付类型列表，JSON格式"
+          - name: minAmount
+            type: BigDecimal
+            dbColumn: min_amount
+            pk: false
+            comment: "最小金额"
+          - name: maxAmount
+            type: BigDecimal
+            dbColumn: max_amount
+            pk: false
+            comment: "最大金额"
+          - name: createDateFrom
+            type: LocalDate
+            dbColumn: create_date_from
+            pk: false
+            comment: "创建日期起始"
+          - name: createDateTo
+            type: LocalDate
+            dbColumn: create_date_to
+            pk: false
+            comment: "创建日期结束"
+          - name: paymentDeadlineFrom
+            type: LocalDate
+            dbColumn: payment_deadline_from
+            pk: false
+            comment: "支付截止日期起始"
+          - name: paymentDeadlineTo
+            type: LocalDate
+            dbColumn: payment_deadline_to
+            pk: false
+            comment: "支付截止日期结束"
+          - name: relatedBusinessTypes
+            type: String
+            dbColumn: related_business_types
+            pk: false
+            comment: "关联业务类型列表，JSON格式"
+          - name: relatedBusinessId
+            type: String
+            dbColumn: related_business_id
+            pk: false
+            comment: "关联业务ID"
+          - name: priorityLevels
+            type: String
+            dbColumn: priority_levels
+            pk: false
+            comment: "优先级列表，JSON格式"
+          - name: preferredChannel
+            type: String
+            dbColumn: preferred_channel
+            pk: false
+            comment: "首选渠道"
+          - name: onlyBatchable
+            type: Boolean
+            dbColumn: only_batchable
+            pk: false
+            comment: "仅显示可合并支付的支付单"
+          - name: page
+            type: Integer
+            dbColumn: page
+            pk: false
+            comment: "页码"
+          - name: size
+            type: Integer
+            dbColumn: size
+            pk: false
+            comment: "页面大小"
+          - name: sortFields
+            type: String
+            dbColumn: sort_fields
+            pk: false
+            comment: "排序字段，JSON格式"
+    repository:
+      interface: IPaymentApplicationRepository
+      extends: IService<PaymentApplicationService>
+      methods:
+        - signature: "createPayment(command: CreatePaymentCommand): PaymentResponse"
+        - signature: "executePayment(command: UnifiedPaymentExecutionCommand): UnifiedPaymentExecutionResponse"
+        - signature: "processPaymentCallback(command: PaymentCallbackCommand): void"
+        - signature: "processRefundCallback(command: RefundCallbackCommand): void"
+        - signature: "executeRefund(command: RefundExecutionCommand): RefundExecutionResponse"
+        - signature: "stopPayment(command: StopPaymentCommand): PaymentStatusResponse"
+        - signature: "freezePayment(command: FreezePaymentCommand): PaymentStatusResponse"
+        - signature: "unfreezePayment(command: UnfreezePaymentCommand): PaymentStatusResponse"
+        - signature: "modifyPaymentInfo(command: PaymentModificationCommand): PaymentResponse"
+        - signature: "queryFilteredPayments(query: PaymentFilterQuery): PaymentListResponse"
+        - signature: "queryBatchablePayments(query: BatchablePaymentsQuery): PaymentListResponse"
+        - signature: "queryPaymentDetail(query: PaymentDetailQuery): PaymentDetailResponse"
+        - signature: "queryPaymentsByReseller(query: PaymentsByResellerQuery): PaymentListResponse"
+        - signature: "queryPaymentsByOrder(query: PaymentsByOrderQuery): PaymentListResponse"
+        - signature: "queryPaymentsByRelatedBusiness(query: PaymentsByRelatedBusinessQuery): PaymentListResponse"
+        - signature: "searchPayments(query: PaymentSearchCriteriaQuery): PaymentListResponse"
+        - signature: "queryPaymentStatistics(query: PaymentStatisticsQuery): PaymentStatisticsResponse"
+        - signature: "queryTransactionHistory(query: TransactionHistoryQuery): TransactionListResponse"
+        - signature: "queryPaymentStatus(query: PaymentStatusQuery): PaymentStatusResponse"
+        - signature: "queryPaymentProgress(query: PaymentProgressQuery): PaymentProgressResponse"
+        - signature: "queryRefundProgress(query: RefundProgressQuery): RefundProgressResponse"
+        - signature: "queryMergedPaymentInfo(query: MergedPaymentInfoQuery): MergedPaymentInfoResponse"
+        - signature: "queryTransactionsByChannelNumber(channelTransactionNumber: String): List<PaymentTransactionDto>"
+    domainServices:
+      - PaymentEventHandler
+    events:
+      - PaymentApplicationCreated
+      - PaymentApplicationExecuted
+      - PaymentApplicationCompleted
+globalBehaviors: []
