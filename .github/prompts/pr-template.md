@@ -77,9 +77,6 @@ src/main/java/[base_package]
 ### 1. 编译验证
 ```bash
 mvn clean compile
-# 或
-./gradlew build -x test
-```
 
 ### 2. 数据库准备
 ```sql
