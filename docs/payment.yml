@@ -1,7 +1,7 @@
 project:
-  basePackage: com.bytz.payment
+  basePackage: com.bytz.cms.payment
   name: payment-service
-  description: 企业间特种设备定制交易系统 - 支付模块（用例驱动的DDD YAML规范）
+  description: 莱宝经销商订单交易系统 - 支付模块（用例驱动的DDD YAML规范）
 
 # Aggregate Definitions
 aggregates:
@@ -166,7 +166,7 @@ aggregates:
       - description: 同一支付单同一时刻仅允许一个PROCESSING中的支付流水
       - description: 渠道交易号在同一渠道内应唯一（用于对账与补偿查询）
 
-# Domain Services (Optional)
+# Domain Services
 domainServices:
   - name: PaymentValidationService
     description: 支付单创建与执行前的业务校验（金额、状态、截止时间、唯一性等）
