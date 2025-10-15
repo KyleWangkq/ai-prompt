@@ -1,6 +1,6 @@
 ---
 description: ''
-applyTo: 'backend/**/*.java, backend/**/*.kt'
+applyTo: 'front/**/*.java, front/**/*.kt'
 ---
 
 # DDD Spring Boot 代码生成助手
