@@ -1,223 +1,494 @@
 project:
   basePackage: com.bytz.cms.payment
   name: payment-service
-  description: 莱宝经销商订单交易系统 - 支付模块（用例驱动的DDD YAML规范）
+  description: 莱宝经销商订单交易系统 - 支付模块（用例驱动的DDD YAML规范，基于支付模块需求设计文档v1.5、支付模块用例模型文档v1.0、全局术语表v3.0）
+  version: v2.0
+  author: DDD设计团队
+  updateDate: 2025-01-15
+  baseDocuments:
+    - 支付模块需求设计文档 v1.5
+    - 支付模块用例模型文档 v1.0
+    - 支付模块全局术语表 v3.0
+    - DDD设计文档Prompt设计说明书
+
+# Enumerations (枚举类型定义)
+enumerations:
+  - name: PaymentType
+    description: |
+      支付类型枚举，区分支付单的业务类型。
+      术语来源：Glossary.md - 状态和枚举术语"支付类型(Payment Type)"
+      需求来源：需求文档3.2节、4.4.1节
+    values:
+      - ADVANCE_PAYMENT # 预付款
+      - FINAL_PAYMENT # 尾款
+      - OTHER_PAYMENT # 其他费用
+      - CREDIT_REPAYMENT # 信用还款
+
+  - name: PaymentStatus
+    description: |
+      支付状态枚举，标识支付单当前的支付进度状态。
+      术语来源：Glossary.md - 状态和枚举术语"支付状态(Payment Status)"
+      需求来源：需求文档3.3.1节
+      状态转换：UNPAID → PAYING → PARTIAL_PAID/PAID/FAILED，支持STOPPED和FROZEN状态
+    values:
+      - UNPAID # 未支付
+      - PAYING # 支付中
+      - PARTIAL_PAID # 部分支付
+      - PAID # 已支付
+      - FAILED # 支付失败
+      - STOPPED # 已停止
+      - FROZEN # 已冻结
+
+  - name: RefundStatus
+    description: |
+      退款状态枚举，标识支付单的退款进度状态。
+      术语来源：Glossary.md - 状态和枚举术语"退款状态(Refund Status)"
+      需求来源：需求文档3.3.2节
+      状态转换：NO_REFUND → REFUNDING → PARTIAL_REFUNDED/FULL_REFUNDED/REFUND_FAILED
+    values:
+      - NO_REFUND # 未退款
+      - REFUNDING # 退款中
+      - PARTIAL_REFUNDED # 部分退款
+      - FULL_REFUNDED # 全额退款
+      - REFUND_FAILED # 退款失败
+
+  - name: TransactionType
+    description: |
+      流水类型枚举，区分正向支付和逆向退款。
+      术语来源：Glossary.md - 状态和枚举术语"流水类型(Transaction Type)"
+      需求来源：需求文档4.4.2节
+    values:
+      - PAYMENT # 支付（正向资金流动）
+      - REFUND # 退款（逆向资金流动）
+
+  - name: TransactionStatus
+    description: |
+      流水状态枚举，标识单笔流水的处理状态。
+      术语来源：Glossary.md - 状态和枚举术语"流水状态(Transaction Status)"
+      需求来源：需求文档4.4.2节
+      状态转换：PROCESSING → SUCCESS/FAILED
+    values:
+      - PROCESSING # 处理中
+      - SUCCESS # 成功
+      - FAILED # 失败
+
+  - name: PaymentChannel
+    description: |
+      支付渠道枚举，标识支付使用的渠道类型。
+      术语来源：Glossary.md - 状态和枚举术语"支付渠道类型(Payment Channel Type)"
+      需求来源：需求文档3.1节、4.5节
+    values:
+      - ONLINE_PAYMENT # 线上支付（银联、网银等）
+      - WALLET_PAYMENT # 钱包支付（企业寄存资金）
+      - WIRE_TRANSFER # 电汇支付（银行转账）
+      - CREDIT_ACCOUNT # 信用账户（企业信用额度）
+
+  - name: RelatedBusinessType
+    description: |
+      关联业务类型枚举，标识支付单关联的业务场景。
+      术语来源：Glossary.md - 状态和枚举术语"关联业务类型(Related Business Type)"
+      需求来源：需求文档3.2节、4.4.1节
+    values:
+      - CREDIT_RECORD # 信用记录（信用还款场景）
+      - DELIVERY_ORDER # 提货单（提货费用场景）
+      - ORDER # 订单（普通支付场景）
 
 # Aggregate Definitions
 aggregates:
   - name: Payment
-    description: 支付单聚合根，管理支付金额、状态与退款等业务，涵盖普通支付与信用还款两类
+    description: |
+      支付单聚合根，管理支付金额、状态与退款等业务，涵盖普通支付与信用还款两类。
+      作为核心聚合根，负责支付单的完整生命周期管理，包括创建、支付执行、退款处理、状态管理。
+      术语来源：Glossary.md - 核心业务术语"支付单(Payment)"
+      需求来源：需求文档4.1节支付单管理、4.4节支付单数据模型
+      相关用例：UC-PM-001至UC-PM-009
     fields:
       - name: id
         type: String
-        description: 支付单号，唯一标识
+        description: 支付单号，唯一标识（32位字符，全局唯一）
       - name: orderId
         type: String
-        description: 关联订单号（可选，信用还款可能无订单）
+        description: 关联订单号（32位字符，可选，信用还款支付单可能无订单号）
       - name: resellerId
         type: String
-        description: 经销商ID（买方标识）
+        description: 经销商ID（买方标识，32位字符，必填）
       - name: paymentAmount
         type: BigDecimal
-        description: 目标支付金额
+        description: 目标支付金额（6位小数，必须为正数）
       - name: paidAmount
         type: BigDecimal
-        description: 已支付金额（累计成功支付）
+        description: 已支付金额（6位小数，累计成功支付金额，初始值0）
       - name: refundedAmount
         type: BigDecimal
-        description: 已退款金额（累计成功退款）
+        description: 已退款金额（6位小数，累计成功退款金额，初始值0）
       - name: actualAmount
         type: BigDecimal
-        description: 实际收款金额 = paidAmount - refundedAmount
+        description: 实际收款金额（6位小数，计算公式：paidAmount - refundedAmount）
+      - name: currency
+        type: String
+        description: 币种（固定为CNY人民币，3位字符）
       - name: paymentType
-        type: String
-        description: 支付类型：ADVANCE_PAYMENT/FINAL_PAYMENT/OTHER_FEE/CREDIT_REPAYMENT
+        type: PaymentType
+        description: 支付类型枚举：ADVANCE_PAYMENT(预付款)/FINAL_PAYMENT(尾款)/OTHER_PAYMENT(其他费用)/CREDIT_REPAYMENT(信用还款)
       - name: paymentStatus
-        type: String
-        description: 支付状态：UNPAID/PAYING/PARTIAL_PAID/PAID/FAILED/STOPPED/FROZEN
+        type: PaymentStatus
+        description: 支付状态枚举：UNPAID(未支付)/PAYING(支付中)/PARTIAL_PAID(部分支付)/PAID(已支付)/FAILED(支付失败)/STOPPED(已停止)/FROZEN(已冻结)
       - name: refundStatus
-        type: String
-        description: 退款状态：NO_REFUND/REFUNDING/PARTIAL_REFUNDED/FULL_REFUNDED/REFUND_FAILED
+        type: RefundStatus
+        description: 退款状态枚举：NO_REFUND(未退款)/REFUNDING(退款中)/PARTIAL_REFUNDED(部分退款)/FULL_REFUNDED(全额退款)/REFUND_FAILED(退款失败)
       - name: paymentDeadline
         type: LocalDateTime
-        description: 支付截止时间（可选）
+        description: 支付截止时间（可选，建议的支付完成时间）
       - name: priorityLevel
         type: Integer
-        description: 优先级：1-高，2-中，3-低
+        description: 优先级（可选，1-高，2-中，3-低）
       - name: relatedBusinessId
         type: String
-        description: 关联业务ID（如信用记录ID）
+        description: 关联业务ID（32位字符，可选，如信用记录ID、提货单ID等）
       - name: relatedBusinessType
-        type: String
-        description: 关联业务类型（如 CREDIT_RECORD）
+        type: RelatedBusinessType
+        description: 关联业务类型枚举（可选，如CREDIT_RECORD/DELIVERY_ORDER/ORDER等）
       - name: businessExpireDate
         type: LocalDateTime
-        description: 关联业务到期日（如信用还款到期日）
+        description: 关联业务到期日（可选，如信用还款到期日、提货到期日等）
       - name: businessDesc
         type: String
-        description: 业务描述（可选）
+        description: 业务描述（500位字符，可选，支付用途说明）
       - name: businessTags
         type: String
-        description: 业务标签，JSON字符串（可选）
+        description: 业务标签（JSON字符串，可选，相关业务标记）
+      - name: delFlag
+        type: Integer
+        description: 删除状态（0-正常，1-删除）
+      - name: createBy
+        type: String
+        description: 创建人ID（32位字符）
+      - name: createByName
+        type: String
+        description: 创建人姓名（32位字符）
       - name: createdTime
         type: LocalDateTime
-        description: 创建时间
+        description: 创建时间（必填）
+      - name: updateBy
+        type: String
+        description: 更新人ID（32位字符）
+      - name: updateByName
+        type: String
+        description: 更新人姓名（32位字符）
       - name: updatedTime
         type: LocalDateTime
-        description: 更新时间
+        description: 更新时间（必填）
     behaviors:
       - name: create
-        description: 接收并创建支付单（UC-PM-001 / UC-PM-007），初始化为UNPAID并完成基础校验
-        params: [orderId:String, resellerId:String, paymentAmount:BigDecimal, paymentType:String, paymentDeadline:LocalDateTime, priorityLevel:Integer, relatedBusinessId:String, relatedBusinessType:String, businessExpireDate:LocalDateTime, businessDesc:String, businessTags:String]
+        description: |
+          接收并创建支付单（UC-PM-001 / UC-PM-007），初始化为UNPAID并完成基础校验。
+          用例来源：UC-PM-001接收支付单创建请求、UC-PM-007创建信用还款支付单
+          业务规则：支付单号必须唯一，支付金额必须为正数
+        params: [orderId:String, resellerId:String, paymentAmount:BigDecimal, paymentType:PaymentType, paymentDeadline:LocalDateTime, priorityLevel:Integer, relatedBusinessId:String, relatedBusinessType:RelatedBusinessType, businessExpireDate:LocalDateTime, businessDesc:String, businessTags:String]
       - name: markPaying
-        description: 将支付单状态置为PAYING（提交支付后，合并支付场景保持一致）
+        description: |
+          将支付单状态置为PAYING（提交支付后，合并支付场景保持一致）。
+          用例来源：UC-PM-003执行支付操作、UC-PM-008执行信用还款支付
+          状态转换：UNPAID → PAYING
         params: []
       - name: applyPayment
-        description: 应用一次支付成功的回调，增加已支付金额、重算实际收款并更新状态（UC-PM-004）
-        params: [amount:BigDecimal, channel:String, channelTransactionNumber:String, finishedAt:LocalDateTime]
+        description: |
+          应用一次支付成功的回调，增加已支付金额、重算实际收款并更新状态（UC-PM-004）。
+          用例来源：UC-PM-004处理支付回调
+          金额计算：paidAmount += amount, actualAmount = paidAmount - refundedAmount
+          状态更新：根据待支付金额是否为0自动更新为PARTIAL_PAID或PAID
+        params: [amount:BigDecimal, channel:PaymentChannel, channelTransactionNumber:String, finishedAt:LocalDateTime]
       - name: applyRefund
-        description: 应用一次退款成功记录，增加已退款金额、重算实际收款并更新退款状态（UC-PM-006）
+        description: |
+          应用一次退款成功记录，增加已退款金额、重算实际收款并更新退款状态（UC-PM-006）。
+          用例来源：UC-PM-006接收退款执行指令
+          金额计算：refundedAmount += amount, actualAmount = paidAmount - refundedAmount
+          状态更新：根据退款比例更新为PARTIAL_REFUNDED或FULL_REFUNDED
         params: [amount:BigDecimal, originalTransactionId:String, businessOrderId:String, reason:String]
       - name: updateStatusByAmounts
-        description: 根据待支付金额是否为0自动计算并更新支付状态（UNPAID/PARTIAL_PAID/PAID）与退款状态
+        description: |
+          根据待支付金额是否为0自动计算并更新支付状态（UNPAID/PARTIAL_PAID/PAID）与退款状态。
+          业务规则：待支付金额 = paymentAmount - paidAmount
+          支付状态：待支付金额 = 0 → PAID，待支付金额 > 0 且 paidAmount > 0 → PARTIAL_PAID
+          退款状态：refundedAmount = paidAmount → FULL_REFUNDED，0 < refundedAmount < paidAmount → PARTIAL_REFUNDED
         params: []
       - name: validatePayable
-        description: 校验当前支付单是否允许支付（状态、金额、截止时间等）
+        description: |
+          校验当前支付单是否允许支付（状态、金额、截止时间等）。
+          用例来源：UC-PM-003执行支付操作前置校验
+          验证规则：状态必须为UNPAID或PARTIAL_PAID，待支付金额必须>0，未超过截止时间
         params: []
       - name: validateRefundable
-        description: 校验当前支付单是否允许退款（状态、可退款金额等）
+        description: |
+          校验当前支付单是否允许退款（状态、可退款金额等）。
+          用例来源：UC-PM-006退款执行前置校验
+          验证规则：支付状态必须为PAID或PARTIAL_PAID，可退款金额 = paidAmount - refundedAmount >= refundAmount
         params: [refundAmount:BigDecimal]
       - name: freeze
-        description: 冻结支付单，状态置为FROZEN（异常/风控处理）
+        description: |
+          冻结支付单，状态置为FROZEN（异常/风控处理）。
+          状态转换：任何可操作状态 → FROZEN
         params: [reason:String]
       - name: unfreeze
-        description: 解冻支付单，恢复冻结前可执行状态
+        description: |
+          解冻支付单，恢复冻结前可执行状态。
+          状态转换：FROZEN → 冻结前的状态
         params: []
       - name: stop
-        description: 终止支付单，状态置为STOPPED（业务强制停止）
+        description: |
+          终止支付单，状态置为STOPPED（业务强制停止）。
+          状态转换：任何状态 → STOPPED（不可逆）
         params: [reason:String]
     rules:
-      - description: 支付单号必须唯一，不可重复创建（UC-PM-001-4）
-      - description: 支付金额必须为正数，已支付/已退款/实际收款均为非负数
-      - description: 实际收款金额 = 已支付金额 - 已退款金额，且不得为负
-      - description: 未支付或部分支付状态才允许继续支付；已支付或已终止不可再支付
-      - description: 可退款金额 = 已支付金额 - 已退款金额，退款金额不得超过可退款金额
-      - description: 状态迁移必须受控：UNPAID -> PAYING -> PARTIAL_PAID/PAID；失败则回滚到原状态
-      - description: 截止时间到期仍未支付可触发超时策略（标记、通知或自动停止）
-      - description: 信用还款支付单（CREDIT_REPAYMENT）遵循统一支付规则，并在完成后通知信用系统
+      - description: |
+          【UC-PM-001-4】支付单号必须唯一，不可重复创建。
+          来源：需求文档4.1.1节、用例UC-PM-001步骤4
+      - description: |
+          【金额约束】支付金额必须为正数（paymentAmount > 0），已支付/已退款/实际收款均为非负数。
+          来源：需求文档4.4节数据模型
+      - description: |
+          【金额一致性】实际收款金额 = 已支付金额 - 已退款金额，且不得为负（actualAmount >= 0）。
+          来源：需求文档4.4.1节、需求文档3.2节术语定义
+      - description: |
+          【支付前置条件】未支付(UNPAID)或部分支付(PARTIAL_PAID)状态才允许继续支付；已支付(PAID)或已终止(STOPPED)不可再支付。
+          来源：需求文档3.3.1节支付状态定义
+      - description: |
+          【退款约束】可退款金额 = 已支付金额 - 已退款金额，退款金额不得超过可退款金额。
+          来源：需求文档4.8节退款管理
+      - description: |
+          【状态转换规则】状态迁移必须受控：UNPAID → PAYING → PARTIAL_PAID/PAID；失败则回滚到原状态。
+          来源：需求文档3.3.1节支付状态、4.2节支付执行流程
+      - description: |
+          【超时处理】截止时间到期仍未支付可触发超时策略（标记、通知或自动停止）。
+          来源：需求文档4.9节异常处理与重试机制
+      - description: |
+          【信用还款规则】信用还款支付单（CREDIT_REPAYMENT）遵循统一支付规则，并在完成后通知信用系统。
+          来源：需求文档4.10节信用还款处理、用例UC-PM-007、UC-PM-008
 
   - name: PaymentTransaction
-    description: 支付流水聚合，记录支付/退款的每次渠道交易与状态
+    description: |
+      支付流水实体，记录支付/退款的每次渠道交易与状态。
+      作为Payment聚合内的核心实体，统一管理支付和退款流水，通过transactionType区分操作类型。
+      术语来源：Glossary.md - 实体术语"支付流水实体(PaymentTransaction Entity)"
+      需求来源：需求文档4.4.2节支付流水表设计
+      相关用例：UC-PM-003、UC-PM-004、UC-PM-006
     fields:
       - name: id
         type: String
-        description: 流水号，唯一标识
+        description: 流水号，唯一标识（32位字符，全局唯一）
       - name: paymentId
         type: String
-        description: 关联支付单号
+        description: 关联支付单号（32位字符，外键关联Payment.id）
       - name: transactionType
-        type: String
-        description: 流水类型：PAYMENT/REFUND
+        type: TransactionType
+        description: 流水类型枚举：PAYMENT(支付)/REFUND(退款)
       - name: transactionStatus
-        type: String
-        description: 流水状态：PROCESSING/SUCCESS/FAILED
+        type: TransactionStatus
+        description: 流水状态枚举：PROCESSING(处理中)/SUCCESS(成功)/FAILED(失败)
       - name: transactionAmount
         type: BigDecimal
-        description: 交易金额（支付为正、退款为负）
+        description: 交易金额（6位小数，支付为正数、退款为负数）
       - name: paymentChannel
-        type: String
-        description: 支付渠道：ONLINE_PAYMENT/WALLET_PAYMENT/WIRE_TRANSFER/CREDIT_ACCOUNT
+        type: PaymentChannel
+        description: 支付渠道枚举：ONLINE_PAYMENT(线上支付)/WALLET_PAYMENT(钱包支付)/WIRE_TRANSFER(电汇支付)/CREDIT_ACCOUNT(信用账户)
       - name: channelTransactionNumber
         type: String
-        description: 渠道交易号（可选，合并支付下用于关联多支付单）
+        description: 渠道交易号（64位字符，可选，合并支付下用于关联多支付单，同一渠道内应唯一）
       - name: paymentWay
         type: String
-        description: 支付方式（渠道下的具体方式，可选）
+        description: 支付方式（20位字符，可选，渠道下的具体方式）
       - name: originalTransactionId
         type: String
-        description: 原交易流水号（退款回溯支付时使用）
+        description: 原交易流水号（32位字符，可选，退款回溯支付时使用，关联到被退款的支付流水）
       - name: businessOrderId
         type: String
-        description: 业务单号（如退款单号）
+        description: 业务单号（32位字符，可选，如退款单号）
+      - name: businessRemark
+        type: String
+        description: 业务备注（500位字符，可选，交易备注信息）
+      - name: delFlag
+        type: Integer
+        description: 删除状态（0-正常，1-删除）
+      - name: createBy
+        type: String
+        description: 创建人ID（32位字符）
+      - name: createByName
+        type: String
+        description: 创建人姓名（32位字符）
       - name: createdTime
         type: LocalDateTime
-        description: 创建时间
+        description: 创建时间（必填）
       - name: completeDatetime
         type: LocalDateTime
-        description: 交易完成时间（可选）
+        description: 交易完成时间（可选，成功或失败时记录）
       - name: expirationTime
         type: LocalDateTime
-        description: 支付过期时间（可选）
-      - name: remark
+        description: 支付过期时间（可选，用于支付超时处理）
+      - name: updateBy
         type: String
-        description: 业务备注
+        description: 更新人ID（32位字符）
+      - name: updateByName
+        type: String
+        description: 更新人姓名（32位字符）
+      - name: updatedTime
+        type: LocalDateTime
+        description: 更新时间（可选）
     behaviors:
       - name: start
-        description: 创建流水并置为PROCESSING（UC-PM-003-11/12）
-        params: [paymentId:String, transactionType:String, transactionAmount:BigDecimal, paymentChannel:String, paymentWay:String, channelTransactionNumber:String, expirationTime:LocalDateTime]
+        description: |
+          创建流水并置为PROCESSING（UC-PM-003-11/12）。
+          用例来源：UC-PM-003执行支付操作、UC-PM-006接收退款执行指令
+          初始状态：PROCESSING
+        params: [paymentId:String, transactionType:TransactionType, transactionAmount:BigDecimal, paymentChannel:PaymentChannel, paymentWay:String, channelTransactionNumber:String, expirationTime:LocalDateTime]
       - name: success
-        description: 标记流水成功并记录完成时间（对应渠道回调成功，UC-PM-004）
+        description: |
+          标记流水成功并记录完成时间（对应渠道回调成功，UC-PM-004）。
+          用例来源：UC-PM-004处理支付回调
+          状态转换：PROCESSING → SUCCESS
         params: [completedAt:LocalDateTime]
       - name: fail
-        description: 标记流水失败（渠道回调失败或主动失败）
+        description: |
+          标记流水失败（渠道回调失败或主动失败）。
+          状态转换：PROCESSING → FAILED
         params: [reason:String]
     rules:
-      - description: 交易金额与类型一致性校验：PAYMENT>0，REFUND<0
-      - description: 同一支付单同一时刻仅允许一个PROCESSING中的支付流水
-      - description: 渠道交易号在同一渠道内应唯一（用于对账与补偿查询）
+      - description: |
+          【金额类型一致性】交易金额与类型一致性校验：PAYMENT时transactionAmount>0，REFUND时transactionAmount<0。
+          来源：需求文档4.4.2节支付流水表设计
+      - description: |
+          【并发控制】同一支付单同一时刻仅允许一个PROCESSING中的支付流水。
+          来源：需求文档4.9节异常处理与重试机制
+      - description: |
+          【渠道交易号唯一性】渠道交易号在同一渠道内应唯一（用于对账与补偿查询）。
+          来源：需求文档4.4.2节、用例UC-PM-009补偿查询支付状态
 
 # Domain Services
 domainServices:
   - name: PaymentValidationService
-    description: 支付单创建与执行前的业务校验（金额、状态、截止时间、唯一性等）
+    description: |
+      支付单创建与执行前的业务校验（金额、状态、截止时间、唯一性等）。
+      领域服务类型：验证服务
+      术语来源：Glossary.md - 领域服务术语"支付验证服务"
+      相关用例：UC-PM-001、UC-PM-003、UC-PM-006、UC-PM-007
     methods:
       - name: validateCreate
-        description: 校验创建请求（UC-PM-001/007）
+        description: |
+          校验创建请求（UC-PM-001/007）。
+          验证项：支付单号唯一性、金额合法性、必填字段完整性、业务规则符合性。
+          用例来源：UC-PM-001步骤3-4、UC-PM-007步骤3-4
       - name: validateExecute
-        description: 校验执行支付前置条件（UC-PM-003）
+        description: |
+          校验执行支付前置条件（UC-PM-003）。
+          验证项：支付单状态可支付、待支付金额>0、未超过截止时间、经销商权限。
+          用例来源：UC-PM-003步骤3-4
       - name: validateRefund
-        description: 校验退款前置条件（UC-PM-006）
+        description: |
+          校验退款前置条件（UC-PM-006）。
+          验证项：支付单状态可退款、可退款金额足够、退款流水可选、业务授权。
+          用例来源：UC-PM-006步骤2-3
 
   - name: PaymentExecutionService
-    description: 统一支付执行编排，包含多支付单合并支付、金额分配与渠道下单
+    description: |
+      统一支付执行编排，包含多支付单合并支付、金额分配与渠道下单。
+      领域服务类型：编排服务
+      术语来源：Glossary.md - 领域服务术语"支付执行服务(PaymentExecutionService)"
+      需求来源：需求文档4.2节支付执行流程
+      相关用例：UC-PM-003、UC-PM-008
     methods:
       - name: executeUnifiedPayment
-        description: 根据支付单集合与分配金额执行一次统一支付（UC-PM-003/008）
+        description: |
+          根据支付单集合与分配金额执行一次统一支付（UC-PM-003/008）。
+          处理流程：验证支付单集合 → 验证金额分配 → 调用渠道支付 → 创建支付流水 → 更新支付单状态。
+          支持场景：单支付单支付（特例）、多支付单合并支付（统一流程）。
+          用例来源：UC-PM-003步骤5-12、UC-PM-008步骤4-11
       - name: allocateAmounts
-        description: 校验并应用各支付单的金额分配，不得超过各自待支付金额
+        description: |
+          校验并应用各支付单的金额分配，不得超过各自待支付金额。
+          验证规则：每个支付单的分配金额 <= 待支付金额，总分配金额 = 支付渠道支付金额。
+          用例来源：UC-PM-003步骤6
 
   - name: PaymentCallbackService
-    description: 支付/退款回调处理，签名校验、落地流水、联动支付单状态更新与通知
+    description: |
+      支付/退款回调处理，签名校验、落地流水、联动支付单状态更新与通知。
+      领域服务类型：集成服务
+      术语来源：Glossary.md - 技术概念"回调(Callback)"
+      需求来源：需求文档4.6节支付回调处理
+      相关用例：UC-PM-004
     methods:
       - name: processPaymentCallback
-        description: 处理支付回调（UC-PM-004），更新流水与支付单
+        description: |
+          处理支付回调（UC-PM-004），更新流水与支付单。
+          处理流程：验证回调签名 → 查找支付流水 → 更新流水状态 → 调用支付单applyPayment → 发布领域事件 → 通知相关系统。
+          用例来源：UC-PM-004步骤1-9
       - name: processRefundCallback
-        description: 处理退款回调，更新流水与支付单
+        description: |
+          处理退款回调，更新流水与支付单。
+          处理流程：验证回调签名 → 查找退款流水 → 更新流水状态 → 调用支付单applyRefund → 发布领域事件 → 通知相关系统。
+          需求来源：需求文档4.8节退款管理
 
   - name: RefundService
-    description: 退款执行编排，支持最新流水退款/指定流水退款/多流水分摊
+    description: |
+      退款执行编排，支持最新流水退款/指定流水退款/多流水分摊。
+      领域服务类型：编排服务（原名RefundExecutionService，简化为RefundService）
+      术语来源：Glossary.md - 领域服务术语"退款执行服务"
+      需求来源：需求文档4.8节退款管理
+      相关用例：UC-PM-006
     methods:
       - name: executeRefund
-        description: 按策略选择流水并下发渠道退款（UC-PM-006）
+        description: |
+          按策略选择流水并下发渠道退款（UC-PM-006）。
+          处理流程：接收退款指令 → 验证退款前置条件 → 选择退款流水（最新流水/指定流水/多流水分摊） → 调用渠道退款 → 创建退款流水 → 更新支付单状态。
+          流水选择策略：指定流水退款、最新流水退款、多流水分摊退款。
+          用例来源：UC-PM-006步骤1-8
 
   - name: CreditRepaymentService
-    description: 信用还款专用编排，创建信用还款支付单并纳入统一支付流程
+    description: |
+      信用还款专用编排，创建信用还款支付单并纳入统一支付流程。
+      领域服务类型：编排服务
+      术语来源：Glossary.md - 业务术语"信用还款(Credit Repayment)"
+      需求来源：需求文档4.10节信用还款处理
+      相关用例：UC-PM-007、UC-PM-008
+      设计原则：信用还款只是支付类型为"信用还款"的普通支付单，按统一支付流程处理。
     methods:
       - name: createCreditRepaymentPayment
-        description: 创建信用还款支付单（UC-PM-007）
+        description: |
+          创建信用还款支付单（UC-PM-007）。
+          处理流程：接收信用管理系统还款指令 → 构建支付单（paymentType=CREDIT_REPAYMENT, relatedBusinessType=CREDIT_RECORD） → 调用Payment.create。
+          用例来源：UC-PM-007步骤1-5
       - name: executeCreditRepayment
-        description: 执行信用还款支付（UC-PM-008）
+        description: |
+          执行信用还款支付（UC-PM-008）。
+          处理流程：选择信用还款支付单 → 调用PaymentExecutionService.executeUnifiedPayment（统一支付流程） → 支付成功后通知信用管理系统。
+          用例来源：UC-PM-008步骤1-12
 
   - name: PaymentQueryService
-    description: 支付查询与统计（筛选支付单、查询支付单/流水/进度等）
+    description: |
+      支付查询与统计（筛选支付单、查询支付单/流水/进度等）。
+      领域服务类型：查询服务
+      需求来源：需求文档4.3节支付筛选与批量管理、4.7节支付结果查询
+      相关用例：UC-PM-002、UC-PM-005
     methods:
       - name: filterPayments
-        description: 支持状态/类型/时间/金额/渠道等筛选（UC-PM-002）
+        description: |
+          支持状态/类型/时间/金额/渠道等筛选（UC-PM-002）。
+          筛选条件：支付单状态、支付类型、订单范围、金额范围、时间范围、经销商ID、关联业务类型。
+          用例来源：UC-PM-002步骤1-4
       - name: queryPaymentDetail
-        description: 查询支付单详情与流水历史（UC-PM-005）
+        description: |
+          查询支付单详情与流水历史（UC-PM-005）。
+          查询内容：支付单基础信息、支付进度、退款进度、支付流水历史、退款流水历史、关联订单信息。
+          用例来源：UC-PM-005步骤1-3
 
   - name: PaymentReconciliationService
-    description: 渠道状态补偿与对账，处理回调超时、状态不一致等
+    description: |
+      渠道状态补偿与对账，处理回调超时、状态不一致等。
+      领域服务类型：补偿服务
+      需求来源：需求文档4.9节异常处理与重试机制
+      相关用例：UC-PM-009
     methods:
       - name: compensateAndSyncStatus
-        description: 基于渠道交易号进行状态补偿查询并与本地状态对齐（UC-PM-009）
+        description: |
+          基于渠道交易号进行状态补偿查询并与本地状态对齐（UC-PM-009）。
+          处理流程：查询本地支付流水 → 调用渠道查询接口 → 比对状态差异 → 同步更新本地状态 → 触发支付单状态重算。
+          触发场景：回调超时、状态不一致、用户手动刷新、定时任务批量检查。
+          用例来源：UC-PM-009步骤1-7

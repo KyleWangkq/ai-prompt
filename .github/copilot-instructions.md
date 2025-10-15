@@ -178,6 +178,25 @@ public class PaymentController {
 }
 ```
 
+### Parameter Encapsulation Rule
+**When a method has more than 3 parameters, encapsulate them into a request object**:
+- **Domain Layer Methods**: If aggregate behavior or domain service methods have >3 parameters, create a command object (e.g., `CreatePaymentCommand`)
+- **Application Service Methods**: Encapsulate >3 parameters into a dedicated request object
+- **Benefits**: Improves code readability, maintainability, and supports future parameter evolution
+
+```java
+// ❌ DON'T: Too many parameters
+public PaymentAggregate create(String orderId, BigDecimal amount, 
+    String paymentType, String channelCode, String userId) {
+    // ...
+}
+
+// ✅ DO: Use command object
+public PaymentAggregate create(CreatePaymentCommand command) {
+    // command contains: orderId, amount, paymentType, channelCode, userId
+}
+```
+
 ## Design Documents as Authority
 
 **Before writing any code**, consult:
