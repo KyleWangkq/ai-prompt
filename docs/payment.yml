@@ -139,9 +139,6 @@ aggregates:
       - name: paymentDeadline
         type: LocalDateTime
         description: 支付截止时间（可选，建议的支付完成时间）
-      - name: priorityLevel
-        type: Integer
-        description: 优先级（可选，1-高，2-中，3-低）
       - name: relatedBusinessId
         type: String
         description: 关联业务ID（32位字符，可选，如信用记录ID、提货单ID等）
@@ -185,7 +182,7 @@ aggregates:
           用例来源：UC-PM-001接收支付单创建请求（普通支付）、UC-PM-007创建信用还款支付单
           业务规则：支付单号必须唯一，支付金额必须为正数
           信用还款说明：信用还款支付单通过设置paymentType=CREDIT_REPAYMENT和relatedBusinessType=CREDIT_RECORD来标识，创建流程与普通支付单一致。
-        params: [orderId:String, resellerId:String, paymentAmount:BigDecimal, paymentType:PaymentType, paymentDeadline:LocalDateTime, priorityLevel:Integer, relatedBusinessId:String, relatedBusinessType:RelatedBusinessType, businessExpireDate:LocalDateTime, businessDesc:String, businessTags:String]
+        params: [orderId:String, resellerId:String, paymentAmount:BigDecimal, currency:String, paymentType:PaymentType, paymentDeadline:LocalDateTime, relatedBusinessId:String, relatedBusinessType:RelatedBusinessType, businessExpireDate:LocalDateTime, businessDesc:String, businessTags:String]
       - name: markPaying
         description: |
           将支付单状态置为PAYING（提交支付后，合并支付场景保持一致）。

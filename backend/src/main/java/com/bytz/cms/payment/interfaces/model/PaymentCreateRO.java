@@ -66,11 +66,6 @@ public class PaymentCreateRO {
     private LocalDateTime paymentDeadline;
     
     /**
-     * 优先级（可选，1-高，2-中，3-低）
-     */
-    private Integer priorityLevel;
-    
-    /**
      * 关联业务ID（可选，信用还款时必填）
      */
     private String relatedBusinessId;

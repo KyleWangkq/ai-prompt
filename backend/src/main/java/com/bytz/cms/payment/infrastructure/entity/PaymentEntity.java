@@ -106,12 +106,6 @@ public class PaymentEntity {
     private LocalDateTime paymentDeadline;
     
     /**
-     * 优先级
-     */
-    @TableField("priority_level")
-    private Integer priorityLevel;
-    
-    /**
      * 关联业务ID
      */
     @TableField("related_business_id")

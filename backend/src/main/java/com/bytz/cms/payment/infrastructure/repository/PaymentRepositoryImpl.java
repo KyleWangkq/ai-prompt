@@ -5,7 +5,6 @@ import com.bytz.cms.payment.domain.entity.PaymentTransactionEntity;
 import com.bytz.cms.payment.domain.enums.*;
 import com.bytz.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.cms.payment.domain.repository.IPaymentRepository;
-import com.bytz.cms.payment.domain.valueobject.PaymentAmount;
 import com.bytz.cms.payment.infrastructure.mapper.PaymentMapper;
 import com.bytz.cms.payment.infrastructure.mapper.PaymentTransactionMapper;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -251,17 +251,16 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
                 .id(aggregate.getId())
                 .orderId(aggregate.getOrderId())
                 .resellerId(aggregate.getResellerId())
-                .paymentAmount(aggregate.getPaymentAmount().getAmount())
-                .paidAmount(aggregate.getPaidAmount().getAmount())
-                .refundedAmount(aggregate.getRefundedAmount().getAmount())
-                .actualAmount(aggregate.getActualAmount().getAmount())
-                .currency(aggregate.getPaymentAmount().getCurrency())
+                .paymentAmount(aggregate.getPaymentAmount())
+                .paidAmount(aggregate.getPaidAmount())
+                .refundedAmount(aggregate.getRefundedAmount())
+                .actualAmount(aggregate.getActualAmount())
+                .currency(aggregate.getCurrency())
                 .paymentType(aggregate.getPaymentType().name())
                 .paymentStatus(aggregate.getPaymentStatus().name())
                 .refundStatus(aggregate.getRefundStatus().name())
                 .businessDesc(aggregate.getBusinessDesc())
                 .paymentDeadline(aggregate.getPaymentDeadline())
-                .priorityLevel(aggregate.getPriorityLevel())
                 .relatedBusinessId(aggregate.getRelatedBusinessId())
                 .relatedBusinessType(aggregate.getRelatedBusinessType() != null ? 
                         aggregate.getRelatedBusinessType().name() : null)
@@ -286,7 +285,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
                 .paymentId(domainEntity.getPaymentId())
                 .transactionType(domainEntity.getTransactionType().name())
                 .transactionStatus(domainEntity.getTransactionStatus().name())
-                .transactionAmount(domainEntity.getTransactionAmount().getAmount())
+                .transactionAmount(domainEntity.getTransactionAmount())
                 .paymentChannel(domainEntity.getPaymentChannel().name())
                 .channelTransactionNumber(domainEntity.getChannelTransactionNumber())
                 .paymentWay(domainEntity.getPaymentWay())
@@ -319,16 +318,16 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
                 .id(entity.getId())
                 .orderId(entity.getOrderId())
                 .resellerId(entity.getResellerId())
-                .paymentAmount(PaymentAmount.ofCNY(entity.getPaymentAmount()))
-                .paidAmount(PaymentAmount.ofCNY(entity.getPaidAmount()))
-                .refundedAmount(PaymentAmount.ofCNY(entity.getRefundedAmount()))
-                .actualAmount(PaymentAmount.ofCNY(entity.getActualAmount()))
+                .paymentAmount(entity.getPaymentAmount() != null ? entity.getPaymentAmount() : BigDecimal.ZERO)
+                .paidAmount(entity.getPaidAmount() != null ? entity.getPaidAmount() : BigDecimal.ZERO)
+                .refundedAmount(entity.getRefundedAmount() != null ? entity.getRefundedAmount() : BigDecimal.ZERO)
+                .actualAmount(entity.getActualAmount() != null ? entity.getActualAmount() : BigDecimal.ZERO)
+                .currency(entity.getCurrency() != null ? entity.getCurrency() : "CNY")
                 .paymentType(PaymentType.valueOf(entity.getPaymentType()))
                 .paymentStatus(PaymentStatus.valueOf(entity.getPaymentStatus()))
                 .refundStatus(RefundStatus.valueOf(entity.getRefundStatus()))
                 .businessDesc(entity.getBusinessDesc())
                 .paymentDeadline(entity.getPaymentDeadline())
-                .priorityLevel(entity.getPriorityLevel())
                 .relatedBusinessId(entity.getRelatedBusinessId())
                 .relatedBusinessType(entity.getRelatedBusinessType() != null ? 
                         RelatedBusinessType.valueOf(entity.getRelatedBusinessType()) : null)
@@ -354,7 +353,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
                 .paymentId(entity.getPaymentId())
                 .transactionType(TransactionType.valueOf(entity.getTransactionType()))
                 .transactionStatus(TransactionStatus.valueOf(entity.getTransactionStatus()))
-                .transactionAmount(PaymentAmount.ofCNY(entity.getTransactionAmount()))
+                .transactionAmount(entity.getTransactionAmount() != null ? entity.getTransactionAmount() : BigDecimal.ZERO)
                 .paymentChannel(PaymentChannel.valueOf(entity.getPaymentChannel()))
                 .channelTransactionNumber(entity.getChannelTransactionNumber())
                 .paymentWay(entity.getPaymentWay())

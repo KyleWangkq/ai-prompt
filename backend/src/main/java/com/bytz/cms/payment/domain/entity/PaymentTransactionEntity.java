@@ -3,12 +3,12 @@ package com.bytz.cms.payment.domain.entity;
 import com.bytz.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.cms.payment.domain.enums.TransactionStatus;
 import com.bytz.cms.payment.domain.enums.TransactionType;
-import com.bytz.cms.payment.domain.valueobject.PaymentAmount;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -47,7 +47,7 @@ public class PaymentTransactionEntity {
     /**
      * 交易金额
      */
-    private PaymentAmount transactionAmount;
+    private BigDecimal transactionAmount;
     
     /**
      * 支付渠道

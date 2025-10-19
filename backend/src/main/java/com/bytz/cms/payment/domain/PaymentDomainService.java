@@ -5,11 +5,11 @@ import com.bytz.cms.payment.domain.command.ExecuteRefundCommand;
 import com.bytz.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.cms.payment.domain.repository.IPaymentRepository;
-import com.bytz.cms.payment.domain.valueobject.PaymentAmount;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -75,9 +75,8 @@ public class PaymentDomainService {
         for (int i = 0; i < payments.size(); i++) {
             PaymentAggregate payment = payments.get(i);
             ExecutePaymentCommand.PaymentItem item = command.getPaymentItems().get(i);
-            PaymentAmount amount = PaymentAmount.ofCNY(item.getAmount());
             
-            payment.executePayment(command.getPaymentChannel(), amount, channelTransactionNumber);
+            payment.executePayment(command.getPaymentChannel(), item.getAmount(), channelTransactionNumber);
             paymentRepository.save(payment);
         }
         
