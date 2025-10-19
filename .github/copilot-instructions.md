@@ -10,16 +10,23 @@ This workspace generates Spring Boot DDD (Domain-Driven Design) code from YAML s
 ```
 com.bytz.cms.payment/
 ├── interfaces/          # REST controllers, DTOs (RO=Request, VO=Response)
+│   └── model/           # *RO, *VO
 ├── application/         # Use case orchestration ONLY - NO business logic
+│   └── assembler/       # MapStruct assemblers (*Assembler)
 ├── domain/             # Core business logic
 │   ├── model/          # Aggregate roots (*Aggregate classes)
 │   ├── entity/         # Domain entities (*Entity classes)
+│   ├── valueobject/    # Value objects (*ValueObject)
+│   ├── enums/          # Enumerations (e.g., PaymentStatus)
+│   ├── command/        # Command objects for behaviors (*Command)
 │   ├── repository/     # Repository interfaces (I*Repository)
 │   └── *DomainService  # Cross-aggregate domain logic
 ├── infrastructure/     # Technical implementations
 │   ├── mapper/         # MyBatis-Plus Mappers + optional XML
 │   └── repository/     # Repository implementations (*RepositoryImpl)
 └── shared/            # Exceptions, events, utilities
+    ├── exception/      # Business exceptions
+    └── model/          # Domain events (*Event)
 ```
 
 **Critical Naming Rules**:
@@ -27,6 +34,13 @@ com.bytz.cms.payment/
 - Repository implementations: `*RepositoryImpl` in `infrastructure/repository/`
 - Aggregate roots: `*Aggregate` suffix in `domain/model/`
 - Domain entities: `*Entity` suffix in `domain/entity/`
+- Value objects: `*ValueObject` in `domain/valueobject/`
+- Commands: `*Command` in `domain/command/` (e.g., `CreatePaymentCommand`)
+- Enums: PascalCase names in `domain/enums/` (e.g., `PaymentStatus`)
+- DTOs: `*RO` (request) and `*VO` (response) under `interfaces/model/`
+- Domain events: `*Event` under `shared/model/`
+- Mappers: `*Mapper` under `infrastructure/mapper/`
+- Application assemblers: `*Assembler` under `application/assembler/` (MapStruct `@Mapper(componentModel = "spring")`)
 
 ## Input: YAML Domain Specifications
 
@@ -102,6 +116,8 @@ For each aggregate in YAML:
 1. **Domain Layer**:
    - Create `{name}Aggregate` in `domain/model/`
    - Create entities in `domain/entity/` if needed
+   - Create value objects in `domain/valueobject/` when modeling concepts with identity-less attributes
+   - Create commands in `domain/command/` for behaviors having >3 parameters
    - Create `I{name}Repository` interface in `domain/repository/`
 2. **Infrastructure Layer**:
    - Create `{name}Mapper` extending `BaseMapper<T>`
@@ -210,6 +226,12 @@ public PaymentAggregate create(CreatePaymentCommand command) {
 - Lombok + MapStruct: Keep fields aligned; favor explicit mappings for differing names
 - Maven: Include `mapstruct` and `mapstruct-processor` (annotationProcessor)
 
+## Aggregate Design Rules
+- One aggregate root per aggregate; enforce invariants inside the aggregate
+- Cross-aggregate operations go to `*DomainService`
+- Reference other aggregates by identifier (ID) instead of object references
+- Do not expose entities/value objects directly outside the domain; use RO/VO via assemblers
+
 ## Design Documents as Authority
 
 **Before writing any code**, consult:
@@ -233,27 +255,4 @@ public PaymentAggregate create(CreatePaymentCommand command) {
 - Keep aggregates small (reference others by ID)
 - Generate complete file trees with imports
 - Follow `I*Repository` naming convention
-- Use MapStruct assembler in the application layer for all DTO/domain conversions
-
-## Quick Validation Checklist
-
-After generating code:
-- [ ] Package structure matches five layers (plus `application/assembler` for MapStruct)
-- [ ] Repository interfaces have `I` prefix
-- [ ] No entities in controller parameters
-- [ ] All business methods have `// TODO` markers
-- [ ] Terms match Glossary.md exactly
-- [ ] MapStruct assembler classes exist and are wired via Spring
-- [ ] Code compiles with `mvn clean compile`
-
-## Instruction Files in Use
-
-- `.github/instructions/ddd.instructions.md` - DDD architecture rules
-- `.github/instructions/java8.instructions.md` - Java 8 & Lombok conventions
-- `.github/instructions/springboot.instructions.md` - Spring Boot patterns
-
-These are **automatically enforced** - read them before generating code.
-
----
-
-**Version**: 1.1 | **Updated**: 2025-01-15 | **Based on**: Payment Module v1.5 | Changes: Added MapStruct and application/assembler conventions
+- Use MapStruct assembler in the application layer for all DTO/domain

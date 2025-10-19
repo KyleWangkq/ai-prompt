@@ -110,9 +110,11 @@ com.example.project
 │  │  └─ I*Repository      # Repository interfaces (e.g., IUserRepository)
 │  ├─ entity               # Domain entity package
 │  │  └─ *Entity           # Entity classes (e.g., UserEntity, OrderEntity)
-│  └─ model                # Domain model object package
-│     ├─ *Aggregate        # Aggregate roots (e.g., UserAggregate)
-│     └─ *ValueObject      # Value objects (e.g., MoneyValueObject)
+│  ├─ model                # Domain model object package
+│  │  ├─ *Aggregate        # Aggregate roots (e.g., UserAggregate)
+│  │  └─ *ValueObject      # Value objects (e.g., MoneyValueObject)
+│  ├─ enums                # Enumerations (e.g., PaymentStatus)
+│  └─ command              # Command objects for methods with >3 params (*Command)
 ├─ infrastructure          # Infrastructure layer
 │  ├─ mapper               # MyBatis-Plus Mapper package
 │  │  ├─ *Mapper           # Mapper interfaces (e.g., UserMapper)
@@ -122,7 +124,7 @@ com.example.project
 │  │  └─ *RepositoryImpl   # Repository implementations (e.g., UserRepositoryImpl)
 │  └─ *Config              # Configuration classes (e.g., MybatisPlusConfig)
 └─ shared                  # Shared components
-   ├─ *Exception           # Exception definitions (e.g., BusinessException)
+   ├─ exception            # Exception definitions (e.g., BusinessException)
    └─ model                # Shared data object package
       └─ *Event            # Domain events (e.g., UserCreatedEvent)
 ```
@@ -164,8 +166,14 @@ com.example.project
   - Annotation: `@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)`
   - Provide methods: `toCreateCommand(XXXCreateRO ro)`, `toUpdateCommand(...)`, `toVO(Aggregate agg)`, batch variants
 
+### Command and Value Object Conventions
+- **Commands**: Place under `domain/command`, suffix with `Command`; encapsulate parameters when a method has more than 3 params
+- **Value Objects**: Place under `domain/valueobject`, suffix with `ValueObject`; must be immutable and validated in constructors/factories
+- **Enums**: Place under `domain/enums`, PascalCase class names, UPPER_SNAKE_CASE constants
+- **Events**: Place under `shared/model`, suffix with `Event`
+
 ### Exception Handling Specifications
-- **Business Exceptions**: Extend `BusinessException`
+- **Business Exceptions**: Extend `BusinessException` under `shared/exception`
 - **Parameter Validation**: Use `@Valid` and `@Validated`
 - **Global Exception Handling**: Use `@ControllerAdvice`
 
@@ -174,7 +182,7 @@ com.example.project
 ## Output Requirements
 
 ### Files to Be Generated
-1. **Domain Layer**: Aggregate roots, entities, value objects, domain services, repository interfaces
+1. **Domain Layer**: Aggregate roots, entities, value objects, commands, domain services, repository interfaces
 2. **Infrastructure Layer**: Database entities, Mapper interfaces, repository implementations, configuration classes
 3. **Application Layer**: Application services (use case orchestration) and MapStruct assemblers
 4. **Interface Layer**: Controllers, DTOs (RO/VO)
@@ -184,7 +192,7 @@ com.example.project
 
 ### Code Quality Requirements
 - **Completeness**: All classes must include complete package declarations and necessary import statements
-- **Annotation Completeness**: Use correct Spring Boot annotations (`@RestController`, `@Service`, `@Component`, etc.)
+- **Annotation Completeness**: Use correct annotations (`@RestController`, `@Service`, `@Mapper`, etc.)
 - **Compilability**: Ensure the generated code compiles successfully
 - **TODO Markers**: Add detailed TODO comments for all methods to be implemented
 - **Exception Handling**: Include appropriate exception handling and parameter validation
@@ -199,12 +207,6 @@ Project File Structure:
 └─ Test File Path
    └─ Complete test code content
 ```
-
----
-
-## Core Code Templates
-
-(Include the same code templates as in the original Chinese version)
 
 ---
 
@@ -232,9 +234,9 @@ config:
 ## Acceptance Checklist
 
 Ensure the generated code meets the following requirements:
-1. **Completeness Check**: All aggregates must generate entities, repository interfaces, Mappers, repository implementations, application services, controllers, RO/VO, and MapStruct assemblers
-2. **Naming Conventions**: Package paths and class names must match the root package in the input
-3. **Event Handling**: If domain events are declared in the document, generate event classes under the `shared` package
-4. **Annotation Completeness**: Necessary annotations are complete (`@TableName`, `@TableId`, `@RestController`, `@Service`, Lombok annotations, `@Mapper`, etc.)
-5. **Decoupling Requirement**: RO/VO must be decoupled from domain entities (entities must not be exposed directly in controllers)
+1. **Completeness Check**: All aggregates generate entities, value objects, commands, repository interfaces, Mappers, repository implementations, application services, controllers, RO/VO, and MapStruct assemblers
+2. **Naming Conventions**: Suffixes and package placement are correct (`*Aggregate`, `*Entity`, `*ValueObject`, `*Command`, `I*Repository`, `*RepositoryImpl`, `*Assembler`, `*RO`, `*VO`)
+3. **Event Handling**: If domain events are declared, generate event classes under `shared/model`
+4. **Annotation Completeness**: Necessary annotations are complete (`@TableName`, `@TableId`, `@RestController`, `@Service`, `@Mapper`, Lombok annotations)
+5. **Decoupling Requirement**: RO/VO must be decoupled from domain entities
 6. **TODO Markers**: Use `// TODO:` comments to mark all methods to be implemented
