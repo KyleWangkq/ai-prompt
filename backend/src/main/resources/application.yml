@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: payment-module
+  
+  # 数据源配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/cms_payment?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+  
+# MyBatis-Plus 配置
+mybatis-plus:
+  configuration:
+    # 日志输出
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 驼峰命名转换
+    map-underscore-to-camel-case: true
+  # 全局配置
+  global-config:
+    db-config:
+      # 主键类型：自动生成
+      id-type: assign_id
+      # 逻辑删除字段
+      logic-delete-field: delFlag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  # Mapper XML 文件位置
+  mapper-locations: classpath*:mapper/xml/**/*.xml
+  
+# 服务器配置
+server:
+  port: 8080
+  servlet:
+    context-path: /payment
+
+# 日志配置
+logging:
+  level:
+    com.bytz.cms.payment: DEBUG
+    com.baomidou.mybatisplus: DEBUG
