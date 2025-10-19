@@ -36,12 +36,7 @@ public interface PaymentAssembler {
      * @param aggregate 支付单聚合根
      * @return 支付单响应对象
      */
-    @Mapping(target = "pendingAmount", expression = "java(aggregate.getPendingAmount().getAmount())")
-    @Mapping(target = "paymentAmount", expression = "java(aggregate.getPaymentAmount().getAmount())")
-    @Mapping(target = "paidAmount", expression = "java(aggregate.getPaidAmount().getAmount())")
-    @Mapping(target = "refundedAmount", expression = "java(aggregate.getRefundedAmount().getAmount())")
-    @Mapping(target = "actualAmount", expression = "java(aggregate.getActualAmount().getAmount())")
-    @Mapping(target = "currency", expression = "java(aggregate.getPaymentAmount().getCurrency())")
+    @Mapping(target = "pendingAmount", expression = "java(aggregate.getPendingAmount())")
     PaymentVO toVO(PaymentAggregate aggregate);
     
     /**
@@ -58,7 +53,6 @@ public interface PaymentAssembler {
      * @param entity 支付流水实体
      * @return 支付流水响应对象
      */
-    @Mapping(target = "transactionAmount", expression = "java(entity.getTransactionAmount().getAmount())")
     PaymentTransactionVO toTransactionVO(PaymentTransactionEntity entity);
     
     /**

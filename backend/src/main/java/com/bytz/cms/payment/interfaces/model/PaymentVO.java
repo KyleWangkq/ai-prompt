@@ -96,11 +96,6 @@ public class PaymentVO {
     private LocalDateTime paymentDeadline;
     
     /**
-     * 优先级
-     */
-    private Integer priorityLevel;
-    
-    /**
      * 关联业务ID
      */
     private String relatedBusinessId;

@@ -58,11 +58,6 @@ public class CreatePaymentCommand {
     private LocalDateTime paymentDeadline;
     
     /**
-     * 优先级（可选，1-高，2-中，3-低）
-     */
-    private Integer priorityLevel;
-    
-    /**
      * 关联业务ID（可选）
      */
     private String relatedBusinessId;

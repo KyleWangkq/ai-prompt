@@ -5,13 +5,13 @@ import com.bytz.cms.payment.domain.enums.PaymentType;
 import com.bytz.cms.payment.domain.enums.RelatedBusinessType;
 import com.bytz.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.cms.payment.domain.repository.IPaymentRepository;
-import com.bytz.cms.payment.domain.valueobject.PaymentAmount;
 import com.bytz.cms.payment.shared.model.PaymentCreatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -58,14 +58,12 @@ public class PaymentApplicationService {
         // 生成支付单号
         String paymentId = paymentRepository.generatePaymentId();
         
-        // 创建支付金额值对象
-        PaymentAmount amount = PaymentAmount.ofCNY(command.getPaymentAmount());
-        
         // 创建支付单聚合根
         PaymentAggregate payment = PaymentAggregate.create(
                 command.getOrderId(),
                 command.getResellerId(),
-                amount,
+                command.getPaymentAmount(),
+                command.getCurrency() != null ? command.getCurrency() : "CNY",
                 command.getPaymentType(),
                 command.getBusinessDesc(),
                 command.getPaymentDeadline(),
@@ -78,7 +76,6 @@ public class PaymentApplicationService {
         payment.setId(paymentId);
         payment.setCreateBy(command.getCreateBy());
         payment.setCreateByName(command.getCreateByName());
-        payment.setPriorityLevel(command.getPriorityLevel());
         payment.setBusinessTags(command.getBusinessTags());
         
         // 持久化
@@ -147,7 +144,7 @@ public class PaymentApplicationService {
         if (command.getResellerId() == null || command.getResellerId().trim().isEmpty()) {
             throw new IllegalArgumentException("经销商ID不能为空");
         }
-        if (command.getPaymentAmount() == null || command.getPaymentAmount().signum() <= 0) {
+        if (command.getPaymentAmount() == null || command.getPaymentAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("支付金额必须大于0");
         }
         if (command.getPaymentType() == null) {
@@ -186,7 +183,7 @@ public class PaymentApplicationService {
                 .paymentId(payment.getId())
                 .orderId(payment.getOrderId())
                 .resellerId(payment.getResellerId())
-                .paymentAmount(payment.getPaymentAmount().getAmount())
+                .paymentAmount(payment.getPaymentAmount())
                 .paymentType(payment.getPaymentType())
                 .relatedBusinessId(payment.getRelatedBusinessId())
                 .occurredOn(payment.getCreateTime())

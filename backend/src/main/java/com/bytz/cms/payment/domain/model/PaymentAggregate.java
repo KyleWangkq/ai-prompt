@@ -8,12 +8,12 @@ import com.bytz.cms.payment.domain.enums.RefundStatus;
 import com.bytz.cms.payment.domain.enums.RelatedBusinessType;
 import com.bytz.cms.payment.domain.enums.TransactionStatus;
 import com.bytz.cms.payment.domain.enums.TransactionType;
-import com.bytz.cms.payment.domain.valueobject.PaymentAmount;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,22 +49,27 @@ public class PaymentAggregate {
     /**
      * 支付金额
      */
-    private PaymentAmount paymentAmount;
+    private BigDecimal paymentAmount;
     
     /**
      * 已支付金额
      */
-    private PaymentAmount paidAmount;
+    private BigDecimal paidAmount;
     
     /**
      * 已退款金额
      */
-    private PaymentAmount refundedAmount;
+    private BigDecimal refundedAmount;
     
     /**
      * 实际收款金额（已支付金额 - 已退款金额）
      */
-    private PaymentAmount actualAmount;
+    private BigDecimal actualAmount;
+    
+    /**
+     * 币种（默认CNY）
+     */
+    private String currency;
     
     /**
      * 支付类型
@@ -90,11 +95,6 @@ public class PaymentAggregate {
      * 支付截止时间
      */
     private LocalDateTime paymentDeadline;
-    
-    /**
-     * 优先级（1-高，2-中，3-低）
-     */
-    private Integer priorityLevel;
     
     /**
      * 关联业务ID
@@ -158,6 +158,7 @@ public class PaymentAggregate {
      * @param orderId 订单号
      * @param resellerId 经销商ID
      * @param paymentAmount 支付金额
+     * @param currency 币种
      * @param paymentType 支付类型
      * @param businessDesc 业务描述
      * @param paymentDeadline 支付截止时间
@@ -170,7 +171,8 @@ public class PaymentAggregate {
     public static PaymentAggregate create(
             String orderId,
             String resellerId,
-            PaymentAmount paymentAmount,
+            BigDecimal paymentAmount,
+            String currency,
             PaymentType paymentType,
             String businessDesc,
             LocalDateTime paymentDeadline,
@@ -189,9 +191,10 @@ public class PaymentAggregate {
                 .orderId(orderId)
                 .resellerId(resellerId)
                 .paymentAmount(paymentAmount)
-                .paidAmount(PaymentAmount.zero())
-                .refundedAmount(PaymentAmount.zero())
-                .actualAmount(PaymentAmount.zero())
+                .paidAmount(BigDecimal.ZERO)
+                .refundedAmount(BigDecimal.ZERO)
+                .actualAmount(BigDecimal.ZERO)
+                .currency(currency != null ? currency : "CNY")
                 .paymentType(paymentType)
                 .paymentStatus(PaymentStatus.UNPAID)
                 .refundStatus(RefundStatus.NO_REFUND)
@@ -217,7 +220,7 @@ public class PaymentAggregate {
      */
     public PaymentTransactionEntity executePayment(
             PaymentChannel paymentChannel,
-            PaymentAmount amount,
+            BigDecimal amount,
             String channelTransactionNumber) {
         
         // TODO: 实现支付执行逻辑
@@ -271,7 +274,7 @@ public class PaymentAggregate {
             this.actualAmount = this.paidAmount.subtract(this.refundedAmount);
             
             // 判断是否全额支付
-            if (this.paidAmount.isEqualTo(this.paymentAmount)) {
+            if (this.paidAmount.compareTo(this.paymentAmount) == 0) {
                 this.paymentStatus = PaymentStatus.PAID;
             } else {
                 this.paymentStatus = PaymentStatus.PARTIAL_PAID;
@@ -295,7 +298,7 @@ public class PaymentAggregate {
      * TODO: 实现退款执行逻辑，包括状态验证、金额验证、流水选择、退款流水创建等
      */
     public PaymentTransactionEntity executeRefund(
-            PaymentAmount refundAmount,
+            BigDecimal refundAmount,
             String originalTransactionId,
             String businessOrderId,
             String refundReason) {
@@ -358,7 +361,7 @@ public class PaymentAggregate {
             this.actualAmount = this.paidAmount.subtract(this.refundedAmount);
             
             // 判断是否全额退款
-            if (this.refundedAmount.isEqualTo(this.paidAmount)) {
+            if (this.refundedAmount.compareTo(this.paidAmount) == 0) {
                 this.refundStatus = RefundStatus.FULL_REFUNDED;
             } else {
                 this.refundStatus = RefundStatus.PARTIAL_REFUNDED;
@@ -376,7 +379,7 @@ public class PaymentAggregate {
      * 
      * @return 待支付金额
      */
-    public PaymentAmount getPendingAmount() {
+    public BigDecimal getPendingAmount() {
         return this.paymentAmount.subtract(this.paidAmount);
     }
     
@@ -393,7 +396,7 @@ public class PaymentAggregate {
         // 3. 支付单未被冻结
         return (PaymentStatus.UNPAID.equals(this.paymentStatus) 
                 || PaymentStatus.PARTIAL_PAID.equals(this.paymentStatus))
-                && !getPendingAmount().isZero();
+                && getPendingAmount().compareTo(BigDecimal.ZERO) > 0;
     }
     
     /**
@@ -407,8 +410,8 @@ public class PaymentAggregate {
         // 1. 必须有已支付金额
         // 2. 已退款金额小于已支付金额
         // 3. 支付单未被冻结
-        return !this.paidAmount.isZero() 
-                && this.refundedAmount.isLessThan(this.paidAmount);
+        return this.paidAmount.compareTo(BigDecimal.ZERO) > 0
+                && this.refundedAmount.compareTo(this.paidAmount) < 0;
     }
     
     /**
