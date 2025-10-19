@@ -1,16 +1,16 @@
 package com.bytz.cms.payment.domain;
 
 import com.bytz.cms.payment.domain.entity.PaymentTransactionEntity;
-import com.bytz.cms.payment.domain.enums.TransactionStatus;
 import com.bytz.cms.payment.domain.enums.TransactionType;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 /**
  * 支付流水领域服务
  * 
- * <p>负责支付流水的业务操作和验证逻辑</p>
+ * <p>负责支付流水的跨实体业务操作和验证逻辑</p>
+ * <p>注意：单个实体的行为方法（start, success, fail）已在PaymentTransactionEntity中定义</p>
  * 
  * <p>术语来源：DDD设计模式 - 领域服务</p>
  * <p>需求来源：需求文档4.4.2节支付流水表设计</p>
@@ -19,37 +19,8 @@ import java.time.LocalDateTime;
  * @version 1.0.0
  * @since 2025-01-15
  */
+@Service
 public class PaymentTransactionDomainService {
-
-    /**
-     * 标记流水成功并记录完成时间（对应渠道回调成功，UC-PM-004）
-     * 
-     * <p>用例来源：UC-PM-004处理支付回调</p>
-     * <p>状态转换：PROCESSING → SUCCESS</p>
-     * 
-     * @param transaction 支付流水实体
-     * @param completedAt 完成时间
-     */
-    public void markSuccess(PaymentTransactionEntity transaction, LocalDateTime completedAt) {
-        transaction.setTransactionStatus(TransactionStatus.SUCCESS);
-        transaction.setCompleteDatetime(completedAt);
-        transaction.setUpdatedTime(LocalDateTime.now());
-    }
-
-    /**
-     * 标记流水失败（渠道回调失败或主动失败）
-     * 
-     * <p>状态转换：PROCESSING → FAILED</p>
-     * 
-     * @param transaction 支付流水实体
-     * @param reason 失败原因
-     */
-    public void markFailed(PaymentTransactionEntity transaction, String reason) {
-        transaction.setTransactionStatus(TransactionStatus.FAILED);
-        transaction.setBusinessRemark(reason);
-        transaction.setCompleteDatetime(LocalDateTime.now());
-        transaction.setUpdatedTime(LocalDateTime.now());
-    }
 
     /**
      * 校验金额类型一致性

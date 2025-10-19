@@ -2,16 +2,17 @@ package com.bytz.cms.payment.domain.model;
 
 import com.bytz.cms.payment.domain.entity.PaymentTransactionEntity;
 import com.bytz.cms.payment.domain.enums.PaymentChannel;
-import com.bytz.cms.payment.domain.enums.TransactionStatus;
 import com.bytz.cms.payment.domain.enums.TransactionType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * 支付流水工厂类
  * 
  * <p>负责创建支付流水实体的工厂类，封装创建逻辑</p>
+ * <p>注意：实际创建逻辑已委托给PaymentTransactionEntity.start()静态方法</p>
  * 
  * <p>术语来源：DDD设计模式 - 工厂模式</p>
  * <p>需求来源：需求文档4.4.2节支付流水表设计</p>
@@ -46,18 +47,28 @@ public class PaymentTransactionFactory {
             String channelTransactionNumber,
             LocalDateTime expirationTime) {
         
-        PaymentTransactionEntity transaction = new PaymentTransactionEntity();
-        transaction.setPaymentId(paymentId);
-        transaction.setTransactionType(transactionType);
-        transaction.setTransactionStatus(TransactionStatus.PROCESSING);
-        transaction.setTransactionAmount(transactionAmount);
-        transaction.setPaymentChannel(paymentChannel);
-        transaction.setPaymentWay(paymentWay);
-        transaction.setChannelTransactionNumber(channelTransactionNumber);
-        transaction.setExpirationTime(expirationTime);
-        transaction.setCreatedTime(LocalDateTime.now());
-        transaction.setDelFlag(0);
+        // 生成流水号
+        String transactionId = generateTransactionId();
         
-        return transaction;
+        // 委托给实体的静态工厂方法
+        return PaymentTransactionEntity.start(
+                transactionId,
+                paymentId,
+                transactionType,
+                transactionAmount,
+                paymentChannel,
+                paymentWay,
+                channelTransactionNumber,
+                expirationTime
+        );
+    }
+    
+    /**
+     * 生成流水号
+     * 
+     * @return 流水号（32位UUID）
+     */
+    private static String generateTransactionId() {
+        return UUID.randomUUID().toString().replace("-", "");
     }
 }
