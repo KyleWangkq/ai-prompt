@@ -30,8 +30,6 @@ com.bytz.cms.payment/
 
 ## Input: YAML Domain Specifications
 
-The primary source of truth is `docs/payment.yml`. Key patterns:
-
 ```yaml
 project:
   basePackage: com.bytz.cms.payment
@@ -66,6 +64,7 @@ domainServices:
 | Spring Boot | 2.7.x | Framework |
 | MyBatis-Plus | 3.5.x | ORM with lambda queries |
 | Lombok | Latest | `@Data`, `@Builder`, `@Slf4j` |
+| MapStruct | 1.5.x | DTO ↔ Domain conversion in application layer (annotation processor required) |
 | MySQL | 8.x | Database |
 | JUnit 5 | 5.8.x | Testing |
 
@@ -109,6 +108,7 @@ For each aggregate in YAML:
    - Create `{name}RepositoryImpl` implementing interface
 3. **Application Layer**:
    - Create `{name}ApplicationService` for use case orchestration
+   - Create `{name}Assembler` under `application/assembler/` using MapStruct for RO/VO ↔ Domain conversions
 4. **Interface Layer**:
    - Create `{name}Controller` with `@RestController`
    - Create DTOs: `{name}CreateRO`, `{name}VO`
@@ -173,7 +173,8 @@ public class PaymentRepositoryImpl
 @RequestMapping("/api/payments")
 public class PaymentController {
     public PaymentVO create(@Valid @RequestBody PaymentCreateRO request) {
-        // TODO: Convert RO → Domain → VO
+        // Use MapStruct assembler in application layer for RO ↔ Domain ↔ VO conversion
+        // TODO: Invoke ApplicationService which uses {name}Assembler
     }
 }
 ```
@@ -196,6 +197,18 @@ public PaymentAggregate create(CreatePaymentCommand command) {
     // command contains: orderId, amount, paymentType, channelCode, userId
 }
 ```
+
+## MapStruct-Based Conversion (Application Assembler)
+- Location: `application/assembler/`
+- Naming: `{Aggregate}Assembler` (e.g., `PaymentAssembler`)
+- Annotation: `@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)`
+- Responsibility: Perform RO/VO ↔ Domain conversions; no business logic
+- Common methods:
+  - `CreatePaymentCommand toCreateCommand(PaymentCreateRO ro)`
+  - `PaymentVO toVO(PaymentAggregate aggregate)`
+  - Batch variants: `List<PaymentVO> toVOs(List<PaymentAggregate> list)`
+- Lombok + MapStruct: Keep fields aligned; favor explicit mappings for differing names
+- Maven: Include `mapstruct` and `mapstruct-processor` (annotationProcessor)
 
 ## Design Documents as Authority
 
@@ -220,15 +233,17 @@ public PaymentAggregate create(CreatePaymentCommand command) {
 - Keep aggregates small (reference others by ID)
 - Generate complete file trees with imports
 - Follow `I*Repository` naming convention
+- Use MapStruct assembler in the application layer for all DTO/domain conversions
 
 ## Quick Validation Checklist
 
 After generating code:
-- [ ] Package structure matches five layers
+- [ ] Package structure matches five layers (plus `application/assembler` for MapStruct)
 - [ ] Repository interfaces have `I` prefix
 - [ ] No entities in controller parameters
 - [ ] All business methods have `// TODO` markers
 - [ ] Terms match Glossary.md exactly
+- [ ] MapStruct assembler classes exist and are wired via Spring
 - [ ] Code compiles with `mvn clean compile`
 
 ## Instruction Files in Use
@@ -241,4 +256,4 @@ These are **automatically enforced** - read them before generating code.
 
 ---
 
-**Version**: 1.0 | **Updated**: 2025-01-15 | **Based on**: Payment Module v1.5
+**Version**: 1.1 | **Updated**: 2025-01-15 | **Based on**: Payment Module v1.5 | Changes: Added MapStruct and application/assembler conventions

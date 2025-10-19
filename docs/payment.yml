@@ -182,8 +182,9 @@ aggregates:
       - name: create
         description: |
           接收并创建支付单（UC-PM-001 / UC-PM-007），初始化为UNPAID并完成基础校验。
-          用例来源：UC-PM-001接收支付单创建请求、UC-PM-007创建信用还款支付单
+          用例来源：UC-PM-001接收支付单创建请求（普通支付）、UC-PM-007创建信用还款支付单
           业务规则：支付单号必须唯一，支付金额必须为正数
+          信用还款说明：信用还款支付单通过设置paymentType=CREDIT_REPAYMENT和relatedBusinessType=CREDIT_RECORD来标识，创建流程与普通支付单一致。
         params: [orderId:String, resellerId:String, paymentAmount:BigDecimal, paymentType:PaymentType, paymentDeadline:LocalDateTime, priorityLevel:Integer, relatedBusinessId:String, relatedBusinessType:RelatedBusinessType, businessExpireDate:LocalDateTime, businessDesc:String, businessTags:String]
       - name: markPaying
         description: |
@@ -369,16 +370,16 @@ domainServices:
       支付单创建与执行前的业务校验（金额、状态、截止时间、唯一性等）。
       领域服务类型：验证服务
       术语来源：Glossary.md - 领域服务术语"支付验证服务"
-      相关用例：UC-PM-001、UC-PM-003、UC-PM-006、UC-PM-007
+      相关用例：UC-PM-001、UC-PM-003、UC-PM-006
     methods:
       - name: validateCreate
         description: |
-          校验创建请求（UC-PM-001/007）。
+          校验创建请求（UC-PM-001），包含普通支付单和信用还款支付单。
           验证项：支付单号唯一性、金额合法性、必填字段完整性、业务规则符合性。
           用例来源：UC-PM-001步骤3-4、UC-PM-007步骤3-4
       - name: validateExecute
         description: |
-          校验执行支付前置条件（UC-PM-003）。
+          校验执行支付前置条件（UC-PM-003），适用于所有支付类型。
           验证项：支付单状态可支付、待支付金额>0、未超过截止时间、经销商权限。
           用例来源：UC-PM-003步骤3-4
       - name: validateRefund
@@ -389,17 +390,18 @@ domainServices:
 
   - name: PaymentExecutionService
     description: |
-      统一支付执行编排，包含多支付单合并支付、金额分配与渠道下单。
+      统一支付执行编排，包含多支付单合并支付、金额分配与渠道下单，适用于所有支付类型（包括信用还款）。
       领域服务类型：编排服务
       术语来源：Glossary.md - 领域服务术语"支付执行服务(PaymentExecutionService)"
-      需求来源：需求文档4.2节支付执行流程
+      需求来源：需求文档4.2节支付执行流程、4.10节信用还款处理
       相关用例：UC-PM-003、UC-PM-008
+      设计原则：信用还款（paymentType=CREDIT_REPAYMENT）作为普通支付单按统一流程处理，支付成功后通过领域事件通知信用管理系统。
     methods:
       - name: executeUnifiedPayment
         description: |
-          根据支付单集合与分配金额执行一次统一支付（UC-PM-003/008）。
-          处理流程：验证支付单集合 → 验证金额分配 → 调用渠道支付 → 创建支付流水 → 更新支付单状态。
-          支持场景：单支付单支付（特例）、多支付单合并支付（统一流程）。
+          根据支付单集合与分配金额执行一次统一支付（UC-PM-003/008），适用于所有支付类型。
+          处理流程：验证支付单集合 → 验证金额分配 → 调用渠道支付 → 创建支付流水 → 更新支付单状态 → 发布领域事件（信用还款支付单会触发CreditRepaymentCompletedEvent）。
+          支持场景：单支付单支付（特例）、多支付单合并支付（统一流程）、信用还款支付单（作为普通支付处理）。
           用例来源：UC-PM-003步骤5-12、UC-PM-008步骤4-11
       - name: allocateAmounts
         description: |
@@ -440,26 +442,6 @@ domainServices:
           处理流程：接收退款指令 → 验证退款前置条件 → 选择退款流水（最新流水/指定流水/多流水分摊） → 调用渠道退款 → 创建退款流水 → 更新支付单状态。
           流水选择策略：指定流水退款、最新流水退款、多流水分摊退款。
           用例来源：UC-PM-006步骤1-8
-
-  - name: CreditRepaymentService
-    description: |
-      信用还款专用编排，创建信用还款支付单并纳入统一支付流程。
-      领域服务类型：编排服务
-      术语来源：Glossary.md - 业务术语"信用还款(Credit Repayment)"
-      需求来源：需求文档4.10节信用还款处理
-      相关用例：UC-PM-007、UC-PM-008
-      设计原则：信用还款只是支付类型为"信用还款"的普通支付单，按统一支付流程处理。
-    methods:
-      - name: createCreditRepaymentPayment
-        description: |
-          创建信用还款支付单（UC-PM-007）。
-          处理流程：接收信用管理系统还款指令 → 构建支付单（paymentType=CREDIT_REPAYMENT, relatedBusinessType=CREDIT_RECORD） → 调用Payment.create。
-          用例来源：UC-PM-007步骤1-5
-      - name: executeCreditRepayment
-        description: |
-          执行信用还款支付（UC-PM-008）。
-          处理流程：选择信用还款支付单 → 调用PaymentExecutionService.executeUnifiedPayment（统一支付流程） → 支付成功后通知信用管理系统。
-          用例来源：UC-PM-008步骤1-12
 
   - name: PaymentQueryService
     description: |
