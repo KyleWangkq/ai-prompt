@@ -129,4 +129,74 @@ public class PaymentTransactionEntity {
      * 更新时间（可选）
      */
     private LocalDateTime updatedTime;
+    
+    /**
+     * 创建流水并置为PROCESSING（UC-PM-003-11/12）
+     * 
+     * <p>用例来源：UC-PM-003执行支付操作、UC-PM-006接收退款执行指令</p>
+     * <p>初始状态：PROCESSING</p>
+     * 
+     * @param id 流水号
+     * @param paymentId 支付单号
+     * @param transactionType 流水类型
+     * @param transactionAmount 交易金额
+     * @param paymentChannel 支付渠道
+     * @param paymentWay 支付方式
+     * @param channelTransactionNumber 渠道交易号
+     * @param expirationTime 支付过期时间
+     * @return 新创建的流水实体
+     */
+    public static PaymentTransactionEntity start(
+            String id,
+            String paymentId,
+            TransactionType transactionType,
+            BigDecimal transactionAmount,
+            PaymentChannel paymentChannel,
+            String paymentWay,
+            String channelTransactionNumber,
+            LocalDateTime expirationTime) {
+        
+        PaymentTransactionEntity transaction = new PaymentTransactionEntity();
+        transaction.setId(id);
+        transaction.setPaymentId(paymentId);
+        transaction.setTransactionType(transactionType);
+        transaction.setTransactionStatus(TransactionStatus.PROCESSING);
+        transaction.setTransactionAmount(transactionAmount);
+        transaction.setPaymentChannel(paymentChannel);
+        transaction.setPaymentWay(paymentWay);
+        transaction.setChannelTransactionNumber(channelTransactionNumber);
+        transaction.setExpirationTime(expirationTime);
+        transaction.setDelFlag(0);
+        transaction.setCreatedTime(LocalDateTime.now());
+        
+        return transaction;
+    }
+    
+    /**
+     * 标记流水成功并记录完成时间（对应渠道回调成功，UC-PM-004）
+     * 
+     * <p>用例来源：UC-PM-004处理支付回调</p>
+     * <p>状态转换：PROCESSING → SUCCESS</p>
+     * 
+     * @param completedAt 完成时间
+     */
+    public void success(LocalDateTime completedAt) {
+        this.transactionStatus = TransactionStatus.SUCCESS;
+        this.completeDatetime = completedAt;
+        this.updatedTime = LocalDateTime.now();
+    }
+    
+    /**
+     * 标记流水失败（渠道回调失败或主动失败）
+     * 
+     * <p>状态转换：PROCESSING → FAILED</p>
+     * 
+     * @param reason 失败原因
+     */
+    public void fail(String reason) {
+        this.transactionStatus = TransactionStatus.FAILED;
+        this.businessRemark = (this.businessRemark != null ? this.businessRemark + "; " : "") + reason;
+        this.completeDatetime = LocalDateTime.now();
+        this.updatedTime = LocalDateTime.now();
+    }
 }
