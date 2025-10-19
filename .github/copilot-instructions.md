@@ -79,7 +79,7 @@ Patterns and examples:
 - Controller uses ApplicationService + Assembler for RO↔Domain↔VO; no domain types leaked in interfaces.
 
 Developer workflow:
-1) Read spec: open `docs/payment.yml` and `docs/Glossary.md`.
+1) Read spec: open `docs/payment.yml`,`docs/支付模块用例模型.md` and `docs/Glossary.md`.
 2) Generate code under `backend/` with the package tree above; add TODO markers for unimplemented domain logic.
 3) Build when backend exists: cd backend && mvn clean compile test.
 

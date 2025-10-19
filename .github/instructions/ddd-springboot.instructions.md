@@ -1,6 +1,6 @@
 ---
 description: 'This instruction describes strict DDD Spring Boot code generation standards, requiring a five-layer architecture, clear package structure, technology stack constraints, and complete, compilable, and testable project skeletons from YAML domain specs.'
-applyTo: 'backend/**/*.java, backend/**/*.kt'
+applyTo: 'backend/**'
 ---
 
 # DDD Spring Boot Code Generation Assistant

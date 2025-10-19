@@ -108,7 +108,7 @@ aggregates:
         description: 支付单号，唯一标识（32位字符，全局唯一）
       - name: orderId
         type: String
-        description: 关联订单号（32位字符，可选，信用还款支付单可能无订单号）
+        description: 关联订单号（32位字符）
       - name: resellerId
         type: String
         description: 经销商ID（买方标识，32位字符，必填）
