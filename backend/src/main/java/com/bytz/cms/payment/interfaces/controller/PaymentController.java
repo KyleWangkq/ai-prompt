@@ -34,13 +34,15 @@ public class PaymentController {
     /**
      * 创建支付单
      * 
-     * POST /api/v1/payments
+     * ⚠️ 已废弃：支付单创建应该由系统内部调用，不应该通过外部REST接口创建
+     * 请使用 PaymentApplicationService.createPayment() 方法在系统内部创建支付单
      * 
-     * @param ro 创建支付单请求对象
-     * @return 支付单响应对象
+     * @deprecated 支付单创建来源于系统内部，不通过接口创建
      */
+    @Deprecated
     @PostMapping
     public ResponseEntity<PaymentVO> createPayment(@Valid @RequestBody PaymentCreateRO ro) {
+        log.warn("警告：通过REST接口创建支付单已废弃，支付单应该由系统内部创建");
         log.info("收到创建支付单请求，订单号: {}, 支付类型: {}", ro.getOrderId(), ro.getPaymentType());
         
         // 转换为命令对象

@@ -32,6 +32,8 @@ public class PaymentApplicationService {
     /**
      * 创建支付单
      * 
+     * 此方法应该由系统内部调用（如订单系统、信用管理系统等），不应该通过外部REST接口调用
+     * 
      * @param command 创建支付单命令
      * @return 支付单聚合根
      * TODO: 实现支付单创建完整流程
