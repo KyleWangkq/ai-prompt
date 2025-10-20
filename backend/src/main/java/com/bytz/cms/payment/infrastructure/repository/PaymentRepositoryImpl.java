@@ -2,9 +2,9 @@ package com.bytz.cms.payment.infrastructure.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.bytz.cms.payment.domain.entity.PaymentTransactionEntity;
-import com.bytz.cms.payment.domain.enums.*;
 import com.bytz.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.cms.payment.domain.repository.IPaymentRepository;
+import com.bytz.cms.payment.infrastructure.assembler.InfrastructureAssembler;
 import com.bytz.cms.payment.infrastructure.mapper.PaymentMapper;
 import com.bytz.cms.payment.infrastructure.mapper.PaymentTransactionMapper;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -24,7 +23,7 @@ import java.util.stream.Collectors;
  * Payment Repository Implementation
  * 
  * 实现IPaymentRepository接口，处理支付单聚合根的持久化
- * 负责领域对象和数据库实体之间的转换
+ * 负责领域对象和数据库实体之间的转换（使用MapStruct）
  */
 @Slf4j
 @Repository
@@ -33,6 +32,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     
     private final PaymentMapper paymentMapper;
     private final PaymentTransactionMapper transactionMapper;
+    private final InfrastructureAssembler infrastructureAssembler;
     
     /**
      * 保存支付单聚合根
@@ -45,8 +45,9 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     public PaymentAggregate save(PaymentAggregate payment) {
         log.info("保存支付单聚合根，支付单号: {}", payment.getId());
         
-        // 转换为数据库实体
-        com.bytz.cms.payment.infrastructure.entity.PaymentEntity entity = toPaymentEntity(payment);
+        // 使用MapStruct转换为数据库实体
+        com.bytz.cms.payment.infrastructure.entity.PaymentEntity entity = 
+                infrastructureAssembler.toPaymentEntity(payment);
         
         // 判断是插入还是更新
         if (existsById(payment.getId())) {
@@ -57,8 +58,9 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         
         // 保存支付流水
         for (PaymentTransactionEntity transaction : payment.getTransactions()) {
+            // 使用MapStruct转换流水实体
             com.bytz.cms.payment.infrastructure.entity.PaymentTransactionEntity transactionEntity = 
-                    toTransactionEntity(transaction);
+                    infrastructureAssembler.toTransactionEntity(transaction);
             
             if (transaction.getId() == null || transaction.getId().isEmpty()) {
                 transaction.setId(generateTransactionId());
@@ -96,7 +98,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         List<com.bytz.cms.payment.infrastructure.entity.PaymentTransactionEntity> transactionEntities = 
                 transactionMapper.selectList(wrapper);
         
-        // 转换为领域对象
+        // 使用MapStruct转换为领域对象
         return toPaymentAggregate(entity, transactionEntities);
     }
     
@@ -202,7 +204,6 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
      * 生成唯一的支付单号
      * 
      * @return 唯一的支付单号
-     * TODO: 实现更优的支付单号生成策略
      */
     @Override
     public String generatePaymentId() {
@@ -216,7 +217,6 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
      * 生成唯一的支付流水号
      * 
      * @return 唯一的支付流水号
-     * TODO: 实现更优的支付流水号生成策略
      */
     @Override
     public String generateTransactionId() {
@@ -244,130 +244,22 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     }
     
     /**
-     * 将领域对象转换为数据库实体
-     */
-    private com.bytz.cms.payment.infrastructure.entity.PaymentEntity toPaymentEntity(PaymentAggregate aggregate) {
-        return com.bytz.cms.payment.infrastructure.entity.PaymentEntity.builder()
-                .id(aggregate.getId())
-                .orderId(aggregate.getOrderId())
-                .resellerId(aggregate.getResellerId())
-                .paymentAmount(aggregate.getPaymentAmount())
-                .paidAmount(aggregate.getPaidAmount())
-                .refundedAmount(aggregate.getRefundedAmount())
-                .actualAmount(aggregate.getActualAmount())
-                .currency(aggregate.getCurrency())
-                .paymentType(aggregate.getPaymentType().name())
-                .paymentStatus(aggregate.getPaymentStatus().name())
-                .refundStatus(aggregate.getRefundStatus().name())
-                .businessDesc(aggregate.getBusinessDesc())
-                .paymentDeadline(aggregate.getPaymentDeadline())
-                .relatedBusinessId(aggregate.getRelatedBusinessId())
-                .relatedBusinessType(aggregate.getRelatedBusinessType() != null ? 
-                        aggregate.getRelatedBusinessType().name() : null)
-                .businessExpireDate(aggregate.getBusinessExpireDate())
-                .businessTags(aggregate.getBusinessTags())
-                .createBy(aggregate.getCreateBy())
-                .createByName(aggregate.getCreateByName())
-                .createTime(aggregate.getCreateTime())
-                .updateBy(aggregate.getUpdateBy())
-                .updateByName(aggregate.getUpdateByName())
-                .updateTime(aggregate.getUpdateTime())
-                .build();
-    }
-    
-    /**
-     * 将领域流水实体转换为数据库实体
-     */
-    private com.bytz.cms.payment.infrastructure.entity.PaymentTransactionEntity toTransactionEntity(
-            PaymentTransactionEntity domainEntity) {
-        return com.bytz.cms.payment.infrastructure.entity.PaymentTransactionEntity.builder()
-                .id(domainEntity.getId())
-                .paymentId(domainEntity.getPaymentId())
-                .transactionType(domainEntity.getTransactionType().name())
-                .transactionStatus(domainEntity.getTransactionStatus().name())
-                .transactionAmount(domainEntity.getTransactionAmount())
-                .paymentChannel(domainEntity.getPaymentChannel().name())
-                .channelTransactionNumber(domainEntity.getChannelTransactionNumber())
-                .paymentWay(domainEntity.getPaymentWay())
-                .originalTransactionId(domainEntity.getOriginalTransactionId())
-                .businessOrderId(domainEntity.getBusinessOrderId())
-                .createTime(domainEntity.getCreateTime())
-                .completeDateTime(domainEntity.getCompleteDateTime())
-                .expirationTime(domainEntity.getExpirationTime())
-                .businessRemark(domainEntity.getBusinessRemark())
-                .createBy(domainEntity.getCreateBy())
-                .createByName(domainEntity.getCreateByName())
-                .updateBy(domainEntity.getUpdateBy())
-                .updateByName(domainEntity.getUpdateByName())
-                .updateTime(domainEntity.getUpdateTime())
-                .build();
-    }
-    
-    /**
-     * 将数据库实体转换为领域对象
+     * 将数据库实体转换为领域对象（使用MapStruct）
      */
     private PaymentAggregate toPaymentAggregate(
             com.bytz.cms.payment.infrastructure.entity.PaymentEntity entity,
             List<com.bytz.cms.payment.infrastructure.entity.PaymentTransactionEntity> transactionEntities) {
         
-        List<PaymentTransactionEntity> transactions = transactionEntities.stream()
-                .map(this::toDomainTransaction)
-                .collect(Collectors.toList());
+        // 使用MapStruct转换支付单
+        PaymentAggregate aggregate = infrastructureAssembler.toPaymentAggregate(entity);
         
-        return PaymentAggregate.builder()
-                .id(entity.getId())
-                .orderId(entity.getOrderId())
-                .resellerId(entity.getResellerId())
-                .paymentAmount(entity.getPaymentAmount() != null ? entity.getPaymentAmount() : BigDecimal.ZERO)
-                .paidAmount(entity.getPaidAmount() != null ? entity.getPaidAmount() : BigDecimal.ZERO)
-                .refundedAmount(entity.getRefundedAmount() != null ? entity.getRefundedAmount() : BigDecimal.ZERO)
-                .actualAmount(entity.getActualAmount() != null ? entity.getActualAmount() : BigDecimal.ZERO)
-                .currency(entity.getCurrency() != null ? entity.getCurrency() : "CNY")
-                .paymentType(PaymentType.valueOf(entity.getPaymentType()))
-                .paymentStatus(PaymentStatus.valueOf(entity.getPaymentStatus()))
-                .refundStatus(RefundStatus.valueOf(entity.getRefundStatus()))
-                .businessDesc(entity.getBusinessDesc())
-                .paymentDeadline(entity.getPaymentDeadline())
-                .relatedBusinessId(entity.getRelatedBusinessId())
-                .relatedBusinessType(entity.getRelatedBusinessType() != null ? 
-                        RelatedBusinessType.valueOf(entity.getRelatedBusinessType()) : null)
-                .businessExpireDate(entity.getBusinessExpireDate())
-                .businessTags(entity.getBusinessTags())
-                .createBy(entity.getCreateBy())
-                .createByName(entity.getCreateByName())
-                .createTime(entity.getCreateTime())
-                .updateBy(entity.getUpdateBy())
-                .updateByName(entity.getUpdateByName())
-                .updateTime(entity.getUpdateTime())
-                .transactions(transactions)
-                .build();
-    }
-    
-    /**
-     * 将数据库流水实体转换为领域流水实体
-     */
-    private PaymentTransactionEntity toDomainTransaction(
-            com.bytz.cms.payment.infrastructure.entity.PaymentTransactionEntity entity) {
-        return PaymentTransactionEntity.builder()
-                .id(entity.getId())
-                .paymentId(entity.getPaymentId())
-                .transactionType(TransactionType.valueOf(entity.getTransactionType()))
-                .transactionStatus(TransactionStatus.valueOf(entity.getTransactionStatus()))
-                .transactionAmount(entity.getTransactionAmount() != null ? entity.getTransactionAmount() : BigDecimal.ZERO)
-                .paymentChannel(PaymentChannel.valueOf(entity.getPaymentChannel()))
-                .channelTransactionNumber(entity.getChannelTransactionNumber())
-                .paymentWay(entity.getPaymentWay())
-                .originalTransactionId(entity.getOriginalTransactionId())
-                .businessOrderId(entity.getBusinessOrderId())
-                .createTime(entity.getCreateTime())
-                .completeDateTime(entity.getCompleteDateTime())
-                .expirationTime(entity.getExpirationTime())
-                .businessRemark(entity.getBusinessRemark())
-                .createBy(entity.getCreateBy())
-                .createByName(entity.getCreateByName())
-                .updateBy(entity.getUpdateBy())
-                .updateByName(entity.getUpdateByName())
-                .updateTime(entity.getUpdateTime())
-                .build();
+        // 使用MapStruct转换流水列表
+        List<PaymentTransactionEntity> transactions = 
+                infrastructureAssembler.toDomainTransactions(transactionEntities);
+        
+        // 设置流水列表
+        aggregate.setTransactions(transactions);
+        
+        return aggregate;
     }
 }

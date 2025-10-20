@@ -102,32 +102,4 @@ public class PaymentDomainService {
         
         return true; // 暂时返回true
     }
-    
-    /**
-     * 选择最佳支付流水进行退款
-     * 
-     * @param payment 支付单聚合
-     * @param command 退款命令
-     * @return 选中的支付流水ID
-     * TODO: 实现退款流水选择策略
-     * 需求：
-     * 1. 如果指定了原流水号，使用指定的流水
-     * 2. 如果未指定，按时间倒序选择最新的支付流水
-     * 3. 如果退款金额超过单笔流水，需要分摊到多个流水
-     */
-    public String selectTransactionForRefund(PaymentAggregate payment, ExecuteRefundCommand command) {
-        log.info("选择退款流水，支付单: {}, 退款金额: {}", command.getPaymentId(), command.getRefundAmount());
-        
-        // TODO: 实现流水选择逻辑
-        if (command.getOriginalTransactionId() != null) {
-            return command.getOriginalTransactionId();
-        }
-        
-        // 默认选择最新的支付流水
-        return payment.getTransactions().stream()
-                .filter(t -> t.isPaymentTransaction() && t.isSuccess())
-                .max((t1, t2) -> t1.getCreateTime().compareTo(t2.getCreateTime()))
-                .map(t -> t.getId())
-                .orElseThrow(() -> new IllegalArgumentException("未找到可用的支付流水"));
-    }
 }
