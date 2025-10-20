@@ -291,11 +291,10 @@ public class PaymentAggregate {
      * 执行退款操作
      * 
      * @param refundAmount 退款金额
-     * @param originalTransactionId 原支付流水号
+     * @param originalTransactionId 原支付流水号（必须提供）
      * @param businessOrderId 业务单号（退款单号）
      * @param refundReason 退款原因
      * @return 创建的退款流水
-     * TODO: 实现退款执行逻辑，包括状态验证、金额验证、流水选择、退款流水创建等
      */
     public PaymentTransactionEntity executeRefund(
             BigDecimal refundAmount,
@@ -303,18 +302,37 @@ public class PaymentAggregate {
             String businessOrderId,
             String refundReason) {
         
-        // TODO: 实现退款执行逻辑
-        // 1. 验证支付单状态是否允许退款
-        // 2. 验证退款金额不超过可退款金额（已支付金额 - 已退款金额）
-        // 3. 查找原支付流水
-        // 4. 创建退款流水记录（金额为负数）
-        // 5. 更新退款状态为"退款中"
-        
-        PaymentTransactionEntity originalTransaction = findTransactionById(originalTransactionId);
-        if (originalTransaction == null) {
-            throw new IllegalArgumentException("未找到原支付流水");
+        // 1. 验证必填参数
+        if (originalTransactionId == null || originalTransactionId.trim().isEmpty()) {
+            throw new IllegalArgumentException("原支付流水号不能为空");
         }
         
+        // 2. 验证支付单状态是否允许退款
+        if (!canRefund()) {
+            throw new IllegalArgumentException("当前支付单状态不允许退款");
+        }
+        
+        // 3. 验证退款金额不超过可退款金额（已支付金额 - 已退款金额）
+        BigDecimal refundableAmount = this.paidAmount.subtract(this.refundedAmount);
+        if (refundAmount.compareTo(refundableAmount) > 0) {
+            throw new IllegalArgumentException("退款金额不能超过可退款金额");
+        }
+        
+        // 4. 查找并验证原支付流水
+        PaymentTransactionEntity originalTransaction = findTransactionById(originalTransactionId);
+        if (originalTransaction == null) {
+            throw new IllegalArgumentException("未找到原支付流水: " + originalTransactionId);
+        }
+        
+        if (!originalTransaction.isPaymentTransaction()) {
+            throw new IllegalArgumentException("指定的流水不是支付流水");
+        }
+        
+        if (!originalTransaction.isSuccess()) {
+            throw new IllegalArgumentException("指定的支付流水未成功，无法退款");
+        }
+        
+        // 5. 创建退款流水记录
         PaymentTransactionEntity refundTransaction = PaymentTransactionEntity.builder()
                 .paymentId(this.id)
                 .transactionType(TransactionType.REFUND)
@@ -327,6 +345,7 @@ public class PaymentAggregate {
                 .createTime(LocalDateTime.now())
                 .build();
         
+        // 6. 更新退款状态
         this.transactions.add(refundTransaction);
         this.refundStatus = RefundStatus.REFUNDING;
         this.updateTime = LocalDateTime.now();
