@@ -187,4 +187,15 @@ public class PaymentTransaction {
         this.businessRemark = failureReason;
         this.updateTime = LocalDateTime.now();
     }
+    
+    /**
+     * 更新渠道交易号
+     * 支付记录是流水表，除了交易状态和渠道交易号，不应有其他数据修改
+     * 
+     * @param channelTransactionNumber 渠道交易号
+     */
+    public void updateChannelTransactionNumber(String channelTransactionNumber) {
+        this.channelTransactionNumber = channelTransactionNumber;
+        this.updateTime = LocalDateTime.now();
+    }
 }

@@ -297,4 +297,20 @@ class PaymentTransactionTest {
         assertNotNull(paymentTransaction.getBusinessRemark());
         assertEquals(expectedReason, paymentTransaction.getBusinessRemark());
     }
+    
+    @Test
+    @DisplayName("更新渠道交易号")
+    void testUpdateChannelTransactionNumber() {
+        // Given
+        String originalNumber = paymentTransaction.getChannelTransactionNumber();
+        String newChannelNumber = "CHANNEL-TXN-NEW-001";
+        
+        // When
+        paymentTransaction.updateChannelTransactionNumber(newChannelNumber);
+        
+        // Then
+        assertEquals(newChannelNumber, paymentTransaction.getChannelTransactionNumber());
+        assertNotEquals(originalNumber, paymentTransaction.getChannelTransactionNumber());
+        assertNotNull(paymentTransaction.getUpdateTime());
+    }
 }
