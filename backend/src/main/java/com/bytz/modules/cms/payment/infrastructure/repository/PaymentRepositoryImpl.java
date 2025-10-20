@@ -5,6 +5,8 @@ import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
 import com.bytz.modules.cms.payment.infrastructure.assembler.InfrastructureAssembler;
+import com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity;
+import com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity;
 import com.bytz.modules.cms.payment.infrastructure.mapper.PaymentMapper;
 import com.bytz.modules.cms.payment.infrastructure.mapper.PaymentTransactionMapper;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -47,8 +51,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         log.info("保存支付单聚合根，支付单号: {}", payment.getId());
         
         // 使用MapStruct转换为数据库实体
-        com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity entity = 
-                infrastructureAssembler.toPaymentEntity(payment);
+        PaymentEntity entity = infrastructureAssembler.toPaymentEntity(payment);
         
         // 判断是插入还是更新
         if (existsById(payment.getId())) {
@@ -60,7 +63,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         // 保存支付流水
         for (PaymentTransaction transaction : payment.getTransactions()) {
             // 使用MapStruct转换流水实体
-            com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity transactionEntity = 
+            PaymentTransactionEntity transactionEntity = 
                     infrastructureAssembler.toTransactionEntity(transaction);
             
             if (transaction.getId() == null || transaction.getId().isEmpty()) {
@@ -87,17 +90,15 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     public PaymentAggregate findById(String id) {
         log.info("查找支付单，支付单号: {}", id);
         
-        com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity entity = paymentMapper.selectById(id);
+        PaymentEntity entity = paymentMapper.selectById(id);
         if (entity == null) {
             return null;
         }
         
         // 查询支付流水
-        LambdaQueryWrapper<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> wrapper = 
-                new LambdaQueryWrapper<>();
-        wrapper.eq(com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity::getPaymentId, id);
-        List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> transactionEntities = 
-                transactionMapper.selectList(wrapper);
+        LambdaQueryWrapper<PaymentTransactionEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PaymentTransactionEntity::getPaymentId, id);
+        List<PaymentTransactionEntity> transactionEntities = transactionMapper.selectList(wrapper);
         
         // 使用MapStruct转换为领域对象
         return toPaymentAggregate(entity, transactionEntities);
@@ -113,22 +114,21 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     public List<PaymentAggregate> findByOrderId(String orderId) {
         log.info("根据订单号查找支付单列表，订单号: {}", orderId);
         
-        LambdaQueryWrapper<com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity> wrapper = 
-                new LambdaQueryWrapper<>();
-        wrapper.eq(com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity::getOrderId, orderId);
+        LambdaQueryWrapper<PaymentEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PaymentEntity::getOrderId, orderId);
         
-        List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity> entities = paymentMapper.selectList(wrapper);
+        List<PaymentEntity> entities = paymentMapper.selectList(wrapper);
         
         // 批量查询所有支付流水，避免在循环中调用数据库
         List<String> paymentIds = entities.stream()
-                .map(com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity::getId)
+                .map(PaymentEntity::getId)
                 .collect(Collectors.toList());
-        java.util.Map<String, List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity>> transactionsMap = 
+        Map<String, List<PaymentTransactionEntity>> transactionsMap = 
                 findTransactionsByPaymentIds(paymentIds);
         
         return entities.stream()
                 .map(entity -> {
-                    List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> transactions = 
+                    List<PaymentTransactionEntity> transactions = 
                             transactionsMap.getOrDefault(entity.getId(), new ArrayList<>());
                     return toPaymentAggregate(entity, transactions);
                 })
@@ -145,22 +145,21 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     public List<PaymentAggregate> findByResellerId(String resellerId) {
         log.info("根据经销商ID查找支付单列表，经销商ID: {}", resellerId);
         
-        LambdaQueryWrapper<com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity> wrapper = 
-                new LambdaQueryWrapper<>();
-        wrapper.eq(com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity::getResellerId, resellerId);
+        LambdaQueryWrapper<PaymentEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PaymentEntity::getResellerId, resellerId);
         
-        List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity> entities = paymentMapper.selectList(wrapper);
+        List<PaymentEntity> entities = paymentMapper.selectList(wrapper);
         
         // 批量查询所有支付流水，避免在循环中调用数据库
         List<String> paymentIds = entities.stream()
-                .map(com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity::getId)
+                .map(PaymentEntity::getId)
                 .collect(Collectors.toList());
-        java.util.Map<String, List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity>> transactionsMap = 
+        Map<String, List<PaymentTransactionEntity>> transactionsMap = 
                 findTransactionsByPaymentIds(paymentIds);
         
         return entities.stream()
                 .map(entity -> {
-                    List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> transactions = 
+                    List<PaymentTransactionEntity> transactions = 
                             transactionsMap.getOrDefault(entity.getId(), new ArrayList<>());
                     return toPaymentAggregate(entity, transactions);
                 })
@@ -177,22 +176,21 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     public List<PaymentAggregate> findByRelatedBusinessId(String relatedBusinessId) {
         log.info("根据关联业务ID查找支付单列表，关联业务ID: {}", relatedBusinessId);
         
-        LambdaQueryWrapper<com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity> wrapper = 
-                new LambdaQueryWrapper<>();
-        wrapper.eq(com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity::getRelatedBusinessId, relatedBusinessId);
+        LambdaQueryWrapper<PaymentEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PaymentEntity::getRelatedBusinessId, relatedBusinessId);
         
-        List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity> entities = paymentMapper.selectList(wrapper);
+        List<PaymentEntity> entities = paymentMapper.selectList(wrapper);
         
         // 批量查询所有支付流水，避免在循环中调用数据库
         List<String> paymentIds = entities.stream()
-                .map(com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity::getId)
+                .map(PaymentEntity::getId)
                 .collect(Collectors.toList());
-        java.util.Map<String, List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity>> transactionsMap = 
+        Map<String, List<PaymentTransactionEntity>> transactionsMap = 
                 findTransactionsByPaymentIds(paymentIds);
         
         return entities.stream()
                 .map(entity -> {
-                    List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> transactions = 
+                    List<PaymentTransactionEntity> transactions = 
                             transactionsMap.getOrDefault(entity.getId(), new ArrayList<>());
                     return toPaymentAggregate(entity, transactions);
                 })
@@ -258,10 +256,9 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     /**
      * 根据支付单ID查找支付流水
      */
-    private List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> findTransactionsByPaymentId(String paymentId) {
-        LambdaQueryWrapper<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> wrapper = 
-                new LambdaQueryWrapper<>();
-        wrapper.eq(com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity::getPaymentId, paymentId);
+    private List<PaymentTransactionEntity> findTransactionsByPaymentId(String paymentId) {
+        LambdaQueryWrapper<PaymentTransactionEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PaymentTransactionEntity::getPaymentId, paymentId);
         return transactionMapper.selectList(wrapper);
     }
     
@@ -272,30 +269,26 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
      * @param paymentIds 支付单号列表
      * @return 支付单号到支付流水列表的映射
      */
-    private java.util.Map<String, List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity>> findTransactionsByPaymentIds(List<String> paymentIds) {
+    private Map<String, List<PaymentTransactionEntity>> findTransactionsByPaymentIds(List<String> paymentIds) {
         if (paymentIds == null || paymentIds.isEmpty()) {
-            return new java.util.HashMap<>();
+            return new HashMap<>();
         }
         
-        LambdaQueryWrapper<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> wrapper = 
-                new LambdaQueryWrapper<>();
-        wrapper.in(com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity::getPaymentId, paymentIds);
-        List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> allTransactions = 
-                transactionMapper.selectList(wrapper);
+        LambdaQueryWrapper<PaymentTransactionEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(PaymentTransactionEntity::getPaymentId, paymentIds);
+        List<PaymentTransactionEntity> allTransactions = transactionMapper.selectList(wrapper);
         
         // 按支付单号分组
         return allTransactions.stream()
-                .collect(Collectors.groupingBy(
-                        com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity::getPaymentId
-                ));
+                .collect(Collectors.groupingBy(PaymentTransactionEntity::getPaymentId));
     }
     
     /**
      * 将数据库实体转换为领域对象（使用MapStruct）
      */
     private PaymentAggregate toPaymentAggregate(
-            com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity entity,
-            List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> transactionEntities) {
+            PaymentEntity entity,
+            List<PaymentTransactionEntity> transactionEntities) {
         
         // 使用MapStruct转换支付单
         PaymentAggregate aggregate = infrastructureAssembler.toPaymentAggregate(entity);
