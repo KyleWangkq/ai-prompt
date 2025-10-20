@@ -1,4 +1,4 @@
-package com.bytz.modules.cms.payment.domain.entity;
+package com.bytz.modules.cms.payment.domain.model;
 
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.enums.TransactionStatus;
@@ -13,19 +13,19 @@ import java.time.LocalDateTime;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * PaymentTransactionEntity 单元测试
- * 测试支付流水实体的状态转换和判断方法
+ * PaymentTransaction 单元测试
+ * 测试支付流水的状态转换和判断方法
  */
-@DisplayName("PaymentTransactionEntity 单元测试")
-class PaymentTransactionEntityTest {
+@DisplayName("PaymentTransaction 单元测试")
+class PaymentTransactionTest {
 
-    private PaymentTransactionEntity paymentTransaction;
-    private PaymentTransactionEntity refundTransaction;
+    private PaymentTransaction paymentTransaction;
+    private PaymentTransaction refundTransaction;
 
     @BeforeEach
     void setUp() {
         // 创建支付流水
-        paymentTransaction = PaymentTransactionEntity.builder()
+        paymentTransaction = PaymentTransaction.builder()
                 .id("TXN-PAY-001")
                 .paymentId("PAY-001")
                 .transactionType(TransactionType.PAYMENT)
@@ -37,7 +37,7 @@ class PaymentTransactionEntityTest {
                 .build();
 
         // 创建退款流水
-        refundTransaction = PaymentTransactionEntity.builder()
+        refundTransaction = PaymentTransaction.builder()
                 .id("TXN-REFUND-001")
                 .paymentId("PAY-001")
                 .transactionType(TransactionType.REFUND)
@@ -240,7 +240,7 @@ class PaymentTransactionEntityTest {
     @DisplayName("Builder模式创建流水实体")
     void testBuilder_CreateTransaction() {
         // When
-        PaymentTransactionEntity transaction = PaymentTransactionEntity.builder()
+        PaymentTransaction transaction = PaymentTransaction.builder()
                 .id("TXN-TEST-001")
                 .paymentId("PAY-TEST-001")
                 .transactionType(TransactionType.PAYMENT)

@@ -1,10 +1,8 @@
 package com.bytz.modules.cms.payment.shared.model;
 
 import com.bytz.modules.cms.payment.domain.enums.RefundStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import org.springframework.context.ApplicationEvent;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,64 +13,82 @@ import java.time.LocalDateTime;
  * 
  * 当退款完成并更新支付单状态后发布此事件
  */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class RefundExecutedEvent {
+@Getter
+public class RefundExecutedEvent extends ApplicationEvent {
     
     /**
      * 事件ID
      */
-    private String eventId;
+    private final String eventId;
     
     /**
      * 支付单号
      */
-    private String paymentId;
+    private final String paymentId;
     
     /**
      * 关联订单号
      */
-    private String orderId;
+    private final String orderId;
     
     /**
      * 经销商ID
      */
-    private String resellerId;
+    private final String resellerId;
     
     /**
      * 退款流水号
      */
-    private String transactionId;
+    private final String transactionId;
     
     /**
      * 本次退款金额
      */
-    private BigDecimal refundAmount;
+    private final BigDecimal refundAmount;
     
     /**
      * 已退款总金额
      */
-    private BigDecimal totalRefundedAmount;
+    private final BigDecimal totalRefundedAmount;
     
     /**
      * 退款状态
      */
-    private RefundStatus refundStatus;
+    private final RefundStatus refundStatus;
     
     /**
      * 是否退款成功
      */
-    private Boolean success;
+    private final Boolean success;
     
     /**
      * 退款单号（订单系统）
      */
-    private String refundOrderId;
+    private final String refundOrderId;
     
     /**
      * 事件发生时间
      */
-    private LocalDateTime occurredOn;
+    private final LocalDateTime occurredOn;
+    
+    /**
+     * 构造函数
+     */
+    public RefundExecutedEvent(Object source, String eventId, String paymentId, String orderId,
+                              String resellerId, String transactionId, BigDecimal refundAmount,
+                              BigDecimal totalRefundedAmount, RefundStatus refundStatus, Boolean success,
+                              String refundOrderId, LocalDateTime occurredOn) {
+        super(source);
+        this.eventId = eventId;
+        this.paymentId = paymentId;
+        this.orderId = orderId;
+        this.resellerId = resellerId;
+        this.transactionId = transactionId;
+        this.refundAmount = refundAmount;
+        this.totalRefundedAmount = totalRefundedAmount;
+        this.refundStatus = refundStatus;
+        this.success = success;
+        this.refundOrderId = refundOrderId;
+        this.occurredOn = occurredOn;
+    }
 }

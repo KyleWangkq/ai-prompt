@@ -1,10 +1,8 @@
 package com.bytz.modules.cms.payment.shared.model;
 
 import com.bytz.modules.cms.payment.domain.enums.PaymentStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import org.springframework.context.ApplicationEvent;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,69 +13,88 @@ import java.time.LocalDateTime;
  * 
  * 当支付回调处理完成并更新支付单状态后发布此事件
  */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class PaymentExecutedEvent {
+@Getter
+public class PaymentExecutedEvent extends ApplicationEvent {
     
     /**
      * 事件ID
      */
-    private String eventId;
+    private final String eventId;
     
     /**
      * 支付单号
      */
-    private String paymentId;
+    private final String paymentId;
     
     /**
      * 关联订单号
      */
-    private String orderId;
+    private final String orderId;
     
     /**
      * 经销商ID
      */
-    private String resellerId;
+    private final String resellerId;
     
     /**
      * 支付流水号
      */
-    private String transactionId;
+    private final String transactionId;
     
     /**
      * 本次支付金额
      */
-    private BigDecimal transactionAmount;
+    private final BigDecimal transactionAmount;
     
     /**
      * 已支付金额
      */
-    private BigDecimal paidAmount;
+    private final BigDecimal paidAmount;
     
     /**
      * 支付单总金额
      */
-    private BigDecimal totalAmount;
+    private final BigDecimal totalAmount;
     
     /**
      * 支付状态
      */
-    private PaymentStatus paymentStatus;
+    private final PaymentStatus paymentStatus;
     
     /**
      * 是否支付成功
      */
-    private Boolean success;
+    private final Boolean success;
     
     /**
      * 关联业务ID（用于信用还款）
      */
-    private String relatedBusinessId;
+    private final String relatedBusinessId;
     
     /**
      * 事件发生时间
      */
-    private LocalDateTime occurredOn;
+    private final LocalDateTime occurredOn;
+    
+    /**
+     * 构造函数
+     */
+    public PaymentExecutedEvent(Object source, String eventId, String paymentId, String orderId, 
+                               String resellerId, String transactionId, BigDecimal transactionAmount,
+                               BigDecimal paidAmount, BigDecimal totalAmount, PaymentStatus paymentStatus,
+                               Boolean success, String relatedBusinessId, LocalDateTime occurredOn) {
+        super(source);
+        this.eventId = eventId;
+        this.paymentId = paymentId;
+        this.orderId = orderId;
+        this.resellerId = resellerId;
+        this.transactionId = transactionId;
+        this.transactionAmount = transactionAmount;
+        this.paidAmount = paidAmount;
+        this.totalAmount = totalAmount;
+        this.paymentStatus = paymentStatus;
+        this.success = success;
+        this.relatedBusinessId = relatedBusinessId;
+        this.occurredOn = occurredOn;
+    }
 }

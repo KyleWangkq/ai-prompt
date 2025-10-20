@@ -1,8 +1,8 @@
 package com.bytz.modules.cms.payment.infrastructure.assembler;
 
-import com.bytz.modules.cms.payment.domain.entity.PaymentTransactionEntity;
 import com.bytz.modules.cms.payment.domain.enums.*;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
+import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
@@ -54,36 +54,36 @@ public interface InfrastructureAssembler {
     PaymentAggregate toPaymentAggregate(com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity entity);
     
     /**
-     * PaymentTransactionEntity（领域实体）转换为PaymentTransactionEntity（数据库实体）
+     * PaymentTransaction（领域对象）转换为PaymentTransactionEntity（数据库实体）
      * 
-     * @param domainEntity 支付流水领域实体
+     * @param domainTransaction 支付流水领域对象
      * @return 支付流水数据库实体
      */
     @Mapping(target = "transactionType", source = "transactionType", qualifiedByName = "transactionTypeToString")
     @Mapping(target = "transactionStatus", source = "transactionStatus", qualifiedByName = "transactionStatusToString")
     @Mapping(target = "paymentChannel", source = "paymentChannel", qualifiedByName = "paymentChannelToString")
     @Mapping(target = "delFlag", constant = "0")
-    com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity toTransactionEntity(PaymentTransactionEntity domainEntity);
+    com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity toTransactionEntity(PaymentTransaction domainTransaction);
     
     /**
-     * PaymentTransactionEntity（数据库实体）转换为PaymentTransactionEntity（领域实体）
+     * PaymentTransactionEntity（数据库实体）转换为PaymentTransaction（领域对象）
      * 
      * @param entity 支付流水数据库实体
-     * @return 支付流水领域实体
+     * @return 支付流水领域对象
      */
     @Mapping(target = "transactionAmount", source = "transactionAmount", qualifiedByName = "toBigDecimalOrZero")
     @Mapping(target = "transactionType", source = "transactionType", qualifiedByName = "stringToTransactionType")
     @Mapping(target = "transactionStatus", source = "transactionStatus", qualifiedByName = "stringToTransactionStatus")
     @Mapping(target = "paymentChannel", source = "paymentChannel", qualifiedByName = "stringToPaymentChannel")
-    PaymentTransactionEntity toDomainTransaction(com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity entity);
+    PaymentTransaction toDomainTransaction(com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity entity);
     
     /**
-     * PaymentTransactionEntity列表（数据库实体）转换为PaymentTransactionEntity列表（领域实体）
+     * PaymentTransactionEntity列表（数据库实体）转换为PaymentTransaction列表（领域对象）
      * 
      * @param entities 支付流水数据库实体列表
-     * @return 支付流水领域实体列表
+     * @return 支付流水领域对象列表
      */
-    List<PaymentTransactionEntity> toDomainTransactions(List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> entities);
+    List<PaymentTransaction> toDomainTransactions(List<com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity> entities);
     
     // ========== 枚举转换方法 ==========
     

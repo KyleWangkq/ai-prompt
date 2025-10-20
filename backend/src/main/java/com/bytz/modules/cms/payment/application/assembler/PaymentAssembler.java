@@ -1,8 +1,8 @@
 package com.bytz.modules.cms.payment.application.assembler;
 
 import com.bytz.modules.cms.payment.domain.command.CreatePaymentCommand;
-import com.bytz.modules.cms.payment.domain.entity.PaymentTransactionEntity;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
+import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentCreateRO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentTransactionVO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentVO;
@@ -48,18 +48,18 @@ public interface PaymentAssembler {
     List<PaymentVO> toVOs(List<PaymentAggregate> aggregates);
     
     /**
-     * PaymentTransactionEntity转换为PaymentTransactionVO
+     * PaymentTransaction转换为PaymentTransactionVO
      * 
-     * @param entity 支付流水实体
+     * @param transaction 支付流水对象
      * @return 支付流水响应对象
      */
-    PaymentTransactionVO toTransactionVO(PaymentTransactionEntity entity);
+    PaymentTransactionVO toTransactionVO(PaymentTransaction transaction);
     
     /**
-     * PaymentTransactionEntity列表转换为PaymentTransactionVO列表
+     * PaymentTransaction列表转换为PaymentTransactionVO列表
      * 
-     * @param entities 支付流水实体列表
+     * @param transactions 支付流水对象列表
      * @return 支付流水响应对象列表
      */
-    List<PaymentTransactionVO> toTransactionVOs(List<PaymentTransactionEntity> entities);
+    List<PaymentTransactionVO> toTransactionVOs(List<PaymentTransaction> transactions);
 }

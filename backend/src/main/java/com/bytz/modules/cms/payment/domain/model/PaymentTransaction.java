@@ -1,4 +1,4 @@
-package com.bytz.modules.cms.payment.domain.entity;
+package com.bytz.modules.cms.payment.domain.model;
 
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.enums.TransactionStatus;
@@ -12,17 +12,17 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 支付流水实体
- * Payment Transaction Entity
+ * 支付流水
+ * Payment Transaction
  * 
  * 记录支付单的每一笔支付或退款操作流水
- * 注意：这是领域层实体，不是数据库实体
+ * 注意：这是聚合内的领域对象，支付记录是流水表，除了交易状态，不应有其他数据修改
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PaymentTransactionEntity {
+public class PaymentTransaction {
     
     /**
      * 流水号
@@ -166,9 +166,9 @@ public class PaymentTransactionEntity {
     
     /**
      * 更新流水状态为成功
+     * 支付记录是流水表，除了交易状态，不应有其他数据修改
      * 
      * @param completeTime 完成时间
-     * TODO: 添加状态转换验证逻辑
      */
     public void markAsSuccess(LocalDateTime completeTime) {
         this.transactionStatus = TransactionStatus.SUCCESS;
@@ -178,9 +178,9 @@ public class PaymentTransactionEntity {
     
     /**
      * 更新流水状态为失败
+     * 支付记录是流水表，除了交易状态，不应有其他数据修改
      * 
      * @param failureReason 失败原因
-     * TODO: 添加状态转换验证逻辑
      */
     public void markAsFailed(String failureReason) {
         this.transactionStatus = TransactionStatus.FAILED;

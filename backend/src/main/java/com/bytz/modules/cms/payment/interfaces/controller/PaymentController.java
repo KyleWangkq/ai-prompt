@@ -1,6 +1,7 @@
 package com.bytz.modules.cms.payment.interfaces.controller;
 
 import com.bytz.modules.cms.payment.application.PaymentApplicationService;
+import com.bytz.modules.cms.payment.application.PaymentQueryService;
 import com.bytz.modules.cms.payment.application.assembler.PaymentAssembler;
 import com.bytz.modules.cms.payment.domain.command.CreatePaymentCommand;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
@@ -29,6 +30,7 @@ import java.util.List;
 public class PaymentController {
     
     private final PaymentApplicationService paymentApplicationService;
+    private final PaymentQueryService paymentQueryService;
     private final PaymentAssembler paymentAssembler;
     
     /**
@@ -70,7 +72,7 @@ public class PaymentController {
     public ResponseEntity<PaymentVO> getPaymentById(@PathVariable String id) {
         log.info("查询支付单，支付单号: {}", id);
         
-        PaymentAggregate payment = paymentApplicationService.getPaymentById(id);
+        PaymentAggregate payment = paymentQueryService.getPaymentById(id);
         if (payment == null) {
             return ResponseEntity.notFound().build();
         }
@@ -91,7 +93,7 @@ public class PaymentController {
     public ResponseEntity<List<PaymentVO>> getPaymentsByOrderId(@PathVariable String orderId) {
         log.info("根据订单号查询支付单列表，订单号: {}", orderId);
         
-        List<PaymentAggregate> payments = paymentApplicationService.getPaymentsByOrderId(orderId);
+        List<PaymentAggregate> payments = paymentQueryService.getPaymentsByOrderId(orderId);
         List<PaymentVO> vos = paymentAssembler.toVOs(payments);
         
         return ResponseEntity.ok(vos);
@@ -109,7 +111,7 @@ public class PaymentController {
     public ResponseEntity<List<PaymentVO>> getPaymentsByResellerId(@PathVariable String resellerId) {
         log.info("根据经销商ID查询支付单列表，经销商ID: {}", resellerId);
         
-        List<PaymentAggregate> payments = paymentApplicationService.getPaymentsByResellerId(resellerId);
+        List<PaymentAggregate> payments = paymentQueryService.getPaymentsByResellerId(resellerId);
         List<PaymentVO> vos = paymentAssembler.toVOs(payments);
         
         return ResponseEntity.ok(vos);
@@ -127,7 +129,7 @@ public class PaymentController {
     public ResponseEntity<List<PaymentVO>> getPaymentsByBusinessId(@PathVariable String businessId) {
         log.info("根据关联业务ID查询支付单列表，关联业务ID: {}", businessId);
         
-        List<PaymentAggregate> payments = paymentApplicationService.getPaymentsByRelatedBusinessId(businessId);
+        List<PaymentAggregate> payments = paymentQueryService.getPaymentsByRelatedBusinessId(businessId);
         List<PaymentVO> vos = paymentAssembler.toVOs(payments);
         
         return ResponseEntity.ok(vos);
