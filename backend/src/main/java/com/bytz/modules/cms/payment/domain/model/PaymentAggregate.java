@@ -1,6 +1,5 @@
 package com.bytz.modules.cms.payment.domain.model;
 
-import com.bytz.modules.cms.payment.domain.entity.PaymentTransactionEntity;
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.enums.PaymentStatus;
 import com.bytz.modules.cms.payment.domain.enums.PaymentType;
@@ -147,10 +146,10 @@ public class PaymentAggregate {
     private String updateByName;
     
     /**
-     * 支付流水列表（聚合内实体）
+     * 支付流水列表（聚合内对象）
      */
     @Builder.Default
-    private List<PaymentTransactionEntity> transactions = new ArrayList<>();
+    private List<PaymentTransaction> transactions = new ArrayList<>();
     
     /**
      * 创建新的支付单
@@ -218,7 +217,7 @@ public class PaymentAggregate {
      * @return 创建的支付流水
      * TODO: 实现支付执行逻辑，包括状态验证、金额验证、流水创建等
      */
-    public PaymentTransactionEntity executePayment(
+    public PaymentTransaction executePayment(
             PaymentChannel paymentChannel,
             BigDecimal amount,
             String channelTransactionNumber) {
@@ -230,7 +229,7 @@ public class PaymentAggregate {
         // 4. 更新支付单状态为"支付中"
         // 5. 返回支付流水
         
-        PaymentTransactionEntity transaction = PaymentTransactionEntity.builder()
+        PaymentTransaction transaction = PaymentTransaction.builder()
                 .paymentId(this.id)
                 .transactionType(TransactionType.PAYMENT)
                 .transactionStatus(TransactionStatus.PROCESSING)
@@ -263,7 +262,7 @@ public class PaymentAggregate {
         // 4. 更新支付单状态（部分支付/已支付）
         // 5. 重新计算实际收款金额
         
-        PaymentTransactionEntity transaction = findTransactionById(transactionId);
+        PaymentTransaction transaction = findTransactionById(transactionId);
         if (transaction == null) {
             throw new IllegalArgumentException("未找到对应的支付流水");
         }
@@ -296,7 +295,7 @@ public class PaymentAggregate {
      * @param refundReason 退款原因
      * @return 创建的退款流水
      */
-    public PaymentTransactionEntity executeRefund(
+    public PaymentTransaction executeRefund(
             BigDecimal refundAmount,
             String originalTransactionId,
             String businessOrderId,
@@ -319,7 +318,7 @@ public class PaymentAggregate {
         }
         
         // 4. 查找并验证原支付流水
-        PaymentTransactionEntity originalTransaction = findTransactionById(originalTransactionId);
+        PaymentTransaction originalTransaction = findTransactionById(originalTransactionId);
         if (originalTransaction == null) {
             throw new IllegalArgumentException("未找到原支付流水: " + originalTransactionId);
         }
@@ -333,7 +332,7 @@ public class PaymentAggregate {
         }
         
         // 5. 创建退款流水记录
-        PaymentTransactionEntity refundTransaction = PaymentTransactionEntity.builder()
+        PaymentTransaction refundTransaction = PaymentTransaction.builder()
                 .paymentId(this.id)
                 .transactionType(TransactionType.REFUND)
                 .transactionStatus(TransactionStatus.PROCESSING)
@@ -369,7 +368,7 @@ public class PaymentAggregate {
         // 4. 重新计算实际收款金额
         // 5. 更新退款状态（部分退款/全额退款）
         
-        PaymentTransactionEntity transaction = findTransactionById(transactionId);
+        PaymentTransaction transaction = findTransactionById(transactionId);
         if (transaction == null) {
             throw new IllegalArgumentException("未找到对应的退款流水");
         }
@@ -448,7 +447,7 @@ public class PaymentAggregate {
      * @param transactionId 流水ID
      * @return 支付流水，如果未找到返回null
      */
-    private PaymentTransactionEntity findTransactionById(String transactionId) {
+    private PaymentTransaction findTransactionById(String transactionId) {
         return this.transactions.stream()
                 .filter(t -> t.getId().equals(transactionId))
                 .findFirst()

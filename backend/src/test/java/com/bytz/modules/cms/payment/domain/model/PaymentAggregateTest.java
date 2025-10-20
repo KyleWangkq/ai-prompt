@@ -1,6 +1,5 @@
 package com.bytz.modules.cms.payment.domain.model;
 
-import com.bytz.modules.cms.payment.domain.entity.PaymentTransactionEntity;
 import com.bytz.modules.cms.payment.domain.enums.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -94,7 +93,7 @@ class PaymentAggregateTest {
         BigDecimal payAmount = new BigDecimal("5000.00");
 
         // When
-        PaymentTransactionEntity transaction = payment.executePayment(
+        PaymentTransaction transaction = payment.executePayment(
                 PaymentChannel.ONLINE_PAYMENT,
                 payAmount,
                 "CHANNEL-TXN-001"
@@ -189,7 +188,7 @@ class PaymentAggregateTest {
         String originalTxnId = payment.getTransactions().get(0).getId();
 
         // When
-        PaymentTransactionEntity refundTransaction = payment.executeRefund(
+        PaymentTransaction refundTransaction = payment.executeRefund(
                 refundAmount,
                 originalTxnId,
                 "REFUND-ORDER-001",
@@ -514,7 +513,7 @@ class PaymentAggregateTest {
         
         // 执行支付并回调成功
         payment.executePayment(PaymentChannel.ONLINE_PAYMENT, paymentAmount, "CHANNEL-001");
-        PaymentTransactionEntity transaction = payment.getTransactions().get(0);
+        PaymentTransaction transaction = payment.getTransactions().get(0);
         transaction.setId("TXN-" + System.currentTimeMillis());
         payment.handlePaymentCallback(transaction.getId(), true, LocalDateTime.now());
         

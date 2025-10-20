@@ -1,8 +1,8 @@
 package com.bytz.modules.cms.payment.infrastructure.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.bytz.modules.cms.payment.domain.entity.PaymentTransactionEntity;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
+import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
 import com.bytz.modules.cms.payment.infrastructure.assembler.InfrastructureAssembler;
 import com.bytz.modules.cms.payment.infrastructure.mapper.PaymentMapper;
@@ -58,7 +58,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         }
         
         // 保存支付流水
-        for (PaymentTransactionEntity transaction : payment.getTransactions()) {
+        for (PaymentTransaction transaction : payment.getTransactions()) {
             // 使用MapStruct转换流水实体
             com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity transactionEntity = 
                     infrastructureAssembler.toTransactionEntity(transaction);
@@ -301,7 +301,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         PaymentAggregate aggregate = infrastructureAssembler.toPaymentAggregate(entity);
         
         // 使用MapStruct转换流水列表
-        List<PaymentTransactionEntity> transactions = 
+        List<PaymentTransaction> transactions = 
                 infrastructureAssembler.toDomainTransactions(transactionEntities);
         
         // 设置流水列表

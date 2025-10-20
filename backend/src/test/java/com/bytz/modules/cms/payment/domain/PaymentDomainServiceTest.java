@@ -2,9 +2,9 @@ package com.bytz.modules.cms.payment.domain;
 
 import com.bytz.modules.cms.payment.domain.command.ExecutePaymentCommand;
 import com.bytz.modules.cms.payment.domain.command.ExecuteRefundCommand;
-import com.bytz.modules.cms.payment.domain.entity.PaymentTransactionEntity;
 import com.bytz.modules.cms.payment.domain.enums.*;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
+import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -251,7 +251,7 @@ class PaymentDomainServiceTest {
         String channelTransactionNumber = paymentDomainService.executeBatchPayment(command);
         
         // Then
-        PaymentTransactionEntity transaction = payment1.getTransactions().get(0);
+        PaymentTransaction transaction = payment1.getTransactions().get(0);
         assertEquals(channelTransactionNumber, transaction.getChannelTransactionNumber());
         assertTrue(channelTransactionNumber.startsWith("MOCK_"));
     }
