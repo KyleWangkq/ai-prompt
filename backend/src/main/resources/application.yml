@@ -37,5 +37,5 @@ server:
 # 日志配置
 logging:
   level:
-    com.bytz.cms.payment: DEBUG
+    com.bytz.modules.cms.payment: DEBUG
     com.baomidou.mybatisplus: DEBUG
