@@ -1,6 +1,5 @@
 package com.bytz.modules.cms.payment.infrastructure.assembler;
 
-import com.bytz.modules.cms.payment.domain.enums.*;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity;
@@ -29,10 +28,6 @@ public interface InfrastructureAssembler {
      * @param aggregate 支付单聚合根
      * @return 支付单数据库实体
      */
-    @Mapping(target = "paymentType", source = "paymentType", qualifiedByName = "paymentTypeToString")
-    @Mapping(target = "paymentStatus", source = "paymentStatus", qualifiedByName = "paymentStatusToString")
-    @Mapping(target = "refundStatus", source = "refundStatus", qualifiedByName = "refundStatusToString")
-    @Mapping(target = "relatedBusinessType", source = "relatedBusinessType", qualifiedByName = "relatedBusinessTypeToString")
     @Mapping(target = "delFlag", constant = "0")
     PaymentEntity toPaymentEntity(PaymentAggregate aggregate);
     
@@ -48,10 +43,6 @@ public interface InfrastructureAssembler {
     @Mapping(target = "refundedAmount", source = "refundedAmount", qualifiedByName = "toBigDecimalOrZero")
     @Mapping(target = "actualAmount", source = "actualAmount", qualifiedByName = "toBigDecimalOrZero")
     @Mapping(target = "currency", source = "currency", defaultValue = "CNY")
-    @Mapping(target = "paymentType", source = "paymentType", qualifiedByName = "stringToPaymentType")
-    @Mapping(target = "paymentStatus", source = "paymentStatus", qualifiedByName = "stringToPaymentStatus")
-    @Mapping(target = "refundStatus", source = "refundStatus", qualifiedByName = "stringToRefundStatus")
-    @Mapping(target = "relatedBusinessType", source = "relatedBusinessType", qualifiedByName = "stringToRelatedBusinessType")
     @Mapping(target = "transactions", ignore = true)
     PaymentAggregate toPaymentAggregate(PaymentEntity entity);
     
@@ -61,9 +52,6 @@ public interface InfrastructureAssembler {
      * @param domainTransaction 支付流水领域对象
      * @return 支付流水数据库实体
      */
-    @Mapping(target = "transactionType", source = "transactionType", qualifiedByName = "transactionTypeToString")
-    @Mapping(target = "transactionStatus", source = "transactionStatus", qualifiedByName = "transactionStatusToString")
-    @Mapping(target = "paymentChannel", source = "paymentChannel", qualifiedByName = "paymentChannelToString")
     @Mapping(target = "delFlag", constant = "0")
     PaymentTransactionEntity toTransactionEntity(PaymentTransaction domainTransaction);
     
@@ -74,9 +62,6 @@ public interface InfrastructureAssembler {
      * @return 支付流水领域对象
      */
     @Mapping(target = "transactionAmount", source = "transactionAmount", qualifiedByName = "toBigDecimalOrZero")
-    @Mapping(target = "transactionType", source = "transactionType", qualifiedByName = "stringToTransactionType")
-    @Mapping(target = "transactionStatus", source = "transactionStatus", qualifiedByName = "stringToTransactionStatus")
-    @Mapping(target = "paymentChannel", source = "paymentChannel", qualifiedByName = "stringToPaymentChannel")
     PaymentTransaction toDomainTransaction(PaymentTransactionEntity entity);
     
     /**
@@ -86,78 +71,6 @@ public interface InfrastructureAssembler {
      * @return 支付流水领域对象列表
      */
     List<PaymentTransaction> toDomainTransactions(List<PaymentTransactionEntity> entities);
-    
-    // ========== 枚举转换方法 ==========
-    
-    @Named("paymentTypeToString")
-    default String paymentTypeToString(PaymentType paymentType) {
-        return paymentType != null ? paymentType.name() : null;
-    }
-    
-    @Named("stringToPaymentType")
-    default PaymentType stringToPaymentType(String paymentType) {
-        return paymentType != null ? PaymentType.valueOf(paymentType) : null;
-    }
-    
-    @Named("paymentStatusToString")
-    default String paymentStatusToString(PaymentStatus paymentStatus) {
-        return paymentStatus != null ? paymentStatus.name() : null;
-    }
-    
-    @Named("stringToPaymentStatus")
-    default PaymentStatus stringToPaymentStatus(String paymentStatus) {
-        return paymentStatus != null ? PaymentStatus.valueOf(paymentStatus) : null;
-    }
-    
-    @Named("refundStatusToString")
-    default String refundStatusToString(RefundStatus refundStatus) {
-        return refundStatus != null ? refundStatus.name() : null;
-    }
-    
-    @Named("stringToRefundStatus")
-    default RefundStatus stringToRefundStatus(String refundStatus) {
-        return refundStatus != null ? RefundStatus.valueOf(refundStatus) : null;
-    }
-    
-    @Named("relatedBusinessTypeToString")
-    default String relatedBusinessTypeToString(RelatedBusinessType relatedBusinessType) {
-        return relatedBusinessType != null ? relatedBusinessType.name() : null;
-    }
-    
-    @Named("stringToRelatedBusinessType")
-    default RelatedBusinessType stringToRelatedBusinessType(String relatedBusinessType) {
-        return relatedBusinessType != null ? RelatedBusinessType.valueOf(relatedBusinessType) : null;
-    }
-    
-    @Named("transactionTypeToString")
-    default String transactionTypeToString(TransactionType transactionType) {
-        return transactionType != null ? transactionType.name() : null;
-    }
-    
-    @Named("stringToTransactionType")
-    default TransactionType stringToTransactionType(String transactionType) {
-        return transactionType != null ? TransactionType.valueOf(transactionType) : null;
-    }
-    
-    @Named("transactionStatusToString")
-    default String transactionStatusToString(TransactionStatus transactionStatus) {
-        return transactionStatus != null ? transactionStatus.name() : null;
-    }
-    
-    @Named("stringToTransactionStatus")
-    default TransactionStatus stringToTransactionStatus(String transactionStatus) {
-        return transactionStatus != null ? TransactionStatus.valueOf(transactionStatus) : null;
-    }
-    
-    @Named("paymentChannelToString")
-    default String paymentChannelToString(PaymentChannel paymentChannel) {
-        return paymentChannel != null ? paymentChannel.name() : null;
-    }
-    
-    @Named("stringToPaymentChannel")
-    default PaymentChannel stringToPaymentChannel(String paymentChannel) {
-        return paymentChannel != null ? PaymentChannel.valueOf(paymentChannel) : null;
-    }
     
     @Named("toBigDecimalOrZero")
     default BigDecimal toBigDecimalOrZero(BigDecimal value) {
