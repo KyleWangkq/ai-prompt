@@ -16,6 +16,8 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     # 驼峰命名转换
     map-underscore-to-camel-case: true
+    # 默认枚举处理器，用于自动处理实现了IEnum接口的枚举类型
+    default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
   # 全局配置
   global-config:
     db-config:
@@ -27,6 +29,8 @@ mybatis-plus:
       logic-not-delete-value: 0
   # Mapper XML 文件位置
   mapper-locations: classpath*:mapper/xml/**/*.xml
+  # 扫描枚举包
+  type-enums-package: com.bytz.modules.cms.payment.domain.enums
   
 # 服务器配置
 server:

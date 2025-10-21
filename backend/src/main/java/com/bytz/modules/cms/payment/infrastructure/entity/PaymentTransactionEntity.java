@@ -5,6 +5,9 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
+import com.bytz.modules.cms.payment.domain.enums.TransactionStatus;
+import com.bytz.modules.cms.payment.domain.enums.TransactionType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -43,13 +46,13 @@ public class PaymentTransactionEntity {
      * 流水类型
      */
     @TableField("transaction_type")
-    private String transactionType;
+    private TransactionType transactionType;
     
     /**
      * 流水状态
      */
     @TableField("transaction_status")
-    private String transactionStatus;
+    private TransactionStatus transactionStatus;
     
     /**
      * 交易金额
@@ -61,7 +64,7 @@ public class PaymentTransactionEntity {
      * 支付渠道
      */
     @TableField("payment_channel")
-    private String paymentChannel;
+    private PaymentChannel paymentChannel;
     
     /**
      * 渠道交易号
