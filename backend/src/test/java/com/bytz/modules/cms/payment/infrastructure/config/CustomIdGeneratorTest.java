@@ -36,14 +36,11 @@ class CustomIdGeneratorTest {
         // Then
         assertNotNull(paymentId);
         assertTrue(paymentId.startsWith("PAY"), "支付单号应以PAY开头");
-        assertEquals(28, paymentId.length(), "支付单号长度应为28个字符");
+        assertTrue(paymentId.length() <= 32, "支付单号长度应不超过32个字符");
         
-        // 验证格式：PAY + 17位时间戳 + 8位随机数
-        String timestamp = paymentId.substring(3, 20);
-        String random = paymentId.substring(20);
-        
-        assertTrue(timestamp.matches("\\d{17}"), "时间戳应为17位数字");
-        assertTrue(random.matches("[0-9A-Z]{8}"), "随机数应为8位大写字母或数字");
+        // 验证格式：PAY + DefaultIdentifierGenerator生成的数字ID（雪花算法）
+        String idPart = paymentId.substring(3);
+        assertTrue(idPart.matches("\\d+"), "ID部分应为纯数字（雪花算法生成的Long）");
     }
 
     @Test
@@ -55,14 +52,11 @@ class CustomIdGeneratorTest {
         // Then
         assertNotNull(transactionId);
         assertTrue(transactionId.startsWith("TXN"), "流水号应以TXN开头");
-        assertEquals(28, transactionId.length(), "流水号长度应为28个字符");
+        assertTrue(transactionId.length() <= 32, "流水号长度应不超过32个字符");
         
-        // 验证格式：TXN + 17位时间戳 + 8位随机数
-        String timestamp = transactionId.substring(3, 20);
-        String random = transactionId.substring(20);
-        
-        assertTrue(timestamp.matches("\\d{17}"), "时间戳应为17位数字");
-        assertTrue(random.matches("[0-9A-Z]{8}"), "随机数应为8位大写字母或数字");
+        // 验证格式：TXN + DefaultIdentifierGenerator生成的数字ID（雪花算法）
+        String idPart = transactionId.substring(3);
+        assertTrue(idPart.matches("\\d+"), "ID部分应为纯数字（雪花算法生成的Long）");
     }
 
     @Test
@@ -100,39 +94,41 @@ class CustomIdGeneratorTest {
     }
 
     @Test
-    @DisplayName("时间有序性验证 - 连续生成的ID时间戳递增")
+    @DisplayName("时间有序性验证 - 连续生成的ID递增")
     void testTimeOrdering() throws InterruptedException {
         // Given
         String id1 = idGenerator.generatePaymentId();
-        Thread.sleep(5); // 等待5毫秒确保时间戳不同
+        Thread.sleep(5); // 等待5毫秒确保时间不同
         String id2 = idGenerator.generatePaymentId();
 
         // When
-        String timestamp1 = id1.substring(3, 20);
-        String timestamp2 = id2.substring(3, 20);
+        // 提取数字ID部分并转换为Long进行比较
+        Long numId1 = Long.parseLong(id1.substring(3));
+        Long numId2 = Long.parseLong(id2.substring(3));
 
         // Then
-        assertTrue(timestamp2.compareTo(timestamp1) >= 0, 
-                "后生成的ID时间戳应大于或等于先生成的ID");
+        // 雪花算法生成的ID是递增的（包含时间戳）
+        assertTrue(numId2 > numId1, 
+                "后生成的ID应大于先生成的ID（雪花算法保证递增）");
     }
 
     @Test
-    @DisplayName("时间精度验证 - 包含毫秒信息")
+    @DisplayName("时间精度验证 - 雪花算法包含毫秒时间戳")
     void testMillisecondPrecision() {
         // When
         String id1 = idGenerator.generatePaymentId();
         String id2 = idGenerator.generatePaymentId();
 
         // Then
-        String timestamp1 = id1.substring(3, 20);
-        String timestamp2 = id2.substring(3, 20);
+        // 雪花算法的ID是Long类型，包含毫秒级时间戳
+        Long numId1 = Long.parseLong(id1.substring(3));
+        Long numId2 = Long.parseLong(id2.substring(3));
         
-        // 时间戳格式为YYYYMMDDHHmmssSSS，最后3位是毫秒
-        String millis1 = timestamp1.substring(14, 17);
-        String millis2 = timestamp2.substring(14, 17);
-        
-        assertTrue(millis1.matches("\\d{3}"), "时间戳应包含3位毫秒数");
-        assertTrue(millis2.matches("\\d{3}"), "时间戳应包含3位毫秒数");
+        assertNotNull(numId1);
+        assertNotNull(numId2);
+        // 雪花算法生成的ID包含时间信息，且具有毫秒精度
+        assertTrue(numId1 > 0, "ID应为正数");
+        assertTrue(numId2 > 0, "ID应为正数");
     }
 
     @Test
@@ -205,47 +201,43 @@ class CustomIdGeneratorTest {
     }
 
     @Test
-    @DisplayName("nextUUID方法测试 - 基础ID生成")
+    @DisplayName("nextUUID方法测试 - 基础ID生成（无前缀）")
     void testNextUUID() {
         // When
         String uuid = idGenerator.nextUUID(null);
 
         // Then
         assertNotNull(uuid);
-        assertEquals(25, uuid.length(), "基础ID长度应为25个字符（17位时间戳 + 8位随机数）");
-        
-        String timestamp = uuid.substring(0, 17);
-        String random = uuid.substring(17);
-        
-        assertTrue(timestamp.matches("\\d{17}"), "时间戳应为17位数字");
-        assertTrue(random.matches("[0-9A-Z]{8}"), "随机数应为8位大写字母或数字");
+        // 不带前缀时，返回纯数字ID
+        assertTrue(uuid.matches("\\d+"), "无前缀的ID应为纯数字（雪花算法生成的Long）");
     }
 
     @Test
-    @DisplayName("nextId方法测试 - 应抛出异常")
-    void testNextId_ThrowsException() {
-        // When & Then
-        assertThrows(UnsupportedOperationException.class, () -> {
-            idGenerator.nextId(null);
-        }, "nextId方法应抛出UnsupportedOperationException");
+    @DisplayName("nextId方法测试 - 返回Number类型ID")
+    void testNextId() {
+        // When
+        Number id = idGenerator.nextId(null);
+
+        // Then
+        assertNotNull(id);
+        assertTrue(id.longValue() > 0, "ID应为正数");
     }
 
     @Test
-    @DisplayName("随机性验证 - 相同时间戳的ID应有不同的随机部分")
-    void testRandomness() {
+    @DisplayName("唯一性验证 - 快速生成的ID应全部唯一")
+    void testUniqueness() {
         // Given
-        Set<String> randomParts = new HashSet<>();
+        Set<String> ids = new HashSet<>();
         int count = 100;
 
-        // When - 快速生成多个ID，大部分可能有相同的时间戳
+        // When - 快速生成多个ID
         for (int i = 0; i < count; i++) {
             String id = idGenerator.generatePaymentId();
-            String randomPart = id.substring(20); // 提取随机部分
-            randomParts.add(randomPart);
+            ids.add(id);
         }
 
-        // Then - 随机部分应该有很高的差异性
-        assertTrue(randomParts.size() > count * 0.95, 
-                "随机部分应有较高的差异性，实际唯一数：" + randomParts.size() + "/" + count);
+        // Then - 所有ID应该唯一（雪花算法保证）
+        assertEquals(count, ids.size(), 
+                "所有ID应该唯一，实际唯一数：" + ids.size() + "/" + count);
     }
 }

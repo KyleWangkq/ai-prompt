@@ -2,28 +2,28 @@
 
 ## 概述
 
-本项目采用MyBatis-Plus的`IdentifierGenerator`接口实现了自定义ID生成器，完全满足以下需求：
+本项目采用包装MyBatis-Plus的`DefaultIdentifierGenerator`（雪花算法）实现了自定义ID生成器，完全满足以下需求：
 
-1. ✅ 采用MyBatis-Plus的ID生成器模式
-2. ✅ 时间有序性（基于时间戳）
-3. ✅ 保留时间到毫秒级（17位时间戳）
-4. ✅ 长度不超过32位（实际28位）
-5. ✅ 支持低概率的分布式场景
+1. ✅ 采用MyBatis-Plus的ID生成器模式（包装DefaultIdentifierGenerator）
+2. ✅ 时间有序性（基于雪花算法，包含时间戳）
+3. ✅ 保留时间到毫秒级（雪花算法毫秒精度）
+4. ✅ 长度不超过32位（前缀3位+雪花ID 19位=22位）
+5. ✅ 支持低概率的分布式场景（雪花算法原生支持分布式）
 
 ## ID格式设计
 
 ### 支付单号 (Payment ID)
 ```
-格式: PAY + YYYYMMDDHHmmssSSS + 8位随机数
-示例: PAY202510210951217915QJWOGN9
-长度: 28个字符
+格式: PAY + DefaultIdentifierGenerator生成的Long ID
+示例: PAY1980579299950153729
+长度: 约22个字符
 ```
 
 ### 流水号 (Transaction ID)
 ```
-格式: TXN + YYYYMMDDHHmmssSSS + 8位随机数
-示例: TXN20251021095121868IRPHQHEE
-长度: 28个字符
+格式: TXN + DefaultIdentifierGenerator生成的Long ID
+示例: TXN1980579299950153730
+长度: 约22个字符
 ```
 
 ### 格式说明
@@ -31,34 +31,52 @@
 | 部分 | 长度 | 说明 | 示例 |
 |------|------|------|------|
 | 前缀 | 3位 | PAY或TXN | PAY |
-| 时间戳 | 17位 | 年月日时分秒毫秒 | 20251021095121791 |
-| 随机数 | 8位 | 数字+大写字母(36进制) | 5QJWOGN9 |
-| **总计** | **28位** | **< 32位要求** | **PAY202510210951217915QJWOGN9** |
+| 雪花ID | 19位 | 雪花算法生成的Long（包含时间戳、机器ID、序列号） | 1980579299950153729 |
+| **总计** | **22位** | **< 32位要求** | **PAY1980579299950153729** |
 
 ## 核心实现
 
 ### 1. CustomIdGenerator 类
 
-实现了`com.baomidou.mybatisplus.core.incrementer.IdentifierGenerator`接口：
+包装`DefaultIdentifierGenerator`，根据实体类型自动添加业务前缀：
 
 ```java
 @Component
 public class CustomIdGenerator implements IdentifierGenerator {
     
-    // 时间戳格式：精确到毫秒
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = 
-            DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
+    // MyBatis-Plus默认ID生成器（雪花算法）
+    private final DefaultIdentifierGenerator defaultGenerator = new DefaultIdentifierGenerator();
+    
+    @Override
+    public String nextUUID(Object entity) {
+        // 使用DefaultIdentifierGenerator生成基础ID
+        String baseId = String.valueOf(defaultGenerator.nextId(entity));
+        
+        // 根据实体类型确定前缀
+        String prefix = determinePrefix(entity);
+        
+        return prefix + baseId;
+    }
     
     // 生成支付单号
     public String generatePaymentId() {
-        String baseId = nextUUID(null);
-        return "PAY" + baseId;
+        // 传入PaymentEntity类型，自动添加PAY前缀
+        return nextUUID(new PaymentEntity());
     }
     
     // 生成流水号
     public String generateTransactionId() {
-        String baseId = nextUUID(null);
-        return "TXN" + baseId;
+        // 传入PaymentTransactionEntity类型，自动添加TXN前缀
+        return nextUUID(new PaymentTransactionEntity());
+    }
+    
+    private String determinePrefix(Object entity) {
+        if (entity instanceof PaymentEntity) {
+            return "PAY";
+        } else if (entity instanceof PaymentTransactionEntity) {
+            return "TXN";
+        }
+        return "";
     }
 }
 ```
@@ -106,41 +124,39 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
 
 ### 1. 时间有序性
 
-ID基于时间戳生成，天然保证时间顺序：
+ID基于雪花算法生成，天然保证时间顺序：
 
 ```
-ID1: PAY20251021095121791...  (2025-10-21 09:51:21.791)
-ID2: PAY20251021095121801...  (2025-10-21 09:51:21.801)
-ID3: PAY20251021095121812...  (2025-10-21 09:51:21.812)
+ID1: PAY1980579299950153729  (时间戳部分递增)
+ID2: PAY1980579299950153730  (时间戳部分递增)
+ID3: PAY1980579299950153731  (时间戳部分递增)
 ```
 
-时间戳部分严格递增，确保ID的时间有序性。
+雪花算法的ID由时间戳、数据中心ID、机器ID和序列号组成，时间戳部分严格递增，确保ID的时间有序性。
 
 ### 2. 毫秒精度
 
-17位时间戳包含毫秒信息：
+雪花算法使用毫秒级时间戳：
 
-```
-YYYYMMDDHHmmssSSS
-2025 10 21 09 51 21 791
-年   月 日 时 分 秒 毫秒
-```
+**雪花算法ID结构（64位）：**
+- 1位：符号位（固定0）
+- 41位：时间戳（毫秒精度，可用69年）
+- 5位：数据中心ID
+- 5位：机器ID
+- 12位：序列号（同一毫秒内的计数器）
 
-- 年份：4位（2025）
-- 月份：2位（10）
-- 日期：2位（21）
-- 小时：2位（09）
-- 分钟：2位（51）
-- 秒数：2位（21）
-- 毫秒：3位（791）
+示例ID：`1980579299950153729`
+- 包含从特定纪元开始的毫秒级时间戳
+- 可通过位运算提取时间戳：`(id >> 22) + epoch`
 
 ### 3. 分布式支持
 
-通过8位随机数（36进制）降低冲突概率：
+雪花算法原生支持分布式环境：
 
-- **字符集**: 0-9, A-Z (36个字符)
-- **组合数**: 36^8 = 2,821,109,907,456 (约2.8万亿)
-- **冲突概率**: 在同一毫秒内生成的ID冲突概率极低
+- **数据中心ID**: 5位（支持32个数据中心）
+- **机器ID**: 5位（每个数据中心支持32台机器）
+- **序列号**: 12位（每毫秒可生成4096个ID）
+- **理论TPS**: 400万/秒（单机）
 
 **并发测试结果**:
 - 测试规模: 10个线程 × 100个ID = 1000个ID
@@ -149,17 +165,25 @@ YYYYMMDDHHmmssSSS
 
 ### 4. 线程安全
 
-使用`ThreadLocalRandom`确保线程安全和高性能：
+雪花算法使用同步机制确保线程安全：
 
 ```java
-ThreadLocalRandom random = ThreadLocalRandom.current();
-int num = random.nextInt(36);
+// DefaultIdentifierGenerator内部使用synchronized保证并发安全
+public synchronized long nextId(Object entity) {
+    long timestamp = timeGen();
+    // ... 处理时钟回拨
+    // ... 生成序列号
+    return ((timestamp - twepoch) << timestampLeftShift)
+            | (datacenterId << datacenterIdShift)
+            | (workerId << workerIdShift)
+            | sequence;
+}
 ```
 
-相比`Random`类：
-- ✅ 无需同步，性能更好
-- ✅ 每个线程独立的随机数生成器
-- ✅ 避免线程竞争
+特点：
+- ✅ 线程安全，无竞态条件
+- ✅ 处理时钟回拨问题
+- ✅ 高性能（相比数据库自增）
 
 ## 测试覆盖
 
@@ -212,29 +236,31 @@ ID包含时间信息，便于：
 
 | 特性 | UUID (旧方案) | CustomIdGenerator (新方案) |
 |------|--------------|---------------------------|
-| 长度 | 32位 | 28位 |
-| 时间有序 | ❌ 无序 | ✅ 有序 |
-| 时间精度 | ❌ 无时间信息 | ✅ 毫秒级 |
-| 可读性 | ❌ 难以理解 | ✅ 包含时间信息 |
-| 唯一性 | ✅ 极高 | ✅ 极高 |
-| 性能 | ✅ 高 | ✅ 高 |
-| 分布式 | ✅ 支持 | ✅ 支持 |
-| MyBatis-Plus集成 | ❌ 手动实现 | ✅ 标准接口 |
+| 长度 | 32位 | 22位 |
+| 时间有序 | ❌ 无序 | ✅ 有序（雪花算法） |
+| 时间精度 | ❌ 无时间信息 | ✅ 毫秒级（雪花算法） |
+| 可读性 | ❌ 难以理解 | ✅ 数字ID+业务前缀 |
+| 唯一性 | ✅ 极高 | ✅ 极高（雪花算法） |
+| 性能 | ✅ 高 | ✅ 更高（纯内存计算） |
+| 分布式 | ✅ 支持 | ✅ 原生支持（雪花算法） |
+| MyBatis-Plus集成 | ❌ 手动实现 | ✅ 包装DefaultIdentifierGenerator |
 
 ## 实际应用示例
 
 ```java
 // 创建支付单
 String paymentId = paymentRepository.generatePaymentId();
-// 结果: PAY202510210951217915QJWOGN9
+// 结果: PAY1980579299950153729
 
 // 创建支付流水
 String transactionId = paymentRepository.generateTransactionId();
-// 结果: TXN20251021095121868IRPHQHEE
+// 结果: TXN1980579299950153730
 
 // 从ID中提取时间信息（如需要）
-String timestamp = paymentId.substring(3, 20);  // 20251021095121791
-// 可以解析为: 2025年10月21日 09:51:21.791
+long snowflakeId = Long.parseLong(paymentId.substring(3));  // 1980579299950153729
+// 雪花算法时间戳提取：
+long timestamp = (snowflakeId >> 22) + TWEPOCH;  // TWEPOCH是雪花算法的纪元时间
+// 转换为日期: new Date(timestamp)
 ```
 
 ## 未来优化方向
