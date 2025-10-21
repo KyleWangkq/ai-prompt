@@ -3,6 +3,7 @@ package com.bytz.modules.cms.payment.application;
 import com.bytz.modules.cms.payment.domain.command.CreatePaymentCommand;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
+import com.bytz.modules.cms.payment.infrastructure.config.CustomIdGenerator;
 import com.bytz.modules.cms.payment.shared.model.PaymentCreatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 /**
  * 支付单应用服务
@@ -27,6 +27,7 @@ public class PaymentApplicationService {
     
     private final IPaymentRepository paymentRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final CustomIdGenerator customIdGenerator;
     
     /**
      * 创建支付单
@@ -100,9 +101,12 @@ public class PaymentApplicationService {
      * 发布支付单已创建事件
      */
     private void publishPaymentCreatedEvent(PaymentAggregate payment) {
+        // 使用自定义ID生成器生成事件ID，保证时间有序性
+        String eventId = customIdGenerator.nextUUID(null);
+        
         PaymentCreatedEvent event = new PaymentCreatedEvent(
                 this,
-                UUID.randomUUID().toString(),
+                eventId,
                 payment.getId(),
                 payment.getOrderId(),
                 payment.getResellerId(),

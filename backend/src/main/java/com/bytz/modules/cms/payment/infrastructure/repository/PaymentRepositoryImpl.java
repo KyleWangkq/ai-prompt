@@ -5,6 +5,7 @@ import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
 import com.bytz.modules.cms.payment.infrastructure.assembler.InfrastructureAssembler;
+import com.bytz.modules.cms.payment.infrastructure.config.CustomIdGenerator;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity;
 import com.bytz.modules.cms.payment.infrastructure.mapper.PaymentMapper;
@@ -14,13 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -38,6 +36,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     private final PaymentMapper paymentMapper;
     private final PaymentTransactionMapper transactionMapper;
     private final InfrastructureAssembler infrastructureAssembler;
+    private final CustomIdGenerator customIdGenerator;
     
     /**
      * 保存支付单聚合根
@@ -223,27 +222,29 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     /**
      * 生成唯一的支付单号
      * 
+     * 使用自定义ID生成器（基于MyBatis-Plus的IdentifierGenerator接口）
+     * 格式：PAY + 年月日时分秒毫秒(17位) + 随机数(8位) = 28个字符
+     * 特性：时间有序、毫秒精度、支持分布式
+     * 
      * @return 唯一的支付单号
      */
     @Override
     public String generatePaymentId() {
-        // 格式：PAY + 年月日 + 8位随机字符
-        String dateStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String randomStr = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
-        return "PAY" + dateStr + randomStr;
+        return customIdGenerator.generatePaymentId();
     }
     
     /**
      * 生成唯一的支付流水号
      * 
+     * 使用自定义ID生成器（基于MyBatis-Plus的IdentifierGenerator接口）
+     * 格式：TXN + 年月日时分秒毫秒(17位) + 随机数(8位) = 28个字符
+     * 特性：时间有序、毫秒精度、支持分布式
+     * 
      * @return 唯一的支付流水号
      */
     @Override
     public String generateTransactionId() {
-        // 格式：TXN + 年月日时分秒 + 6位随机字符
-        String dateTimeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-        String randomStr = UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase();
-        return "TXN" + dateTimeStr + randomStr;
+        return customIdGenerator.generateTransactionId();
     }
     
     /**
