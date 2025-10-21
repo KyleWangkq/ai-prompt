@@ -5,6 +5,10 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.bytz.modules.cms.payment.domain.enums.PaymentStatus;
+import com.bytz.modules.cms.payment.domain.enums.PaymentType;
+import com.bytz.modules.cms.payment.domain.enums.RefundStatus;
+import com.bytz.modules.cms.payment.domain.enums.RelatedBusinessType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -79,19 +83,19 @@ public class PaymentEntity {
      * 支付类型
      */
     @TableField("payment_type")
-    private String paymentType;
+    private PaymentType paymentType;
     
     /**
      * 支付状态
      */
     @TableField("payment_status")
-    private String paymentStatus;
+    private PaymentStatus paymentStatus;
     
     /**
      * 退款状态
      */
     @TableField("refund_status")
-    private String refundStatus;
+    private RefundStatus refundStatus;
     
     /**
      * 业务描述
@@ -115,7 +119,7 @@ public class PaymentEntity {
      * 关联业务类型
      */
     @TableField("related_business_type")
-    private String relatedBusinessType;
+    private RelatedBusinessType relatedBusinessType;
     
     /**
      * 业务到期日
