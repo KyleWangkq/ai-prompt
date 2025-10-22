@@ -471,3 +471,261 @@ domainServices:
           处理流程：查询本地支付流水 → 调用渠道查询接口 → 比对状态差异 → 同步更新本地状态 → 触发支付单状态重算。
           触发场景：回调超时、状态不一致、用户手动刷新、定时任务批量检查。
           用例来源：UC-PM-009步骤1-7
+
+# Application Services（应用服务）
+applicationServices:
+  - name: PaymentApplicationService
+    description: |
+      支付单应用服务，协调支付单的创建、退款等用例。
+      服务类型：应用服务（用例编排）
+      实现接口：IPaymentInternalService（内部Java接口）
+      职责：不包含业务逻辑，仅负责用例协调和事件发布
+    methods:
+      - name: createPayment
+        description: |
+          创建支付单（内部接口）
+          使用场景：订单系统创建订单后调用、信用管理系统创建信用还款支付单
+          输入：CreatePaymentCommand
+          输出：PaymentAggregate
+          事件：发布PaymentCreatedEvent
+      - name: executeRefund
+        description: |
+          执行退款（内部接口）
+          使用场景：订单系统发起退款审批通过后调用
+          输入：ExecuteRefundCommand
+          输出：退款流水号（String）
+          事件：发布RefundExecutedEvent
+
+  - name: PaymentExecutionApplicationService
+    description: |
+      支付执行应用服务，协调批量支付执行、支付渠道查询等用例。
+      服务类型：应用服务（用例编排）
+      职责：协调领域服务和基础设施层，不包含业务逻辑
+    methods:
+      - name: executeBatchPayment
+        description: |
+          执行批量支付（外部REST接口后端处理）
+          使用场景：前端提交批量支付请求
+          输入：ExecutePaymentCommand
+          输出：渠道交易号（String）
+          委托：PaymentDomainService.executeBatchPayment
+      - name: queryAvailableChannels
+        description: |
+          查询经销商可用的支付渠道列表（外部REST接口）
+          使用场景：前端查询可用支付渠道
+          输入：resellerId（String）
+          输出：List<PaymentChannel>
+          逻辑：过滤渠道可用性、验证经销商权限
+      - name: queryChannelAvailabilityDetails
+        description: |
+          查询经销商支付渠道详细信息（外部REST接口）
+          使用场景：前端显示渠道可用性及原因
+          输入：resellerId（String）
+          输出：Map<PaymentChannel, ChannelAvailability>
+          逻辑：返回每个渠道的可用状态和不可用原因
+
+# REST API Interfaces（对外REST接口）
+restInterfaces:
+  - name: PaymentController
+    path: /api/v1/payments
+    description: |
+      支付单REST控制器，提供支付相关的HTTP接口。
+      职责：处理HTTP请求、参数验证、RO/VO转换、调用应用服务
+    endpoints:
+      - method: POST
+        path: /batch-pay
+        name: 批量支付接口
+        description: |
+          前端调用批量支付接口，支持多个支付单合并支付。
+          使用场景：经销商选择多个待支付单进行合并支付
+        requestBody: BatchPaymentExecuteRO
+        responseBody: BatchPaymentResultVO
+        validation: |
+          - 支付单列表不能为空
+          - 支付渠道必须有效
+          - 每个支付单的金额必须大于0
+        workflow: |
+          1. 接收BatchPaymentExecuteRO请求
+          2. 从上下文/请求头获取经销商ID
+          3. 转换paymentCode为paymentId（数据库主键）
+          4. 验证支付单归属
+          5. 调用PaymentExecutionApplicationService.executeBatchPayment
+          6. 构建BatchPaymentResultVO响应
+          7. 返回渠道交易号和支付结果
+      
+      - method: GET
+        path: /available-channels
+        name: 查询可用支付渠道接口
+        description: |
+          查询当前经销商可用的支付渠道列表。
+          使用场景：前端显示支付渠道选择列表
+        requestParams:
+          - name: X-Reseller-Id
+            location: header
+            required: false
+            description: 经销商ID（从认证上下文获取）
+        responseBody: List<PaymentChannelVO>
+        workflow: |
+          1. 从上下文/请求头获取经销商ID
+          2. 调用PaymentExecutionApplicationService.queryAvailableChannels
+          3. 转换PaymentChannel枚举为PaymentChannelVO
+          4. 返回可用渠道列表
+      
+      - method: POST
+        path: /
+        name: 创建支付单接口（已废弃）
+        deprecated: true
+        description: |
+          ⚠️ 已废弃：支付单创建应该由系统内部调用（IPaymentInternalService.createPayment），不应该通过外部REST接口创建。
+          请使用内部Java接口进行支付单创建。
+
+# Internal Java Interfaces（内部Java接口）
+internalInterfaces:
+  - name: IPaymentInternalService
+    package: com.bytz.modules.cms.payment.application
+    description: |
+      支付内部服务接口，提供给其他模块调用的Java内部接口。
+      使用方式：通过Spring依赖注入，在其他模块中注入此接口
+      实现类：PaymentApplicationService
+      注意：此接口用于内部Java代码调用，不是REST接口
+    methods:
+      - name: createPayment
+        signature: PaymentAggregate createPayment(CreatePaymentCommand command)
+        description: |
+          创建支付单
+          调用方：订单系统、信用管理系统等
+          使用场景：
+          - 订单系统创建订单后，调用此接口创建支付单
+          - 信用管理系统创建信用还款支付单
+        parameters:
+          - name: command
+            type: CreatePaymentCommand
+            fields:
+              - orderId: 订单号
+              - resellerId: 经销商ID
+              - paymentAmount: 支付金额
+              - currency: 币种（默认CNY）
+              - paymentType: 支付类型（ADVANCE_PAYMENT/FINAL_PAYMENT/OTHER_PAYMENT/CREDIT_REPAYMENT）
+              - paymentDeadline: 支付截止时间（可选）
+              - relatedBusinessId: 关联业务ID（可选，信用还款时必填）
+              - relatedBusinessType: 关联业务类型（可选）
+              - businessExpireDate: 业务到期日（可选）
+              - businessDesc: 业务描述（可选）
+              - businessTags: 业务标签（可选）
+              - createBy: 创建人ID
+              - createByName: 创建人姓名
+        returns:
+          type: PaymentAggregate
+          description: 创建成功的支付单聚合根
+        events:
+          - PaymentCreatedEvent: 支付单创建成功后发布
+      
+      - name: executeRefund
+        signature: String executeRefund(ExecuteRefundCommand command)
+        description: |
+          执行退款
+          调用方：订单系统
+          使用场景：
+          - 订单系统发起退款审批通过后，调用此接口执行退款
+          - 支持全额退款和部分退款
+        parameters:
+          - name: command
+            type: ExecuteRefundCommand
+            fields:
+              - refundOrderId: 退款单号（订单系统的退款单号）
+              - paymentId: 支付单ID（数据库主键）
+              - refundAmount: 退款金额
+              - refundReason: 退款原因
+              - approvalInfo: 审批信息（JSON格式，可选）
+              - refundType: 退款类型（全额/部分，可选）
+              - originalTransactionId: 原支付流水ID（必填，指定退款流水）
+        returns:
+          type: String
+          description: 退款流水号
+        events:
+          - RefundExecutedEvent: 退款执行成功后发布
+
+# DTOs（数据传输对象）
+dtos:
+  - name: BatchPaymentExecuteRO
+    package: com.bytz.modules.cms.payment.interfaces.model
+    type: Request Object
+    description: 批量支付执行请求对象
+    fields:
+      - name: paymentItems
+        type: List<PaymentItem>
+        required: true
+        description: 支付单项列表
+      - name: paymentChannel
+        type: PaymentChannel
+        required: true
+        description: 支付渠道
+    nestedTypes:
+      - name: PaymentItem
+        fields:
+          - name: paymentCode
+            type: String
+            required: true
+            description: 支付单号（业务编码）
+          - name: amount
+            type: BigDecimal
+            required: true
+            description: 本次支付金额
+
+  - name: BatchPaymentResultVO
+    package: com.bytz.modules.cms.payment.interfaces.model
+    type: Value Object
+    description: 批量支付结果响应对象
+    fields:
+      - name: channelTransactionNumber
+        type: String
+        description: 渠道交易号
+      - name: totalAmount
+        type: BigDecimal
+        description: 支付总金额
+      - name: paymentCount
+        type: Integer
+        description: 支付单数量
+      - name: paymentResults
+        type: List<PaymentResultItem>
+        description: 支付单结果列表
+    nestedTypes:
+      - name: PaymentResultItem
+        fields:
+          - name: paymentCode
+            type: String
+            description: 支付单号
+          - name: amount
+            type: BigDecimal
+            description: 本次支付金额
+          - name: transactionId
+            type: String
+            description: 支付流水号
+          - name: success
+            type: Boolean
+            description: 是否成功
+          - name: errorMessage
+            type: String
+            description: 错误信息（如果失败）
+
+  - name: PaymentChannelVO
+    package: com.bytz.modules.cms.payment.interfaces.model
+    type: Value Object
+    description: 支付渠道响应对象
+    fields:
+      - name: channelCode
+        type: String
+        description: 渠道代码
+      - name: channelName
+        type: String
+        description: 渠道名称
+      - name: channelDescription
+        type: String
+        description: 渠道描述
+      - name: available
+        type: Boolean
+        description: 是否可用
+      - name: unavailableReason
+        type: String
+        description: 不可用原因（如果不可用）
+

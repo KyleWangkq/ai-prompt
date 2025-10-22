@@ -81,6 +81,12 @@ public class PaymentTransactionEntity {
     private String channelTransactionNumber;
     
     /**
+     * 渠道支付记录ID（渠道系统的支付记录唯一标识，用于数据关联，不可修改）
+     */
+    @TableField(value = "channel_payment_record_id", updateStrategy = FieldStrategy.NEVER)
+    private String channelPaymentRecordId;
+    
+    /**
      * 支付方式（不可修改）
      */
     @TableField(value = "payment_way", updateStrategy = FieldStrategy.NEVER)

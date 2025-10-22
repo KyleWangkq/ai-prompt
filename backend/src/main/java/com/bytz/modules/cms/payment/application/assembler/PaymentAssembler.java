@@ -1,9 +1,13 @@
 package com.bytz.modules.cms.payment.application.assembler;
 
 import com.bytz.modules.cms.payment.domain.command.CreatePaymentCommand;
+import com.bytz.modules.cms.payment.domain.command.ExecutePaymentCommand;
+import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity;
+import com.bytz.modules.cms.payment.interfaces.model.BatchPaymentExecuteRO;
+import com.bytz.modules.cms.payment.interfaces.model.PaymentChannelVO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentCreateRO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentTransactionVO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentVO;
@@ -13,6 +17,7 @@ import org.mapstruct.ReportingPolicy;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 支付单转换器
@@ -93,5 +98,77 @@ public interface PaymentAssembler {
             return BigDecimal.ZERO;
         }
         return entity.getPaymentAmount().subtract(entity.getPaidAmount());
+    }
+    
+    /**
+     * BatchPaymentExecuteRO转换为ExecutePaymentCommand
+     * RO中已经包含paymentId（数据库主键），直接映射即可
+     * 
+     * @param ro 批量支付执行请求对象
+     * @param resellerId 经销商ID
+     * @return 执行支付命令
+     */
+    default ExecutePaymentCommand toBatchPaymentCommand(BatchPaymentExecuteRO ro, String resellerId) {
+        if (ro == null) {
+            return null;
+        }
+        
+        List<ExecutePaymentCommand.PaymentItem> items = ro.getPaymentItems().stream()
+                .map(item -> ExecutePaymentCommand.PaymentItem.builder()
+                        .paymentId(item.getPaymentId())  // 直接使用paymentId
+                        .amount(item.getAmount())
+                        .build())
+                .collect(Collectors.toList());
+        
+        return ExecutePaymentCommand.builder()
+                .paymentItems(items)
+                .paymentChannel(ro.getPaymentChannel())
+                .operatorId(resellerId)
+                .operatorName(resellerId)
+                .build();
+    }
+    
+    /**
+     * PaymentChannel枚举转换为渠道代码字符串
+     * 
+     * @param channel 支付渠道枚举
+     * @return 渠道代码
+     */
+    default String channelToCode(PaymentChannel channel) {
+        return channel != null ? channel.getCode() : null;
+    }
+    
+    /**
+     * PaymentChannel列表转换为渠道代码列表
+     * 
+     * @param channels 支付渠道枚举列表
+     * @return 渠道代码列表
+     */
+    default List<String> channelsToCodes(List<PaymentChannel> channels) {
+        if (channels == null) {
+            return null;
+        }
+        return channels.stream()
+                .map(PaymentChannel::getCode)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * PaymentChannel枚举转换为PaymentChannelVO
+     * 使用MapStruct进行转换
+     * 
+     * @param channel 支付渠道枚举
+     * @return 支付渠道VO
+     */
+    default PaymentChannelVO toChannelVO(PaymentChannel channel) {
+        if (channel == null) {
+            return null;
+        }
+        return PaymentChannelVO.builder()
+                .channelCode(channel.getCode())
+                .channelName(channel.getDescription())
+                .channelDescription(channel.getEnglishName())
+                .available(true)
+                .build();
     }
 }
