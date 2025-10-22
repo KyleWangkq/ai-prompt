@@ -279,7 +279,7 @@ mvn clean compile
 详细的使用指南请参考：
 - `/backend/README.md` - 完整的项目文档
 - `/docs/payment/支付模块需求设计.md` - 需求文档
-- `/docs/payment/Glossary.md` - 术语表
+- `/docs/Glossary.md` - 术语表
 
 ### ✨ 总结
 

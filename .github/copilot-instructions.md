@@ -67,7 +67,7 @@ YAML → code mapping (docs/payment/payment.yml):
 - enumerations → domain/enums/{Enum}.java
 - Always create I{name}Repository + {name}RepositoryImpl and {name}Mapper
 
-Ubiquitous language: Use exact English terms from `docs/payment/Glossary.md` and YAML (e.g., PaymentAggregate, PaymentTransactionEntity, PaymentStatus, PaymentType.CREDIT_REPAYMENT). Do not invent “PaymentOrder”.
+Ubiquitous language: Use exact English terms from `docs/Glossary.md` and YAML (e.g., PaymentAggregate, PaymentTransactionEntity, PaymentStatus, PaymentType.CREDIT_REPAYMENT). Do not invent “PaymentOrder”.
 
 MapStruct assemblers (application/assembler):
 - Example methods: toCreateCommand(PaymentCreateRO ro), toVO(PaymentAggregate agg), toVOs(List<PaymentAggregate>)
@@ -79,7 +79,7 @@ Patterns and examples:
 - Controller uses ApplicationService + Assembler for RO↔Domain↔VO; no domain types leaked in interfaces.
 
 Developer workflow:
-1) Read spec: open `docs/payment/payment.yml`,`docs/payment/支付模块用例模型.md` and `docs/payment/Glossary.md`.
+1) Read spec: open `docs/payment/payment.yml`,`docs/payment/支付模块用例模型.md` and `docs/Glossary.md`.
 2) Generate code under `backend/` with the package tree above; add TODO markers for unimplemented domain logic.
 3) Build when backend exists: cd backend && mvn clean compile test.
 
@@ -90,7 +90,7 @@ Acceptance checks before done:
 - MapStruct used for all RO/VO ↔ Domain conversion
 
 Key files to consult:
-- `docs/payment/payment.yml` (authoritative spec) • `docs/payment/Glossary.md` (terms) • `.github/instructions/ddd-springboot.instructions.md` (generation rules)
+- `docs/payment/payment.yml` (authoritative spec) • `docs/Glossary.md` (terms) • `.github/instructions/ddd-springboot.instructions.md` (generation rules)
 
 Pitfalls to avoid:
 - Exposing entities/VOs outside domain; skipping repository interface; deviating names; mixing JPA-style repos with MyBatis-Plus patterns.
