@@ -25,9 +25,9 @@ import java.time.LocalDateTime;
 public class PaymentTransaction {
     
     /**
-     * 数据库主键ID
+     * 数据库主键ID（使用雪花算法生成）
      */
-    private Long id;
+    private String id;
     
     /**
      * 流水号（业务编码）
@@ -37,7 +37,7 @@ public class PaymentTransaction {
     /**
      * 支付单ID（外键关联）
      */
-    private Long paymentId;
+    private String paymentId;
     
     /**
      * 流水类型（支付/退款）
@@ -72,7 +72,7 @@ public class PaymentTransaction {
     /**
      * 原流水ID（退款时使用）
      */
-    private Long originalTransactionId;
+    private String originalTransactionId;
     
     /**
      * 业务单号（如退款单号）

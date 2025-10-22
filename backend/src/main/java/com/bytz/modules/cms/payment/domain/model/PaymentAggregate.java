@@ -31,9 +31,9 @@ import java.util.List;
 public class PaymentAggregate {
     
     /**
-     * 数据库主键ID
+     * 数据库主键ID（使用雪花算法生成）
      */
-    private Long id;
+    private String id;
     
     /**
      * 支付单号（聚合根业务编码）
@@ -302,7 +302,7 @@ public class PaymentAggregate {
      */
     public PaymentTransaction executeRefund(
             BigDecimal refundAmount,
-            Long originalTransactionId,
+            String originalTransactionId,
             String businessOrderId,
             String refundReason) {
         
@@ -452,7 +452,7 @@ public class PaymentAggregate {
      * @param transactionId 流水ID
      * @return 支付流水，如果未找到返回null
      */
-    private PaymentTransaction findTransactionById(Long transactionId) {
+    private PaymentTransaction findTransactionById(String transactionId) {
         return this.transactions.stream()
                 .filter(t -> t.getId() != null && t.getId().equals(transactionId))
                 .findFirst()

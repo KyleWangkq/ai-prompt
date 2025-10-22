@@ -110,7 +110,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
      * @return 支付单聚合根，如果未找到返回null
      */
     @Override
-    public PaymentAggregate findById(Long id) {
+    public PaymentAggregate findById(String id) {
         log.info("根据ID查找支付单，ID: {}", id);
         
         PaymentEntity entity = paymentMapper.selectById(id);
@@ -167,10 +167,10 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         List<PaymentEntity> entities = paymentMapper.selectList(wrapper);
         
         // 批量查询所有支付流水，避免在循环中调用数据库 - 使用ID关联
-        List<Long> paymentIds = entities.stream()
+        List<String> paymentIds = entities.stream()
                 .map(PaymentEntity::getId)
                 .collect(Collectors.toList());
-        Map<Long, List<PaymentTransactionEntity>> transactionsMap = 
+        Map<String, List<PaymentTransactionEntity>> transactionsMap = 
                 findTransactionsByPaymentIds(paymentIds);
         
         return entities.stream()
@@ -198,10 +198,10 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         List<PaymentEntity> entities = paymentMapper.selectList(wrapper);
         
         // 批量查询所有支付流水，避免在循环中调用数据库 - 使用ID关联
-        List<Long> paymentIds = entities.stream()
+        List<String> paymentIds = entities.stream()
                 .map(PaymentEntity::getId)
                 .collect(Collectors.toList());
-        Map<Long, List<PaymentTransactionEntity>> transactionsMap = 
+        Map<String, List<PaymentTransactionEntity>> transactionsMap = 
                 findTransactionsByPaymentIds(paymentIds);
         
         return entities.stream()
@@ -229,10 +229,10 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         List<PaymentEntity> entities = paymentMapper.selectList(wrapper);
         
         // 批量查询所有支付流水，避免在循环中调用数据库 - 使用ID关联
-        List<Long> paymentIds = entities.stream()
+        List<String> paymentIds = entities.stream()
                 .map(PaymentEntity::getId)
                 .collect(Collectors.toList());
-        Map<Long, List<PaymentTransactionEntity>> transactionsMap = 
+        Map<String, List<PaymentTransactionEntity>> transactionsMap = 
                 findTransactionsByPaymentIds(paymentIds);
         
         return entities.stream()
@@ -251,7 +251,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
      * @return 是否删除成功
      */
     @Override
-    public boolean deleteById(Long id) {
+    public boolean deleteById(String id) {
         log.info("删除支付单，ID: {}", id);
         return paymentMapper.deleteById(id) > 0;
     }
@@ -279,7 +279,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
      * @return 是否存在
      */
     @Override
-    public boolean existsById(Long id) {
+    public boolean existsById(String id) {
         return paymentMapper.selectById(id) != null;
     }
     
@@ -341,7 +341,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     /**
      * 检查支付流水是否存在（通过主键ID）
      */
-    private boolean existsTransactionById(Long id) {
+    private boolean existsTransactionById(String id) {
         return transactionMapper.selectById(id) != null;
     }
     
@@ -359,7 +359,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
      * @param paymentIds 支付单ID列表
      * @return 支付单ID到支付流水列表的映射
      */
-    private Map<Long, List<PaymentTransactionEntity>> findTransactionsByPaymentIds(List<Long> paymentIds) {
+    private Map<String, List<PaymentTransactionEntity>> findTransactionsByPaymentIds(List<String> paymentIds) {
         if (paymentIds == null || paymentIds.isEmpty()) {
             return new HashMap<>();
         }
