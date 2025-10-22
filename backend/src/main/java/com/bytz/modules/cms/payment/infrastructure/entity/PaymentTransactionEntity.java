@@ -1,5 +1,7 @@
 package com.bytz.modules.cms.payment.infrastructure.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -31,27 +33,27 @@ import java.time.LocalDateTime;
 public class PaymentTransactionEntity {
     
     /**
-     * 主键ID，自增
+     * 主键ID，使用雪花算法生成
      */
-    @TableId(type = IdType.AUTO)
-    private Long id;
+    @TableId(type = IdType.ASSIGN_ID)
+    private String id;
     
     /**
-     * 流水号，业务编码
+     * 流水号，业务编码（不可修改）
      */
-    @TableField("code")
+    @TableField(value = "code", updateStrategy = FieldStrategy.NEVER)
     private String code;
     
     /**
-     * 支付单ID，外键关联
+     * 支付单ID，外键关联（不可修改）
      */
-    @TableField("payment_id")
-    private Long paymentId;
+    @TableField(value = "payment_id", updateStrategy = FieldStrategy.NEVER)
+    private String paymentId;
     
     /**
-     * 流水类型
+     * 流水类型（不可修改）
      */
-    @TableField("transaction_type")
+    @TableField(value = "transaction_type", updateStrategy = FieldStrategy.NEVER)
     private TransactionType transactionType;
     
     /**
@@ -61,15 +63,15 @@ public class PaymentTransactionEntity {
     private TransactionStatus transactionStatus;
     
     /**
-     * 交易金额
+     * 交易金额（不可修改）
      */
-    @TableField("transaction_amount")
+    @TableField(value = "transaction_amount", updateStrategy = FieldStrategy.NEVER)
     private BigDecimal transactionAmount;
     
     /**
-     * 支付渠道
+     * 支付渠道（不可修改）
      */
-    @TableField("payment_channel")
+    @TableField(value = "payment_channel", updateStrategy = FieldStrategy.NEVER)
     private PaymentChannel paymentChannel;
     
     /**
@@ -79,16 +81,16 @@ public class PaymentTransactionEntity {
     private String channelTransactionNumber;
     
     /**
-     * 支付方式
+     * 支付方式（不可修改）
      */
-    @TableField("payment_way")
+    @TableField(value = "payment_way", updateStrategy = FieldStrategy.NEVER)
     private String paymentWay;
     
     /**
-     * 原流水ID（退款时使用）
+     * 原流水ID（退款时使用，不可修改）
      */
-    @TableField("original_transaction_id")
-    private Long originalTransactionId;
+    @TableField(value = "original_transaction_id", updateStrategy = FieldStrategy.NEVER)
+    private String originalTransactionId;
     
     /**
      * 业务单号
@@ -99,7 +101,7 @@ public class PaymentTransactionEntity {
     /**
      * 创建时间
      */
-    @TableField("create_time")
+    @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     
     /**
@@ -124,36 +126,36 @@ public class PaymentTransactionEntity {
      * 删除标识
      */
     @TableLogic
-    @TableField("del_flag")
+    @TableField(value = "del_flag", fill = FieldFill.INSERT)
     private Integer delFlag;
     
     /**
      * 创建人
      */
-    @TableField("create_by")
+    @TableField(value = "create_by", fill = FieldFill.INSERT)
     private String createBy;
     
     /**
      * 创建人姓名
      */
-    @TableField("create_by_name")
+    @TableField(value = "create_by_name", fill = FieldFill.INSERT)
     private String createByName;
     
     /**
      * 更新人
      */
-    @TableField("update_by")
+    @TableField(value = "update_by", fill = FieldFill.INSERT_UPDATE)
     private String updateBy;
     
     /**
      * 更新人姓名
      */
-    @TableField("update_by_name")
+    @TableField(value = "update_by_name", fill = FieldFill.INSERT_UPDATE)
     private String updateByName;
     
     /**
      * 更新时间
      */
-    @TableField("update_time")
+    @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 }

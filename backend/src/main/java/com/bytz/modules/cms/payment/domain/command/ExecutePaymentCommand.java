@@ -53,7 +53,7 @@ public class ExecutePaymentCommand {
         /**
          * 支付单ID（主键）
          */
-        private Long paymentId;
+        private String paymentId;
         
         /**
          * 本次支付金额

@@ -29,7 +29,7 @@ public interface IPaymentRepository {
      * @return 支付单聚合根，如果未找到返回null
      * TODO: 实现支付单的查询逻辑，包括关联的支付流水
      */
-    PaymentAggregate findById(Long id);
+    PaymentAggregate findById(String id);
     
     /**
      * 根据业务编码查找支付单
@@ -74,7 +74,7 @@ public interface IPaymentRepository {
      * @return 是否删除成功
      * TODO: 实现支付单的逻辑删除
      */
-    boolean deleteById(Long id);
+    boolean deleteById(String id);
     
     /**
      * 删除支付单（逻辑删除）- 通过业务编码
@@ -92,7 +92,7 @@ public interface IPaymentRepository {
      * @return 是否存在
      * TODO: 实现支付单存在性检查
      */
-    boolean existsById(Long id);
+    boolean existsById(String id);
     
     /**
      * 检查支付单是否存在 - 通过业务编码

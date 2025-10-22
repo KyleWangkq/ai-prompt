@@ -1,5 +1,6 @@
 package com.bytz.modules.cms.payment.infrastructure.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -32,10 +33,10 @@ import java.time.LocalDateTime;
 public class PaymentEntity {
     
     /**
-     * 主键ID，自增
+     * 主键ID，使用雪花算法生成
      */
-    @TableId(type = IdType.AUTO)
-    private Long id;
+    @TableId(type = IdType.ASSIGN_ID)
+    private String id;
     
     /**
      * 支付单号，业务编码
@@ -134,51 +135,45 @@ public class PaymentEntity {
     private LocalDateTime businessExpireDate;
     
     /**
-     * 业务标签
-     */
-    @TableField("business_tags")
-    private String businessTags;
-    
-    /**
      * 删除标识
      */
     @TableLogic
-    @TableField("del_flag")
+    @TableField(value = "del_flag", fill = FieldFill.INSERT)
     private Integer delFlag;
     
     /**
      * 创建人
      */
-    @TableField("create_by")
+    @TableField(value = "create_by", fill = FieldFill.INSERT)
     private String createBy;
     
     /**
      * 创建人姓名
      */
-    @TableField("create_by_name")
+    @TableField(value = "create_by_name", fill = FieldFill.INSERT)
     private String createByName;
     
     /**
      * 创建时间
      */
-    @TableField("create_time")
+    @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     
     /**
      * 更新人
      */
-    @TableField("update_by")
+    @TableField(value = "update_by", fill = FieldFill.INSERT_UPDATE)
     private String updateBy;
     
     /**
      * 更新人姓名
      */
-    @TableField("update_by_name")
+    @TableField(value = "update_by_name", fill = FieldFill.INSERT_UPDATE)
     private String updateByName;
     
     /**
      * 更新时间
      */
-    @TableField("update_time")
+    @TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 }
