@@ -1,6 +1,7 @@
 package com.bytz.modules.cms.payment.infrastructure.entity;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -40,19 +41,19 @@ public class PaymentTransactionEntity {
     /**
      * 流水号，业务编码（不可修改）
      */
-    @TableField(value = "code", update = "")
+    @TableField(value = "code", updateStrategy = FieldStrategy.NEVER)
     private String code;
     
     /**
      * 支付单ID，外键关联（不可修改）
      */
-    @TableField(value = "payment_id", update = "")
+    @TableField(value = "payment_id", updateStrategy = FieldStrategy.NEVER)
     private String paymentId;
     
     /**
      * 流水类型（不可修改）
      */
-    @TableField(value = "transaction_type", update = "")
+    @TableField(value = "transaction_type", updateStrategy = FieldStrategy.NEVER)
     private TransactionType transactionType;
     
     /**
@@ -64,13 +65,13 @@ public class PaymentTransactionEntity {
     /**
      * 交易金额（不可修改）
      */
-    @TableField(value = "transaction_amount", update = "")
+    @TableField(value = "transaction_amount", updateStrategy = FieldStrategy.NEVER)
     private BigDecimal transactionAmount;
     
     /**
      * 支付渠道（不可修改）
      */
-    @TableField(value = "payment_channel", update = "")
+    @TableField(value = "payment_channel", updateStrategy = FieldStrategy.NEVER)
     private PaymentChannel paymentChannel;
     
     /**
@@ -82,13 +83,13 @@ public class PaymentTransactionEntity {
     /**
      * 支付方式（不可修改）
      */
-    @TableField(value = "payment_way", update = "")
+    @TableField(value = "payment_way", updateStrategy = FieldStrategy.NEVER)
     private String paymentWay;
     
     /**
      * 原流水ID（退款时使用，不可修改）
      */
-    @TableField(value = "original_transaction_id", update = "")
+    @TableField(value = "original_transaction_id", updateStrategy = FieldStrategy.NEVER)
     private String originalTransactionId;
     
     /**
