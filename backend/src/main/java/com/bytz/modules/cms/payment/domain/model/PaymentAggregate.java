@@ -438,6 +438,28 @@ public class PaymentAggregate {
     }
     
     /**
+     * 验证退款前置条件
+     * 
+     * @param refundAmount 退款金额
+     * @throws IllegalArgumentException 如果不满足退款条件
+     */
+    public void validateRefundable(BigDecimal refundAmount) {
+        if (!canRefund()) {
+            throw new IllegalArgumentException("当前支付单状态不允许退款");
+        }
+        
+        BigDecimal refundableAmount = this.paidAmount.subtract(this.refundedAmount);
+        if (refundAmount.compareTo(refundableAmount) > 0) {
+            throw new IllegalArgumentException(
+                    String.format("退款金额 %s 超过可退款金额 %s", refundAmount, refundableAmount));
+        }
+        
+        if (refundAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("退款金额必须大于0");
+        }
+    }
+    
+    /**
      * 判断是否为信用还款类型
      * 
      * @return true如果是信用还款，否则false

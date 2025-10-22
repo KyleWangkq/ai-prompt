@@ -1,11 +1,17 @@
 package com.bytz.modules.cms.payment.interfaces.controller;
 
 import com.bytz.modules.cms.payment.application.PaymentApplicationService;
+import com.bytz.modules.cms.payment.application.PaymentExecutionApplicationService;
 import com.bytz.modules.cms.payment.application.PaymentQueryService;
 import com.bytz.modules.cms.payment.application.assembler.PaymentAssembler;
 import com.bytz.modules.cms.payment.domain.command.CreatePaymentCommand;
+import com.bytz.modules.cms.payment.domain.command.ExecutePaymentCommand;
+import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity;
+import com.bytz.modules.cms.payment.interfaces.model.BatchPaymentExecuteRO;
+import com.bytz.modules.cms.payment.interfaces.model.BatchPaymentResultVO;
+import com.bytz.modules.cms.payment.interfaces.model.PaymentChannelVO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentCreateRO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentVO;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +21,10 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 支付单控制器
@@ -31,6 +40,7 @@ import java.util.List;
 public class PaymentController {
     
     private final PaymentApplicationService paymentApplicationService;
+    private final PaymentExecutionApplicationService paymentExecutionApplicationService;
     private final PaymentQueryService paymentQueryService;
     private final PaymentAssembler paymentAssembler;
     
@@ -134,5 +144,139 @@ public class PaymentController {
         List<PaymentVO> vos = paymentAssembler.entitiesToVOs(payments);
         
         return ResponseEntity.ok(vos);
+    }
+    
+    /**
+     * 批量支付接口
+     * 前端调用批量支付接口，支持多个支付单合并支付
+     * 
+     * POST /api/v1/payments/batch-pay
+     * 
+     * @param ro 批量支付执行请求对象
+     * @param resellerId 经销商ID（从请求头或上下文获取）
+     * @return 批量支付结果响应对象
+     */
+    @PostMapping("/batch-pay")
+    public ResponseEntity<BatchPaymentResultVO> batchPayment(
+            @Valid @RequestBody BatchPaymentExecuteRO ro,
+            @RequestHeader(value = "X-Reseller-Id", required = false) String resellerId) {
+        
+        log.info("收到批量支付请求，支付单数量: {}, 支付渠道: {}, 经销商ID: {}", 
+                ro.getPaymentItems().size(), ro.getPaymentChannel(), resellerId);
+        
+        // TODO: 从认证上下文获取真实的经销商ID，这里暂时从请求头获取
+        if (resellerId == null || resellerId.trim().isEmpty()) {
+            resellerId = "RESELLER_DEFAULT";  // 默认值，实际应该从认证上下文获取
+            log.warn("未提供经销商ID，使用默认值");
+        }
+        
+        // 转换RO中的paymentCode为paymentId（数据库主键）
+        ExecutePaymentCommand command = convertToExecutePaymentCommand(ro, resellerId);
+        
+        // 执行批量支付
+        String channelTransactionNumber = paymentExecutionApplicationService.executeBatchPayment(command);
+        
+        // 构建响应对象
+        BatchPaymentResultVO result = buildBatchPaymentResult(ro, channelTransactionNumber);
+        
+        log.info("批量支付执行完成，渠道交易号: {}", channelTransactionNumber);
+        return ResponseEntity.ok(result);
+    }
+    
+    /**
+     * 查询当前经销商可用支付渠道
+     * 
+     * GET /api/v1/payments/available-channels
+     * 
+     * @param resellerId 经销商ID（从请求头或上下文获取）
+     * @return 可用支付渠道列表
+     */
+    @GetMapping("/available-channels")
+    public ResponseEntity<List<PaymentChannelVO>> getAvailableChannels(
+            @RequestHeader(value = "X-Reseller-Id", required = false) String resellerId) {
+        
+        log.info("查询经销商可用支付渠道，经销商ID: {}", resellerId);
+        
+        // TODO: 从认证上下文获取真实的经销商ID，这里暂时从请求头获取
+        if (resellerId == null || resellerId.trim().isEmpty()) {
+            resellerId = "RESELLER_DEFAULT";  // 默认值，实际应该从认证上下文获取
+            log.warn("未提供经销商ID，使用默认值");
+        }
+        
+        // 查询可用渠道
+        List<PaymentChannel> availableChannels = paymentExecutionApplicationService.queryAvailableChannels(resellerId);
+        
+        // 转换为VO
+        List<PaymentChannelVO> channelVOs = paymentAssembler.toChannelVOs(availableChannels);
+        
+        log.info("经销商 {} 可用支付渠道数量: {}", resellerId, channelVOs.size());
+        return ResponseEntity.ok(channelVOs);
+    }
+    
+    /**
+     * 转换RO中的paymentCode为paymentId
+     * 
+     * @param ro 批量支付执行请求对象
+     * @param resellerId 经销商ID
+     * @return 执行支付命令
+     */
+    private ExecutePaymentCommand convertToExecutePaymentCommand(BatchPaymentExecuteRO ro, String resellerId) {
+        // 查询所有支付单，将code转换为id
+        List<ExecutePaymentCommand.PaymentItem> items = ro.getPaymentItems().stream()
+                .map(roItem -> {
+                    // 通过code查询支付单获取真实的数据库id
+                    PaymentEntity payment = paymentQueryService.getPaymentByCode(roItem.getPaymentCode());
+                    if (payment == null) {
+                        throw new IllegalArgumentException("支付单不存在: " + roItem.getPaymentCode());
+                    }
+                    
+                    // 验证支付单属于该经销商
+                    if (!payment.getResellerId().equals(resellerId)) {
+                        throw new IllegalArgumentException("支付单不属于该经销商: " + roItem.getPaymentCode());
+                    }
+                    
+                    return ExecutePaymentCommand.PaymentItem.builder()
+                            .paymentId(payment.getId())  // 使用数据库主键id
+                            .amount(roItem.getAmount())
+                            .build();
+                })
+                .collect(Collectors.toList());
+        
+        return ExecutePaymentCommand.builder()
+                .paymentItems(items)
+                .paymentChannel(ro.getPaymentChannel())
+                .operatorId(resellerId)
+                .operatorName(resellerId)
+                .build();
+    }
+    
+    /**
+     * 构建批量支付结果响应对象
+     * 
+     * @param ro 批量支付执行请求对象
+     * @param channelTransactionNumber 渠道交易号
+     * @return 批量支付结果响应对象
+     */
+    private BatchPaymentResultVO buildBatchPaymentResult(BatchPaymentExecuteRO ro, String channelTransactionNumber) {
+        // 计算总金额
+        BigDecimal totalAmount = ro.getPaymentItems().stream()
+                .map(BatchPaymentExecuteRO.PaymentItem::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        // 构建每个支付单的结果
+        List<BatchPaymentResultVO.PaymentResultItem> paymentResults = ro.getPaymentItems().stream()
+                .map(item -> BatchPaymentResultVO.PaymentResultItem.builder()
+                        .paymentCode(item.getPaymentCode())
+                        .amount(item.getAmount())
+                        .success(true)  // 此时已提交到渠道，最终结果需要等待回调
+                        .build())
+                .collect(Collectors.toList());
+        
+        return BatchPaymentResultVO.builder()
+                .channelTransactionNumber(channelTransactionNumber)
+                .totalAmount(totalAmount)
+                .paymentCount(ro.getPaymentItems().size())
+                .paymentResults(paymentResults)
+                .build();
     }
 }
