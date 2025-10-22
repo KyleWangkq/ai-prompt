@@ -48,16 +48,26 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PaymentAggregate save(PaymentAggregate payment) {
-        log.info("保存支付单聚合根，支付单号: {}", payment.getId());
+        log.info("保存支付单聚合根，支付单号: {}", payment.getCode());
         
         // 使用MapStruct转换为数据库实体
         PaymentEntity entity = infrastructureAssembler.toPaymentEntity(payment);
         
         // 判断是插入还是更新
-        if (existsById(payment.getId())) {
+        if (payment.getId() != null && existsById(payment.getId())) {
+            // 更新已存在的记录
+            paymentMapper.updateById(entity);
+        } else if (existsByCode(payment.getCode())) {
+            // 根据code查询entity获取id
+            PaymentEntity existingEntity = findEntityByCode(payment.getCode());
+            entity.setId(existingEntity.getId());
+            payment.setId(existingEntity.getId());
             paymentMapper.updateById(entity);
         } else {
+            // 插入新记录
             paymentMapper.insert(entity);
+            // 回填生成的ID
+            payment.setId(entity.getId());
         }
         
         // 保存支付流水
@@ -66,14 +76,27 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
             PaymentTransactionEntity transactionEntity = 
                     infrastructureAssembler.toTransactionEntity(transaction);
             
-            if (transaction.getId() == null || transaction.getId().isEmpty()) {
-                transaction.setId(generateTransactionId());
-                transactionEntity.setId(transaction.getId());
+            // 设置支付单ID关联
+            transactionEntity.setPaymentId(payment.getId());
+            
+            if (transaction.getCode() == null || transaction.getCode().isEmpty()) {
+                transaction.setCode(generateTransactionCode());
+                transactionEntity.setCode(transaction.getCode());
                 transactionMapper.insert(transactionEntity);
-            } else if (existsTransactionById(transaction.getId())) {
+                // 回填生成的ID
+                transaction.setId(transactionEntity.getId());
+            } else if (transaction.getId() != null && existsTransactionById(transaction.getId())) {
+                transactionMapper.updateById(transactionEntity);
+            } else if (existsTransactionByCode(transaction.getCode())) {
+                // 根据code查询entity获取id
+                PaymentTransactionEntity existingEntity = findTransactionEntityByCode(transaction.getCode());
+                transactionEntity.setId(existingEntity.getId());
+                transaction.setId(existingEntity.getId());
                 transactionMapper.updateById(transactionEntity);
             } else {
                 transactionMapper.insert(transactionEntity);
+                // 回填生成的ID
+                transaction.setId(transactionEntity.getId());
             }
         }
         
@@ -81,23 +104,47 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     }
     
     /**
-     * 根据ID查找支付单
+     * 根据主键ID查找支付单
      * 
-     * @param id 支付单号
+     * @param id 主键ID
      * @return 支付单聚合根，如果未找到返回null
      */
     @Override
-    public PaymentAggregate findById(String id) {
-        log.info("查找支付单，支付单号: {}", id);
+    public PaymentAggregate findById(Long id) {
+        log.info("根据ID查找支付单，ID: {}", id);
         
         PaymentEntity entity = paymentMapper.selectById(id);
         if (entity == null) {
             return null;
         }
         
-        // 查询支付流水
+        // 查询支付流水 - 使用payment_id关联
         LambdaQueryWrapper<PaymentTransactionEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PaymentTransactionEntity::getPaymentId, id);
+        List<PaymentTransactionEntity> transactionEntities = transactionMapper.selectList(wrapper);
+        
+        // 使用MapStruct转换为领域对象
+        return toPaymentAggregate(entity, transactionEntities);
+    }
+    
+    /**
+     * 根据业务编码查找支付单
+     * 
+     * @param code 支付单号
+     * @return 支付单聚合根，如果未找到返回null
+     */
+    @Override
+    public PaymentAggregate findByCode(String code) {
+        log.info("根据业务编码查找支付单，支付单号: {}", code);
+        
+        PaymentEntity entity = findEntityByCode(code);
+        if (entity == null) {
+            return null;
+        }
+        
+        // 查询支付流水 - 使用payment_id关联
+        LambdaQueryWrapper<PaymentTransactionEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PaymentTransactionEntity::getPaymentId, entity.getId());
         List<PaymentTransactionEntity> transactionEntities = transactionMapper.selectList(wrapper);
         
         // 使用MapStruct转换为领域对象
@@ -119,11 +166,11 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         
         List<PaymentEntity> entities = paymentMapper.selectList(wrapper);
         
-        // 批量查询所有支付流水，避免在循环中调用数据库
-        List<String> paymentIds = entities.stream()
+        // 批量查询所有支付流水，避免在循环中调用数据库 - 使用ID关联
+        List<Long> paymentIds = entities.stream()
                 .map(PaymentEntity::getId)
                 .collect(Collectors.toList());
-        Map<String, List<PaymentTransactionEntity>> transactionsMap = 
+        Map<Long, List<PaymentTransactionEntity>> transactionsMap = 
                 findTransactionsByPaymentIds(paymentIds);
         
         return entities.stream()
@@ -150,11 +197,11 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         
         List<PaymentEntity> entities = paymentMapper.selectList(wrapper);
         
-        // 批量查询所有支付流水，避免在循环中调用数据库
-        List<String> paymentIds = entities.stream()
+        // 批量查询所有支付流水，避免在循环中调用数据库 - 使用ID关联
+        List<Long> paymentIds = entities.stream()
                 .map(PaymentEntity::getId)
                 .collect(Collectors.toList());
-        Map<String, List<PaymentTransactionEntity>> transactionsMap = 
+        Map<Long, List<PaymentTransactionEntity>> transactionsMap = 
                 findTransactionsByPaymentIds(paymentIds);
         
         return entities.stream()
@@ -181,11 +228,11 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         
         List<PaymentEntity> entities = paymentMapper.selectList(wrapper);
         
-        // 批量查询所有支付流水，避免在循环中调用数据库
-        List<String> paymentIds = entities.stream()
+        // 批量查询所有支付流水，避免在循环中调用数据库 - 使用ID关联
+        List<Long> paymentIds = entities.stream()
                 .map(PaymentEntity::getId)
                 .collect(Collectors.toList());
-        Map<String, List<PaymentTransactionEntity>> transactionsMap = 
+        Map<Long, List<PaymentTransactionEntity>> transactionsMap = 
                 findTransactionsByPaymentIds(paymentIds);
         
         return entities.stream()
@@ -198,26 +245,53 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     }
     
     /**
-     * 删除支付单（逻辑删除）
+     * 删除支付单（逻辑删除）- 通过主键ID
      * 
-     * @param id 支付单号
+     * @param id 主键ID
      * @return 是否删除成功
      */
     @Override
-    public boolean deleteById(String id) {
-        log.info("删除支付单，支付单号: {}", id);
+    public boolean deleteById(Long id) {
+        log.info("删除支付单，ID: {}", id);
         return paymentMapper.deleteById(id) > 0;
     }
     
     /**
-     * 检查支付单是否存在
+     * 删除支付单（逻辑删除）- 通过业务编码
      * 
-     * @param id 支付单号
+     * @param code 支付单号
+     * @return 是否删除成功
+     */
+    @Override
+    public boolean deleteByCode(String code) {
+        log.info("删除支付单，支付单号: {}", code);
+        PaymentEntity entity = findEntityByCode(code);
+        if (entity != null) {
+            return paymentMapper.deleteById(entity.getId()) > 0;
+        }
+        return false;
+    }
+    
+    /**
+     * 检查支付单是否存在 - 通过主键ID
+     * 
+     * @param id 主键ID
      * @return 是否存在
      */
     @Override
-    public boolean existsById(String id) {
+    public boolean existsById(Long id) {
         return paymentMapper.selectById(id) != null;
+    }
+    
+    /**
+     * 检查支付单是否存在 - 通过业务编码
+     * 
+     * @param code 支付单号
+     * @return 是否存在
+     */
+    @Override
+    public boolean existsByCode(String code) {
+        return findEntityByCode(code) != null;
     }
     
     /**
@@ -226,7 +300,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
      * @return 唯一的支付单号
      */
     @Override
-    public String generatePaymentId() {
+    public String generatePaymentCode() {
         // 格式：PAY + 年月日 + 8位随机字符
         String dateStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String randomStr = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
@@ -239,7 +313,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
      * @return 唯一的支付流水号
      */
     @Override
-    public String generateTransactionId() {
+    public String generateTransactionCode() {
         // 格式：TXN + 年月日时分秒 + 6位随机字符
         String dateTimeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         String randomStr = UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase();
@@ -247,29 +321,45 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     }
     
     /**
-     * 检查支付流水是否存在
+     * 根据业务编码查找支付单实体
      */
-    private boolean existsTransactionById(String id) {
+    private PaymentEntity findEntityByCode(String code) {
+        LambdaQueryWrapper<PaymentEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PaymentEntity::getCode, code);
+        return paymentMapper.selectOne(wrapper);
+    }
+    
+    /**
+     * 根据业务编码查找支付流水实体
+     */
+    private PaymentTransactionEntity findTransactionEntityByCode(String code) {
+        LambdaQueryWrapper<PaymentTransactionEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PaymentTransactionEntity::getCode, code);
+        return transactionMapper.selectOne(wrapper);
+    }
+    
+    /**
+     * 检查支付流水是否存在（通过主键ID）
+     */
+    private boolean existsTransactionById(Long id) {
         return transactionMapper.selectById(id) != null;
     }
     
     /**
-     * 根据支付单ID查找支付流水
+     * 检查支付流水是否存在（通过业务编码）
      */
-    private List<PaymentTransactionEntity> findTransactionsByPaymentId(String paymentId) {
-        LambdaQueryWrapper<PaymentTransactionEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PaymentTransactionEntity::getPaymentId, paymentId);
-        return transactionMapper.selectList(wrapper);
+    private boolean existsTransactionByCode(String code) {
+        return findTransactionEntityByCode(code) != null;
     }
     
     /**
      * 批量查询支付流水
-     * 根据多个支付单号批量查询对应的支付流水，避免在循环中调用数据库
+     * 根据多个支付单ID批量查询对应的支付流水，避免在循环中调用数据库
      * 
-     * @param paymentIds 支付单号列表
-     * @return 支付单号到支付流水列表的映射
+     * @param paymentIds 支付单ID列表
+     * @return 支付单ID到支付流水列表的映射
      */
-    private Map<String, List<PaymentTransactionEntity>> findTransactionsByPaymentIds(List<String> paymentIds) {
+    private Map<Long, List<PaymentTransactionEntity>> findTransactionsByPaymentIds(List<Long> paymentIds) {
         if (paymentIds == null || paymentIds.isEmpty()) {
             return new HashMap<>();
         }
@@ -278,7 +368,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         wrapper.in(PaymentTransactionEntity::getPaymentId, paymentIds);
         List<PaymentTransactionEntity> allTransactions = transactionMapper.selectList(wrapper);
         
-        // 按支付单号分组
+        // 按支付单ID分组
         return allTransactions.stream()
                 .collect(Collectors.groupingBy(PaymentTransactionEntity::getPaymentId));
     }

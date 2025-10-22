@@ -31,9 +31,14 @@ import java.util.List;
 public class PaymentAggregate {
     
     /**
-     * 支付单号（聚合根ID）
+     * 数据库主键ID
      */
-    private String id;
+    private Long id;
+    
+    /**
+     * 支付单号（聚合根业务编码）
+     */
+    private String code;
     
     /**
      * 关联订单号
@@ -249,12 +254,12 @@ public class PaymentAggregate {
     /**
      * 处理支付回调，更新支付结果
      * 
-     * @param transactionId 流水号
+     * @param transactionCode 流水号
      * @param success 是否成功
      * @param completeTime 完成时间
      * TODO: 实现支付回调处理逻辑，包括流水状态更新、支付单金额和状态更新等
      */
-    public void handlePaymentCallback(String transactionId, boolean success, LocalDateTime completeTime) {
+    public void handlePaymentCallback(String transactionCode, boolean success, LocalDateTime completeTime) {
         // TODO: 实现回调处理逻辑
         // 1. 查找对应的支付流水
         // 2. 更新流水状态
@@ -262,7 +267,7 @@ public class PaymentAggregate {
         // 4. 更新支付单状态（部分支付/已支付）
         // 5. 重新计算实际收款金额
         
-        PaymentTransaction transaction = findTransactionById(transactionId);
+        PaymentTransaction transaction = findTransactionByCode(transactionCode);
         if (transaction == null) {
             throw new IllegalArgumentException("未找到对应的支付流水");
         }
@@ -290,20 +295,20 @@ public class PaymentAggregate {
      * 执行退款操作
      * 
      * @param refundAmount 退款金额
-     * @param originalTransactionId 原支付流水号（必须提供）
+     * @param originalTransactionId 原支付流水ID（必须提供）
      * @param businessOrderId 业务单号（退款单号）
      * @param refundReason 退款原因
      * @return 创建的退款流水
      */
     public PaymentTransaction executeRefund(
             BigDecimal refundAmount,
-            String originalTransactionId,
+            Long originalTransactionId,
             String businessOrderId,
             String refundReason) {
         
         // 1. 验证必填参数
-        if (originalTransactionId == null || originalTransactionId.trim().isEmpty()) {
-            throw new IllegalArgumentException("原支付流水号不能为空");
+        if (originalTransactionId == null) {
+            throw new IllegalArgumentException("原支付流水ID不能为空");
         }
         
         // 2. 验证支付单状态是否允许退款
@@ -355,12 +360,12 @@ public class PaymentAggregate {
     /**
      * 处理退款回调，更新退款结果
      * 
-     * @param transactionId 退款流水号
+     * @param transactionCode 退款流水号
      * @param success 是否成功
      * @param completeTime 完成时间
      * TODO: 实现退款回调处理逻辑，包括流水状态更新、退款金额累加、退款状态更新等
      */
-    public void handleRefundCallback(String transactionId, boolean success, LocalDateTime completeTime) {
+    public void handleRefundCallback(String transactionCode, boolean success, LocalDateTime completeTime) {
         // TODO: 实现退款回调处理逻辑
         // 1. 查找对应的退款流水
         // 2. 更新流水状态
@@ -368,7 +373,7 @@ public class PaymentAggregate {
         // 4. 重新计算实际收款金额
         // 5. 更新退款状态（部分退款/全额退款）
         
-        PaymentTransaction transaction = findTransactionById(transactionId);
+        PaymentTransaction transaction = findTransactionByCode(transactionCode);
         if (transaction == null) {
             throw new IllegalArgumentException("未找到对应的退款流水");
         }
@@ -442,14 +447,27 @@ public class PaymentAggregate {
     }
     
     /**
-     * 根据ID查找支付流水
+     * 根据主键ID查找支付流水
      * 
      * @param transactionId 流水ID
      * @return 支付流水，如果未找到返回null
      */
-    private PaymentTransaction findTransactionById(String transactionId) {
+    private PaymentTransaction findTransactionById(Long transactionId) {
         return this.transactions.stream()
-                .filter(t -> t.getId().equals(transactionId))
+                .filter(t -> t.getId() != null && t.getId().equals(transactionId))
+                .findFirst()
+                .orElse(null);
+    }
+    
+    /**
+     * 根据业务编码查找支付流水
+     * 
+     * @param transactionCode 流水业务编码
+     * @return 支付流水，如果未找到返回null
+     */
+    private PaymentTransaction findTransactionByCode(String transactionCode) {
+        return this.transactions.stream()
+                .filter(t -> t.getCode() != null && t.getCode().equals(transactionCode))
                 .findFirst()
                 .orElse(null);
     }

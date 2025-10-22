@@ -26,12 +26,12 @@ public class PaymentTransactionVO {
     /**
      * 流水号
      */
-    private String id;
+    private String code;
     
     /**
      * 支付单号
      */
-    private String paymentId;
+    private String paymentCode;
     
     /**
      * 流水类型
@@ -66,7 +66,7 @@ public class PaymentTransactionVO {
     /**
      * 原流水号（退款时使用）
      */
-    private String originalTransactionId;
+    private String originalTransactionCode;
     
     /**
      * 业务单号

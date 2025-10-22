@@ -51,9 +51,9 @@ public class ExecutePaymentCommand {
     public static class PaymentItem {
         
         /**
-         * 支付单号
+         * 支付单ID（主键）
          */
-        private String paymentId;
+        private Long paymentId;
         
         /**
          * 本次支付金额

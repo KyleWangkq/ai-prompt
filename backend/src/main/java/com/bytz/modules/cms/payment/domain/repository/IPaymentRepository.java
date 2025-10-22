@@ -23,13 +23,22 @@ public interface IPaymentRepository {
     PaymentAggregate save(PaymentAggregate payment);
     
     /**
-     * 根据ID查找支付单
+     * 根据主键ID查找支付单
      * 
-     * @param id 支付单号
+     * @param id 主键ID
      * @return 支付单聚合根，如果未找到返回null
      * TODO: 实现支付单的查询逻辑，包括关联的支付流水
      */
-    PaymentAggregate findById(String id);
+    PaymentAggregate findById(Long id);
+    
+    /**
+     * 根据业务编码查找支付单
+     * 
+     * @param code 支付单号
+     * @return 支付单聚合根，如果未找到返回null
+     * TODO: 实现支付单的查询逻辑，包括关联的支付流水
+     */
+    PaymentAggregate findByCode(String code);
     
     /**
      * 根据订单号查找支付单列表
@@ -59,22 +68,40 @@ public interface IPaymentRepository {
     List<PaymentAggregate> findByRelatedBusinessId(String relatedBusinessId);
     
     /**
-     * 删除支付单（逻辑删除）
+     * 删除支付单（逻辑删除）- 通过主键ID
      * 
-     * @param id 支付单号
+     * @param id 主键ID
      * @return 是否删除成功
      * TODO: 实现支付单的逻辑删除
      */
-    boolean deleteById(String id);
+    boolean deleteById(Long id);
     
     /**
-     * 检查支付单是否存在
+     * 删除支付单（逻辑删除）- 通过业务编码
      * 
-     * @param id 支付单号
+     * @param code 支付单号
+     * @return 是否删除成功
+     * TODO: 实现支付单的逻辑删除
+     */
+    boolean deleteByCode(String code);
+    
+    /**
+     * 检查支付单是否存在 - 通过主键ID
+     * 
+     * @param id 主键ID
      * @return 是否存在
      * TODO: 实现支付单存在性检查
      */
-    boolean existsById(String id);
+    boolean existsById(Long id);
+    
+    /**
+     * 检查支付单是否存在 - 通过业务编码
+     * 
+     * @param code 支付单号
+     * @return 是否存在
+     * TODO: 实现支付单存在性检查
+     */
+    boolean existsByCode(String code);
     
     /**
      * 生成唯一的支付单号
@@ -82,7 +109,7 @@ public interface IPaymentRepository {
      * @return 唯一的支付单号
      * TODO: 实现支付单号生成策略，确保全局唯一
      */
-    String generatePaymentId();
+    String generatePaymentCode();
     
     /**
      * 生成唯一的支付流水号
@@ -90,5 +117,5 @@ public interface IPaymentRepository {
      * @return 唯一的支付流水号
      * TODO: 实现支付流水号生成策略，确保全局唯一
      */
-    String generateTransactionId();
+    String generateTransactionCode();
 }

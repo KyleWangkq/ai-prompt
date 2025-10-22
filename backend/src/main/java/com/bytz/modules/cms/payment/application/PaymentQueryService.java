@@ -17,10 +17,10 @@ public interface PaymentQueryService extends IService<PaymentEntity> {
     /**
      * 根据支付单号查询支付单
      * 
-     * @param paymentId 支付单号
+     * @param paymentCode 支付单号
      * @return 支付单数据库实体
      */
-    PaymentEntity getPaymentById(String paymentId);
+    PaymentEntity getPaymentByCode(String paymentCode);
     
     /**
      * 根据订单号查询支付单列表

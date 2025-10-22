@@ -44,7 +44,7 @@ public class PaymentApplicationService {
         validateCreateCommand(command);
         
         // 生成支付单号
-        String paymentId = paymentRepository.generatePaymentId();
+        String paymentCode = paymentRepository.generatePaymentCode();
         
         // 创建支付单聚合根
         PaymentAggregate payment = PaymentAggregate.create(
@@ -61,7 +61,7 @@ public class PaymentApplicationService {
         );
         
         // 设置支付单号和审计信息
-        payment.setId(paymentId);
+        payment.setCode(paymentCode);
         payment.setCreateBy(command.getCreateBy());
         payment.setCreateByName(command.getCreateByName());
         payment.setBusinessTags(command.getBusinessTags());
@@ -72,7 +72,7 @@ public class PaymentApplicationService {
         // 发布支付单已创建事件
         publishPaymentCreatedEvent(payment);
         
-        log.info("支付单创建成功，支付单号: {}", payment.getId());
+        log.info("支付单创建成功，支付单号: {}", payment.getCode());
         return payment;
     }
     
@@ -103,7 +103,7 @@ public class PaymentApplicationService {
         PaymentCreatedEvent event = new PaymentCreatedEvent(
                 this,
                 UUID.randomUUID().toString(),
-                payment.getId(),
+                payment.getCode(),
                 payment.getOrderId(),
                 payment.getResellerId(),
                 payment.getPaymentAmount(),
@@ -113,6 +113,6 @@ public class PaymentApplicationService {
         );
         
         eventPublisher.publishEvent(event);
-        log.info("已发布支付单创建事件，支付单号: {}", payment.getId());
+        log.info("已发布支付单创建事件，支付单号: {}", payment.getCode());
     }
 }

@@ -28,7 +28,7 @@ public class PaymentVO {
     /**
      * 支付单号
      */
-    private String id;
+    private String code;
     
     /**
      * 关联订单号

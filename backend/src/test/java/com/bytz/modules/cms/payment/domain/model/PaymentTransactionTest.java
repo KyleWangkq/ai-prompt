@@ -26,8 +26,8 @@ class PaymentTransactionTest {
     void setUp() {
         // 创建支付流水
         paymentTransaction = PaymentTransaction.builder()
-                .id("TXN-PAY-001")
-                .paymentId("PAY-001")
+                .code("TXN-PAY-001")
+                .paymentId(1L)
                 .transactionType(TransactionType.PAYMENT)
                 .transactionStatus(TransactionStatus.PROCESSING)
                 .transactionAmount(new BigDecimal("10000.00"))
@@ -38,13 +38,13 @@ class PaymentTransactionTest {
 
         // 创建退款流水
         refundTransaction = PaymentTransaction.builder()
-                .id("TXN-REFUND-001")
-                .paymentId("PAY-001")
+                .code("TXN-REFUND-001")
+                .paymentId(1L)
                 .transactionType(TransactionType.REFUND)
                 .transactionStatus(TransactionStatus.PROCESSING)
                 .transactionAmount(new BigDecimal("3000.00"))
                 .paymentChannel(PaymentChannel.ONLINE_PAYMENT)
-                .originalTransactionId("TXN-PAY-001")
+                .originalTransactionId(1L)
                 .businessOrderId("REFUND-ORDER-001")
                 .createTime(LocalDateTime.now())
                 .build();
@@ -241,8 +241,8 @@ class PaymentTransactionTest {
     void testBuilder_CreateTransaction() {
         // When
         PaymentTransaction transaction = PaymentTransaction.builder()
-                .id("TXN-TEST-001")
-                .paymentId("PAY-TEST-001")
+                .code("TXN-TEST-001")
+                .paymentId(1L)
                 .transactionType(TransactionType.PAYMENT)
                 .transactionStatus(TransactionStatus.PROCESSING)
                 .transactionAmount(new BigDecimal("5000.00"))
@@ -256,7 +256,7 @@ class PaymentTransactionTest {
 
         // Then
         assertNotNull(transaction);
-        assertEquals("TXN-TEST-001", transaction.getId());
+        assertEquals("TXN-TEST-001", transaction.getCode());
         assertEquals("PAY-TEST-001", transaction.getPaymentId());
         assertEquals(TransactionType.PAYMENT, transaction.getTransactionType());
         assertEquals(TransactionStatus.PROCESSING, transaction.getTransactionStatus());

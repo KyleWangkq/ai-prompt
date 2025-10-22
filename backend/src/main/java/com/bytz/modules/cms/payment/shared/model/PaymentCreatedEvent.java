@@ -24,7 +24,7 @@ public class PaymentCreatedEvent extends ApplicationEvent {
     /**
      * 支付单号
      */
-    private final String paymentId;
+    private final String paymentCode;
     
     /**
      * 关联订单号
@@ -59,12 +59,12 @@ public class PaymentCreatedEvent extends ApplicationEvent {
     /**
      * 构造函数
      */
-    public PaymentCreatedEvent(Object source, String eventId, String paymentId, String orderId, 
+    public PaymentCreatedEvent(Object source, String eventId, String paymentCode, String orderId, 
                               String resellerId, BigDecimal paymentAmount, PaymentType paymentType, 
                               String relatedBusinessId, LocalDateTime occurredOn) {
         super(source);
         this.eventId = eventId;
-        this.paymentId = paymentId;
+        this.paymentCode = paymentCode;
         this.orderId = orderId;
         this.resellerId = resellerId;
         this.paymentAmount = paymentAmount;

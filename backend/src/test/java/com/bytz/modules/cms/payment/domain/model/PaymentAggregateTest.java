@@ -101,7 +101,7 @@ class PaymentAggregateTest {
 
         // Then
         assertNotNull(transaction);
-        assertEquals(payment.getId(), transaction.getPaymentId());
+        assertEquals(payment.getCode(), transaction.getPaymentId());
         assertEquals(TransactionType.PAYMENT, transaction.getTransactionType());
         assertEquals(TransactionStatus.PROCESSING, transaction.getTransactionStatus());
         assertEquals(payAmount, transaction.getTransactionAmount());
@@ -117,8 +117,8 @@ class PaymentAggregateTest {
         // Given
         PaymentAggregate payment = createDefaultPayment();
         payment.executePayment(PaymentChannel.ONLINE_PAYMENT, paymentAmount, "CHANNEL-001");
-        payment.getTransactions().get(0).setId("TXN-001"); // 设置流水ID
-        String transactionId = payment.getTransactions().get(0).getId();
+        payment.getTransactions().get(0).setId(1L); // "TXN-001"); // 设置流水ID
+        String transactionId = payment.getTransactions().get(0).getCode();
 
         // When
         payment.handlePaymentCallback(transactionId, true, LocalDateTime.now());
@@ -137,8 +137,8 @@ class PaymentAggregateTest {
         PaymentAggregate payment = createDefaultPayment();
         BigDecimal partialAmount = new BigDecimal("5000.00");
         payment.executePayment(PaymentChannel.ONLINE_PAYMENT, partialAmount, "CHANNEL-001");
-        payment.getTransactions().get(0).setId("TXN-001"); // 设置流水ID
-        String transactionId = payment.getTransactions().get(0).getId();
+        payment.getTransactions().get(0).setId(1L); // "TXN-001"); // 设置流水ID
+        String transactionId = payment.getTransactions().get(0).getCode();
 
         // When
         payment.handlePaymentCallback(transactionId, true, LocalDateTime.now());
@@ -155,8 +155,8 @@ class PaymentAggregateTest {
         // Given
         PaymentAggregate payment = createDefaultPayment();
         payment.executePayment(PaymentChannel.ONLINE_PAYMENT, paymentAmount, "CHANNEL-001");
-        payment.getTransactions().get(0).setId("TXN-001"); // 设置流水ID
-        String transactionId = payment.getTransactions().get(0).getId();
+        payment.getTransactions().get(0).setId(1L); // "TXN-001"); // 设置流水ID
+        String transactionId = payment.getTransactions().get(0).getCode();
 
         // When
         payment.handlePaymentCallback(transactionId, false, LocalDateTime.now());
@@ -185,7 +185,7 @@ class PaymentAggregateTest {
         // Given
         PaymentAggregate payment = createPaidPayment();
         BigDecimal refundAmount = new BigDecimal("3000.00");
-        String originalTxnId = payment.getTransactions().get(0).getId();
+        Long originalTxnId = payment.getTransactions().get(0).getId();
 
         // When
         PaymentTransaction refundTransaction = payment.executeRefund(
@@ -215,7 +215,7 @@ class PaymentAggregateTest {
         assertThrows(IllegalArgumentException.class, () -> {
             payment.executeRefund(
                     new BigDecimal("1000.00"),
-                    "NON-EXISTENT-ID",
+                    999L,
                     "REFUND-001",
                     "测试退款"
             );
@@ -228,10 +228,10 @@ class PaymentAggregateTest {
         // Given
         PaymentAggregate payment = createPaidPayment();
         BigDecimal refundAmount = new BigDecimal("3000.00");
-        String originalTxnId = payment.getTransactions().get(0).getId();
+        Long originalTxnId = payment.getTransactions().get(0).getId();
         payment.executeRefund(refundAmount, originalTxnId, "REFUND-001", "测试退款");
-        payment.getTransactions().get(1).setId("TXN-REFUND-001"); // 设置退款流水ID
-        String refundTxnId = payment.getTransactions().get(1).getId();
+        payment.getTransactions().get(1).setId(1L); // "TXN-REFUND-001"); // 设置退款流水ID
+        String refundTxnId = payment.getTransactions().get(1).getCode();
 
         // When
         payment.handleRefundCallback(refundTxnId, true, LocalDateTime.now());
@@ -248,10 +248,10 @@ class PaymentAggregateTest {
     void testHandleRefundCallback_Success_FullRefund() {
         // Given
         PaymentAggregate payment = createPaidPayment();
-        String originalTxnId = payment.getTransactions().get(0).getId();
+        Long originalTxnId = payment.getTransactions().get(0).getId();
         payment.executeRefund(paymentAmount, originalTxnId, "REFUND-001", "全额退款");
-        payment.getTransactions().get(1).setId("TXN-REFUND-001"); // 设置退款流水ID
-        String refundTxnId = payment.getTransactions().get(1).getId();
+        payment.getTransactions().get(1).setId(1L); // "TXN-REFUND-001"); // 设置退款流水ID
+        String refundTxnId = payment.getTransactions().get(1).getCode();
 
         // When
         payment.handleRefundCallback(refundTxnId, true, LocalDateTime.now());
@@ -267,10 +267,10 @@ class PaymentAggregateTest {
     void testHandleRefundCallback_Failed() {
         // Given
         PaymentAggregate payment = createPaidPayment();
-        String originalTxnId = payment.getTransactions().get(0).getId();
+        Long originalTxnId = payment.getTransactions().get(0).getId();
         payment.executeRefund(new BigDecimal("1000.00"), originalTxnId, "REFUND-001", "测试");
-        payment.getTransactions().get(1).setId("TXN-REFUND-001"); // 设置退款流水ID
-        String refundTxnId = payment.getTransactions().get(1).getId();
+        payment.getTransactions().get(1).setId(1L); // "TXN-REFUND-001"); // 设置退款流水ID
+        String refundTxnId = payment.getTransactions().get(1).getCode();
 
         // When
         payment.handleRefundCallback(refundTxnId, false, LocalDateTime.now());
@@ -443,8 +443,8 @@ class PaymentAggregateTest {
         
         // When - 第一次支付3000
         payment.executePayment(PaymentChannel.ONLINE_PAYMENT, new BigDecimal("3000.00"), "TXN-001");
-        payment.getTransactions().get(0).setId("TXN-001"); // 设置第一笔流水ID
-        String txn1Id = payment.getTransactions().get(0).getId();
+        payment.getTransactions().get(0).setId(1L); // "TXN-001"); // 设置第一笔流水ID
+        String txn1Id = payment.getTransactions().get(0).getCode();
         payment.handlePaymentCallback(txn1Id, true, LocalDateTime.now());
         
         // Then - 检查第一次支付后的状态
@@ -453,8 +453,8 @@ class PaymentAggregateTest {
         
         // When - 第二次支付7000
         payment.executePayment(PaymentChannel.WALLET_PAYMENT, new BigDecimal("7000.00"), "TXN-002");
-        payment.getTransactions().get(1).setId("TXN-002"); // 设置第二笔流水ID
-        String txn2Id = payment.getTransactions().get(1).getId();
+        payment.getTransactions().get(1).setId(1L); // "TXN-002"); // 设置第二笔流水ID
+        String txn2Id = payment.getTransactions().get(1).getCode();
         payment.handlePaymentCallback(txn2Id, true, LocalDateTime.now());
         
         // Then - 检查第二次支付后的状态
@@ -470,10 +470,10 @@ class PaymentAggregateTest {
         assertEquals(paymentAmount, payment.getActualAmount());
         
         // When - 退款3000
-        String originalTxnId = payment.getTransactions().get(0).getId();
+        Long originalTxnId = payment.getTransactions().get(0).getId();
         payment.executeRefund(new BigDecimal("3000.00"), originalTxnId, "REFUND-001", "部分退款");
-        payment.getTransactions().get(1).setId("TXN-REFUND-001"); // 设置退款流水ID
-        String refundTxnId = payment.getTransactions().get(1).getId();
+        payment.getTransactions().get(1).setId(1L); // "TXN-REFUND-001"); // 设置退款流水ID
+        String refundTxnId = payment.getTransactions().get(1).getCode();
         payment.handleRefundCallback(refundTxnId, true, LocalDateTime.now());
         
         // Then
@@ -501,7 +501,7 @@ class PaymentAggregateTest {
                 LocalDateTime.now().plusMonths(1)
         );
         // 模拟设置ID，因为实际使用中会由repository生成
-        payment.setId("PAY-" + System.currentTimeMillis());
+        payment.setCode("PAY-" + System.currentTimeMillis());
         return payment;
     }
 
@@ -514,8 +514,8 @@ class PaymentAggregateTest {
         // 执行支付并回调成功
         payment.executePayment(PaymentChannel.ONLINE_PAYMENT, paymentAmount, "CHANNEL-001");
         PaymentTransaction transaction = payment.getTransactions().get(0);
-        transaction.setId("TXN-" + System.currentTimeMillis());
-        payment.handlePaymentCallback(transaction.getId(), true, LocalDateTime.now());
+        transaction.setCode("TXN-" + System.currentTimeMillis());
+        payment.handlePaymentCallback(transaction.getCode(), true, LocalDateTime.now());
         
         return payment;
     }

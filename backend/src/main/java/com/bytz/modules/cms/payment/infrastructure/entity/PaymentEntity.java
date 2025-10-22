@@ -32,10 +32,16 @@ import java.time.LocalDateTime;
 public class PaymentEntity {
     
     /**
-     * 支付单号，主键
+     * 主键ID，自增
      */
-    @TableId(type = IdType.ASSIGN_ID)
-    private String id;
+    @TableId(type = IdType.AUTO)
+    private Long id;
+    
+    /**
+     * 支付单号，业务编码
+     */
+    @TableField("code")
+    private String code;
     
     /**
      * 关联订单号

@@ -25,9 +25,9 @@ public class ExecuteRefundCommand {
     private String refundOrderId;
     
     /**
-     * 支付单号
+     * 支付单ID（主键）
      */
-    private String paymentId;
+    private Long paymentId;
     
     /**
      * 退款金额
@@ -50,7 +50,7 @@ public class ExecuteRefundCommand {
     private String refundType;
     
     /**
-     * 原支付流水号（必填，指定退款流水）
+     * 原支付流水ID（必填，指定退款流水）
      */
-    private String originalTransactionId;
+    private Long originalTransactionId;
 }
