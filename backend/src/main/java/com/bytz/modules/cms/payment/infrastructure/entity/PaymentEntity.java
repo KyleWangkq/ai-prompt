@@ -138,7 +138,7 @@ public class PaymentEntity {
      * 删除标识
      */
     @TableLogic
-    @TableField(value = "del_flag", fill = FieldFill.INSERT)
+    @TableField(value = "del_flag")
     private Integer delFlag;
     
     /**
