@@ -187,10 +187,10 @@ public class PaymentController {
      * GET /api/v1/payments/available-channels
      * 
      * @param resellerId 经销商ID（从请求头或上下文获取）
-     * @return 可用支付渠道枚举名称列表
+     * @return 可用支付渠道枚举列表
      */
     @GetMapping("/available-channels")
-    public ResponseEntity<List<String>> getAvailableChannels(
+    public ResponseEntity<List<PaymentChannel>> getAvailableChannels(
             @RequestHeader(value = "X-Reseller-Id", required = false) String resellerId) {
         
         log.info("查询经销商可用支付渠道，经销商ID: {}", resellerId);
@@ -201,14 +201,11 @@ public class PaymentController {
             log.warn("未提供经销商ID，使用默认值");
         }
         
-        // 查询可用渠道
+        // 查询可用渠道，直接返回枚举列表
         List<PaymentChannel> availableChannels = paymentApplicationService.queryAvailableChannels(resellerId);
         
-        // 转换为渠道代码列表（枚举名称集合）
-        List<String> channelCodes = paymentAssembler.channelsToCodes(availableChannels);
-        
-        log.info("经销商 {} 可用支付渠道数量: {}", resellerId, channelCodes.size());
-        return ResponseEntity.ok(channelCodes);
+        log.info("经销商 {} 可用支付渠道数量: {}", resellerId, availableChannels.size());
+        return ResponseEntity.ok(availableChannels);
     }
     
     /**
