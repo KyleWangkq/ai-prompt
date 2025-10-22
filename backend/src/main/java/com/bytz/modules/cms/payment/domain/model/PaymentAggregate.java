@@ -31,6 +31,11 @@ import java.util.List;
 public class PaymentAggregate {
     
     /**
+     * 数据库主键ID
+     */
+    private Long id;
+    
+    /**
      * 支付单号（聚合根业务编码）
      */
     private String code;
@@ -230,7 +235,7 @@ public class PaymentAggregate {
         // 5. 返回支付流水
         
         PaymentTransaction transaction = PaymentTransaction.builder()
-                .paymentCode(this.code)
+                .paymentId(this.id)
                 .transactionType(TransactionType.PAYMENT)
                 .transactionStatus(TransactionStatus.PROCESSING)
                 .transactionAmount(amount)
@@ -290,20 +295,20 @@ public class PaymentAggregate {
      * 执行退款操作
      * 
      * @param refundAmount 退款金额
-     * @param originalTransactionCode 原支付流水号（必须提供）
+     * @param originalTransactionId 原支付流水ID（必须提供）
      * @param businessOrderId 业务单号（退款单号）
      * @param refundReason 退款原因
      * @return 创建的退款流水
      */
     public PaymentTransaction executeRefund(
             BigDecimal refundAmount,
-            String originalTransactionCode,
+            Long originalTransactionId,
             String businessOrderId,
             String refundReason) {
         
         // 1. 验证必填参数
-        if (originalTransactionCode == null || originalTransactionCode.trim().isEmpty()) {
-            throw new IllegalArgumentException("原支付流水号不能为空");
+        if (originalTransactionId == null) {
+            throw new IllegalArgumentException("原支付流水ID不能为空");
         }
         
         // 2. 验证支付单状态是否允许退款
@@ -318,9 +323,9 @@ public class PaymentAggregate {
         }
         
         // 4. 查找并验证原支付流水
-        PaymentTransaction originalTransaction = findTransactionByCode(originalTransactionCode);
+        PaymentTransaction originalTransaction = findTransactionById(originalTransactionId);
         if (originalTransaction == null) {
-            throw new IllegalArgumentException("未找到原支付流水: " + originalTransactionCode);
+            throw new IllegalArgumentException("未找到原支付流水: " + originalTransactionId);
         }
         
         if (!originalTransaction.isPaymentTransaction()) {
@@ -333,12 +338,12 @@ public class PaymentAggregate {
         
         // 5. 创建退款流水记录
         PaymentTransaction refundTransaction = PaymentTransaction.builder()
-                .paymentCode(this.code)
+                .paymentId(this.id)
                 .transactionType(TransactionType.REFUND)
                 .transactionStatus(TransactionStatus.PROCESSING)
                 .transactionAmount(refundAmount)
                 .paymentChannel(originalTransaction.getPaymentChannel())
-                .originalTransactionCode(originalTransactionCode)
+                .originalTransactionId(originalTransactionId)
                 .businessOrderId(businessOrderId)
                 .businessRemark(refundReason)
                 .createTime(LocalDateTime.now())
@@ -442,6 +447,19 @@ public class PaymentAggregate {
     }
     
     /**
+     * 根据主键ID查找支付流水
+     * 
+     * @param transactionId 流水ID
+     * @return 支付流水，如果未找到返回null
+     */
+    private PaymentTransaction findTransactionById(Long transactionId) {
+        return this.transactions.stream()
+                .filter(t -> t.getId() != null && t.getId().equals(transactionId))
+                .findFirst()
+                .orElse(null);
+    }
+    
+    /**
      * 根据业务编码查找支付流水
      * 
      * @param transactionCode 流水业务编码
@@ -449,7 +467,7 @@ public class PaymentAggregate {
      */
     private PaymentTransaction findTransactionByCode(String transactionCode) {
         return this.transactions.stream()
-                .filter(t -> t.getCode().equals(transactionCode))
+                .filter(t -> t.getCode() != null && t.getCode().equals(transactionCode))
                 .findFirst()
                 .orElse(null);
     }

@@ -23,6 +23,15 @@ public interface IPaymentRepository {
     PaymentAggregate save(PaymentAggregate payment);
     
     /**
+     * 根据主键ID查找支付单
+     * 
+     * @param id 主键ID
+     * @return 支付单聚合根，如果未找到返回null
+     * TODO: 实现支付单的查询逻辑，包括关联的支付流水
+     */
+    PaymentAggregate findById(Long id);
+    
+    /**
      * 根据业务编码查找支付单
      * 
      * @param code 支付单号
@@ -59,7 +68,16 @@ public interface IPaymentRepository {
     List<PaymentAggregate> findByRelatedBusinessId(String relatedBusinessId);
     
     /**
-     * 删除支付单（逻辑删除）
+     * 删除支付单（逻辑删除）- 通过主键ID
+     * 
+     * @param id 主键ID
+     * @return 是否删除成功
+     * TODO: 实现支付单的逻辑删除
+     */
+    boolean deleteById(Long id);
+    
+    /**
+     * 删除支付单（逻辑删除）- 通过业务编码
      * 
      * @param code 支付单号
      * @return 是否删除成功
@@ -68,7 +86,16 @@ public interface IPaymentRepository {
     boolean deleteByCode(String code);
     
     /**
-     * 检查支付单是否存在
+     * 检查支付单是否存在 - 通过主键ID
+     * 
+     * @param id 主键ID
+     * @return 是否存在
+     * TODO: 实现支付单存在性检查
+     */
+    boolean existsById(Long id);
+    
+    /**
+     * 检查支付单是否存在 - 通过业务编码
      * 
      * @param code 支付单号
      * @return 是否存在

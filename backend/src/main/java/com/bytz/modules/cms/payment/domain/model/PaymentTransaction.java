@@ -25,14 +25,19 @@ import java.time.LocalDateTime;
 public class PaymentTransaction {
     
     /**
+     * 数据库主键ID
+     */
+    private Long id;
+    
+    /**
      * 流水号（业务编码）
      */
     private String code;
     
     /**
-     * 支付单号
+     * 支付单ID（外键关联）
      */
-    private String paymentCode;
+    private Long paymentId;
     
     /**
      * 流水类型（支付/退款）
@@ -65,9 +70,9 @@ public class PaymentTransaction {
     private String paymentWay;
     
     /**
-     * 原流水号（退款时使用）
+     * 原流水ID（退款时使用）
      */
-    private String originalTransactionCode;
+    private Long originalTransactionId;
     
     /**
      * 业务单号（如退款单号）

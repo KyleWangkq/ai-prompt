@@ -43,10 +43,10 @@ public class PaymentTransactionEntity {
     private String code;
     
     /**
-     * 支付单号
+     * 支付单ID，外键关联
      */
-    @TableField("payment_code")
-    private String paymentCode;
+    @TableField("payment_id")
+    private Long paymentId;
     
     /**
      * 流水类型
@@ -85,10 +85,10 @@ public class PaymentTransactionEntity {
     private String paymentWay;
     
     /**
-     * 原流水号
+     * 原流水ID（退款时使用）
      */
-    @TableField("original_transaction_code")
-    private String originalTransactionCode;
+    @TableField("original_transaction_id")
+    private Long originalTransactionId;
     
     /**
      * 业务单号
