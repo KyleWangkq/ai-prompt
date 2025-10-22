@@ -46,12 +46,12 @@ public class PaymentDomainService {
         
         // TODO: 实现批量支付逻辑
         // 1. 批量查询所有支付单，避免在循环中调用数据库
-        List<String> paymentCodes = command.getPaymentItems().stream()
-                .map(ExecutePaymentCommand.PaymentItem::getPaymentCode)
+        List<Long> paymentIds = command.getPaymentItems().stream()
+                .map(ExecutePaymentCommand.PaymentItem::getPaymentId)
                 .collect(Collectors.toList());
         
-        List<PaymentAggregate> payments = paymentCodes.stream()
-                .map(paymentRepository::findByCode)
+        List<PaymentAggregate> payments = paymentIds.stream()
+                .map(paymentRepository::findById)
                 .collect(Collectors.toList());
         
         // 2. 验证所有支付单属于同一经销商
