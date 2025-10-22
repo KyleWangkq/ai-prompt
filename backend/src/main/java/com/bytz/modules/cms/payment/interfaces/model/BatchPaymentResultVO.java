@@ -1,5 +1,6 @@
 package com.bytz.modules.cms.payment.interfaces.model;
 
+import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,9 +22,19 @@ import java.util.List;
 public class BatchPaymentResultVO {
     
     /**
+     * 支付渠道
+     */
+    private PaymentChannel paymentChannel;
+    
+    /**
      * 渠道交易号
      */
     private String channelTransactionNumber;
+    
+    /**
+     * 渠道支付记录ID（渠道系统的支付记录唯一标识，用于数据关联）
+     */
+    private String channelPaymentRecordId;
     
     /**
      * 支付总金额
@@ -50,9 +61,9 @@ public class BatchPaymentResultVO {
     public static class PaymentResultItem {
         
         /**
-         * 支付单号
+         * 支付单ID
          */
-        private String paymentCode;
+        private String paymentId;
         
         /**
          * 本次支付金额
@@ -63,6 +74,21 @@ public class BatchPaymentResultVO {
          * 支付流水号
          */
         private String transactionId;
+        
+        /**
+         * 支付渠道
+         */
+        private PaymentChannel paymentChannel;
+        
+        /**
+         * 渠道交易号
+         */
+        private String channelTransactionNumber;
+        
+        /**
+         * 渠道支付记录ID
+         */
+        private String channelPaymentRecordId;
         
         /**
          * 是否成功

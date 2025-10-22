@@ -1,10 +1,14 @@
 package com.bytz.modules.cms.payment.application;
 
+import com.bytz.modules.cms.payment.domain.PaymentDomainService;
 import com.bytz.modules.cms.payment.domain.command.CreatePaymentCommand;
+import com.bytz.modules.cms.payment.domain.command.ExecutePaymentCommand;
 import com.bytz.modules.cms.payment.domain.command.ExecuteRefundCommand;
+import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
+import com.bytz.modules.cms.payment.infrastructure.channel.IPaymentChannelService;
 import com.bytz.modules.cms.payment.shared.exception.PaymentException;
 import com.bytz.modules.cms.payment.shared.model.PaymentCreatedEvent;
 import com.bytz.modules.cms.payment.shared.model.RefundExecutedEvent;
@@ -16,13 +20,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
- * 支付单应用服务
+ * 支付单应用服务（统一应用服务）
  * Payment Application Service
  * 
- * 协调支付单的创建、查询、筛选等用例
+ * 协调支付单的创建、查询、筛选、批量支付、渠道查询等用例
  * 应用层不包含业务逻辑，仅负责用例协调
  */
 @Slf4j
@@ -32,6 +39,8 @@ public class PaymentApplicationService implements IPaymentInternalService {
     
     private final IPaymentRepository paymentRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final PaymentDomainService paymentDomainService;
+    private final List<IPaymentChannelService> paymentChannelServices;
     
     /**
      * 创建支付单（实现内部接口）
@@ -200,5 +209,92 @@ public class PaymentApplicationService implements IPaymentInternalService {
         
         eventPublisher.publishEvent(event);
         log.info("已发布退款执行事件，支付单号: {}, 退款流水号: {}", payment.getCode(), refundTransaction.getId());
+    }
+    
+    /**
+     * 执行批量支付
+     * 
+     * @param command 执行支付命令
+     * @return 渠道交易号
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public String executeBatchPayment(ExecutePaymentCommand command) {
+        log.info("开始执行批量支付，支付单数量: {}, 支付渠道: {}", 
+                command.getPaymentItems().size(), command.getPaymentChannel());
+        
+        // 委托给领域服务执行批量支付
+        String channelTransactionNumber = paymentDomainService.executeBatchPayment(command);
+        
+        log.info("批量支付执行完成，渠道交易号: {}", channelTransactionNumber);
+        return channelTransactionNumber;
+    }
+    
+    /**
+     * 查询经销商可用的支付渠道列表
+     * 
+     * @param resellerId 经销商ID
+     * @return 支付渠道列表（枚举）
+     */
+    public List<PaymentChannel> queryAvailableChannels(String resellerId) {
+        log.info("查询经销商可用支付渠道，经销商ID: {}", resellerId);
+        
+        if (resellerId == null || resellerId.trim().isEmpty()) {
+            throw new IllegalArgumentException("经销商ID不能为空");
+        }
+        
+        // 获取所有支付渠道枚举
+        List<PaymentChannel> allChannels = Arrays.asList(PaymentChannel.values());
+        
+        // 过滤出可用的渠道
+        List<PaymentChannel> availableChannels = allChannels.stream()
+                .filter(channel -> isChannelAvailable(channel, resellerId))
+                .collect(Collectors.toList());
+        
+        log.info("经销商 {} 可用支付渠道数量: {}", resellerId, availableChannels.size());
+        return availableChannels;
+    }
+    
+    /**
+     * 检查渠道是否可用
+     * 
+     * @param channel 支付渠道
+     * @param resellerId 经销商ID
+     * @return 是否可用
+     */
+    private boolean isChannelAvailable(PaymentChannel channel, String resellerId) {
+        // 1. 检查渠道服务是否存在
+        IPaymentChannelService channelService = findChannelService(channel);
+        if (channelService == null) {
+            log.warn("渠道服务未找到: {}", channel);
+            return false;
+        }
+        
+        // 2. 检查渠道是否可用
+        if (!channelService.isAvailable()) {
+            log.warn("渠道不可用: {}", channel);
+            return false;
+        }
+        
+        // 3. 检查经销商是否有权限使用该渠道
+        boolean hasPermission = paymentDomainService.validateChannelAvailability(channel, resellerId);
+        if (!hasPermission) {
+            log.warn("经销商 {} 无权限使用渠道: {}", resellerId, channel);
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * 根据渠道类型查找渠道服务
+     * 
+     * @param channel 支付渠道
+     * @return 渠道服务
+     */
+    private IPaymentChannelService findChannelService(PaymentChannel channel) {
+        return paymentChannelServices.stream()
+                .filter(service -> service.getChannelType() == channel)
+                .findFirst()
+                .orElse(null);
     }
 }

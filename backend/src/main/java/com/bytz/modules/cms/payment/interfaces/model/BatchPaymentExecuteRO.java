@@ -47,10 +47,10 @@ public class BatchPaymentExecuteRO {
     public static class PaymentItem {
         
         /**
-         * 支付单号（业务编码）
+         * 支付单ID（数据库主键）
          */
-        @NotNull(message = "支付单号不能为空")
-        private String paymentCode;
+        @NotNull(message = "支付单ID不能为空")
+        private String paymentId;
         
         /**
          * 本次支付金额

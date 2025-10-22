@@ -102,7 +102,7 @@ public interface PaymentAssembler {
     
     /**
      * BatchPaymentExecuteRO转换为ExecutePaymentCommand
-     * 注意：需要手动设置paymentId（从code查询），因为RO中是code而不是id
+     * RO中已经包含paymentId（数据库主键），直接映射即可
      * 
      * @param ro 批量支付执行请求对象
      * @param resellerId 经销商ID
@@ -115,8 +115,7 @@ public interface PaymentAssembler {
         
         List<ExecutePaymentCommand.PaymentItem> items = ro.getPaymentItems().stream()
                 .map(item -> ExecutePaymentCommand.PaymentItem.builder()
-                        // 注意：这里的paymentId需要由Controller层通过code查询数据库获取真实的id
-                        .paymentId(item.getPaymentCode())  // 临时使用code，需要转换
+                        .paymentId(item.getPaymentId())  // 直接使用paymentId
                         .amount(item.getAmount())
                         .build())
                 .collect(Collectors.toList());
@@ -124,31 +123,52 @@ public interface PaymentAssembler {
         return ExecutePaymentCommand.builder()
                 .paymentItems(items)
                 .paymentChannel(ro.getPaymentChannel())
-                .operatorId(resellerId)  // 使用经销商ID作为操作人ID
+                .operatorId(resellerId)
                 .operatorName(resellerId)
                 .build();
     }
     
     /**
-     * PaymentChannel转换为PaymentChannelVO
+     * PaymentChannel枚举转换为渠道代码字符串
      * 
      * @param channel 支付渠道枚举
-     * @param available 是否可用
-     * @return 支付渠道响应对象
+     * @return 渠道代码
      */
-    default PaymentChannelVO toChannelVO(PaymentChannel channel, boolean available) {
-        return PaymentChannelVO.from(channel, available);
+    default String channelToCode(PaymentChannel channel) {
+        return channel != null ? channel.getCode() : null;
     }
     
     /**
-     * PaymentChannel列表转换为PaymentChannelVO列表
+     * PaymentChannel列表转换为渠道代码列表
      * 
      * @param channels 支付渠道枚举列表
-     * @return 支付渠道响应对象列表
+     * @return 渠道代码列表
      */
-    default List<PaymentChannelVO> toChannelVOs(List<PaymentChannel> channels) {
+    default List<String> channelsToCodes(List<PaymentChannel> channels) {
+        if (channels == null) {
+            return null;
+        }
         return channels.stream()
-                .map(channel -> PaymentChannelVO.from(channel, true))
+                .map(PaymentChannel::getCode)
                 .collect(Collectors.toList());
+    }
+    
+    /**
+     * PaymentChannel枚举转换为PaymentChannelVO
+     * 使用MapStruct进行转换
+     * 
+     * @param channel 支付渠道枚举
+     * @return 支付渠道VO
+     */
+    default PaymentChannelVO toChannelVO(PaymentChannel channel) {
+        if (channel == null) {
+            return null;
+        }
+        return PaymentChannelVO.builder()
+                .channelCode(channel.getCode())
+                .channelName(channel.getDescription())
+                .channelDescription(channel.getEnglishName())
+                .available(true)
+                .build();
     }
 }
