@@ -57,23 +57,23 @@ public class PaymentController {
         // 转换为响应对象
         PaymentVO vo = paymentAssembler.toVO(payment);
         
-        log.info("支付单创建成功，支付单号: {}", vo.getId());
+        log.info("支付单创建成功，支付单号: {}", vo.getCode());
         return ResponseEntity.ok(vo);
     }
     
     /**
      * 根据支付单号查询支付单
      * 
-     * GET /api/v1/payments/{id}
+     * GET /api/v1/payments/{code}
      * 
-     * @param id 支付单号
+     * @param code 支付单号
      * @return 支付单响应对象
      */
-    @GetMapping("/{id}")
-    public ResponseEntity<PaymentVO> getPaymentById(@PathVariable String id) {
-        log.info("查询支付单，支付单号: {}", id);
+    @GetMapping("/{code}")
+    public ResponseEntity<PaymentVO> getPaymentByCode(@PathVariable String code) {
+        log.info("查询支付单，支付单号: {}", code);
         
-        PaymentEntity payment = paymentQueryService.getPaymentById(id);
+        PaymentEntity payment = paymentQueryService.getPaymentByCode(code);
         if (payment == null) {
             return ResponseEntity.notFound().build();
         }

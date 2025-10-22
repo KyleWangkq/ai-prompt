@@ -23,13 +23,15 @@ public class PaymentQueryServiceImpl extends ServiceImpl<PaymentMapper, PaymentE
     /**
      * 根据支付单号查询支付单
      * 
-     * @param paymentId 支付单号
+     * @param paymentCode 支付单号
      * @return 支付单数据库实体
      */
     @Override
-    public PaymentEntity getPaymentById(String paymentId) {
-        log.info("查询支付单，支付单号: {}", paymentId);
-        return getById(paymentId);
+    public PaymentEntity getPaymentByCode(String paymentCode) {
+        log.info("查询支付单，支付单号: {}", paymentCode);
+        LambdaQueryWrapper<PaymentEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PaymentEntity::getCode, paymentCode);
+        return getOne(wrapper);
     }
     
     /**

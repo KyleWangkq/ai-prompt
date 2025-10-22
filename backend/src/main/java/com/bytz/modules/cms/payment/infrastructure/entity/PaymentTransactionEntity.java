@@ -31,16 +31,22 @@ import java.time.LocalDateTime;
 public class PaymentTransactionEntity {
     
     /**
-     * 流水号，主键
+     * 主键ID，自增
      */
-    @TableId(type = IdType.ASSIGN_ID)
-    private String id;
+    @TableId(type = IdType.AUTO)
+    private Long id;
+    
+    /**
+     * 流水号，业务编码
+     */
+    @TableField("code")
+    private String code;
     
     /**
      * 支付单号
      */
-    @TableField("payment_id")
-    private String paymentId;
+    @TableField("payment_code")
+    private String paymentCode;
     
     /**
      * 流水类型
@@ -81,8 +87,8 @@ public class PaymentTransactionEntity {
     /**
      * 原流水号
      */
-    @TableField("original_transaction_id")
-    private String originalTransactionId;
+    @TableField("original_transaction_code")
+    private String originalTransactionCode;
     
     /**
      * 业务单号
