@@ -78,4 +78,22 @@ public class CreditAccountChannelService implements IPaymentChannelService {
         // TODO: 实现可用性检查逻辑，根据经销商判断渠道是否可用
         return true;
     }
+    
+    @Override
+    public boolean supportsBatchPayment() {
+        log.info("检查信用账户渠道是否支持批量支付");
+        // 信用账户支持批量支付（可以对多笔订单统一使用信用额度）
+        return true;
+    }
+    
+    @Override
+    public boolean supportsAmountForReseller(String resellerId, java.math.BigDecimal amount) {
+        log.info("检查信用账户渠道是否支持经销商的支付金额，经销商ID: {}, 金额: {}", resellerId, amount);
+        // TODO: 实现金额支持检查逻辑
+        // 1. 查询经销商的信用额度
+        // 2. 查询已使用的信用额度
+        // 3. 计算可用信用额度 = 总额度 - 已使用额度
+        // 4. 验证可用信用额度是否足够支付当前金额
+        return true;
+    }
 }

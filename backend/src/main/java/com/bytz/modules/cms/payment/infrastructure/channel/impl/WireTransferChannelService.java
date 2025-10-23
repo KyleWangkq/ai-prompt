@@ -78,4 +78,21 @@ public class WireTransferChannelService implements IPaymentChannelService {
         // TODO: 实现可用性检查逻辑，根据经销商判断渠道是否可用
         return true;
     }
+    
+    @Override
+    public boolean supportsBatchPayment() {
+        log.info("检查电汇支付渠道是否支持批量支付");
+        // 电汇支付通常不支持批量支付，每笔需要单独转账
+        return false;
+    }
+    
+    @Override
+    public boolean supportsAmountForReseller(String resellerId, java.math.BigDecimal amount) {
+        log.info("检查电汇支付渠道是否支持经销商的支付金额，经销商ID: {}, 金额: {}", resellerId, amount);
+        // TODO: 实现金额支持检查逻辑
+        // 1. 检查银行转账单笔限额
+        // 2. 验证经销商银行账户是否有效
+        // 3. 检查经销商是否有转账权限
+        return true;
+    }
 }
