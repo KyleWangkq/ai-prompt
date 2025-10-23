@@ -243,7 +243,7 @@ public class PaymentAggregate {
                 .channelTransactionNumber(channelTransactionNumber)
                 .createTime(LocalDateTime.now())
                 .build();
-        
+
         this.transactions.add(transaction);
         this.paymentStatus = PaymentStatus.PAYING;
         this.updateTime = LocalDateTime.now();
@@ -348,7 +348,7 @@ public class PaymentAggregate {
                 .businessRemark(refundReason)
                 .createTime(LocalDateTime.now())
                 .build();
-        
+
         // 6. 更新退款状态
         this.transactions.add(refundTransaction);
         this.refundStatus = RefundStatus.REFUNDING;
@@ -525,4 +525,17 @@ public class PaymentAggregate {
         this.businessDesc = (this.businessDesc != null ? this.businessDesc + "; " : "") + "冻结原因: " + reason;
         this.updateTime = LocalDateTime.now();
     }
+
+    // 新增：当设置聚合根ID时，确保同步所有子聚合的 paymentId
+    public void setId(String id) {
+        this.id = id;
+        if (this.transactions != null) {
+            for (PaymentTransaction t : this.transactions) {
+                if (t != null) {
+                    t.setPaymentId(id);
+                }
+            }
+        }
+    }
+
 }

@@ -49,57 +49,43 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     @Transactional(rollbackFor = Exception.class)
     public PaymentAggregate save(PaymentAggregate payment) {
         log.info("保存支付单聚合根，支付单号: {}", payment.getCode());
-        
+
         // 使用MapStruct转换为数据库实体
         PaymentEntity entity = infrastructureAssembler.toPaymentEntity(payment);
-        
-        // 判断是插入还是更新
-        if (payment.getId() != null && existsById(payment.getId())) {
-            // 更新已存在的记录
-            paymentMapper.updateById(entity);
-        } else if (existsByCode(payment.getCode())) {
-            // 根据code查询entity获取id
-            PaymentEntity existingEntity = findEntityByCode(payment.getCode());
-            entity.setId(existingEntity.getId());
-            payment.setId(existingEntity.getId());
+
+        if (payment.getId() != null) {
             paymentMapper.updateById(entity);
         } else {
-            // 插入新记录
             paymentMapper.insert(entity);
             // 回填生成的ID
             payment.setId(entity.getId());
         }
-        
-        // 保存支付流水
+
+        // 保存支付流水：仅根据 transaction.id 判断插入或更新（不再检查 code 是否已存在）
         for (PaymentTransaction transaction : payment.getTransactions()) {
-            // 使用MapStruct转换流水实体
-            PaymentTransactionEntity transactionEntity = 
+            PaymentTransactionEntity transactionEntity =
                     infrastructureAssembler.toTransactionEntity(transaction);
-            
+
             // 设置支付单ID关联
             transactionEntity.setPaymentId(payment.getId());
-            
+
             if (transaction.getCode() == null || transaction.getCode().isEmpty()) {
                 transaction.setCode(generateTransactionCode());
                 transactionEntity.setCode(transaction.getCode());
                 transactionMapper.insert(transactionEntity);
                 // 回填生成的ID
                 transaction.setId(transactionEntity.getId());
-            } else if (transaction.getId() != null && existsTransactionById(transaction.getId())) {
-                transactionMapper.updateById(transactionEntity);
-            } else if (existsTransactionByCode(transaction.getCode())) {
-                // 根据code查询entity获取id
-                PaymentTransactionEntity existingEntity = findTransactionEntityByCode(transaction.getCode());
-                transactionEntity.setId(existingEntity.getId());
-                transaction.setId(existingEntity.getId());
+            } else if (transaction.getId() != null) {
+                // 有 id 就更新（不再检查是否存在）
+                transactionEntity.setId(transaction.getId());
                 transactionMapper.updateById(transactionEntity);
             } else {
+                // 无 id 但有 code 时也直接插入（按要求不额外检查）
                 transactionMapper.insert(transactionEntity);
-                // 回填生成的ID
                 transaction.setId(transactionEntity.getId());
             }
         }
-        
+
         return payment;
     }
     
