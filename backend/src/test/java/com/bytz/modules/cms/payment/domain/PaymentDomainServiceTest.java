@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -85,12 +86,12 @@ class PaymentDomainServiceTest {
     void testExecuteBatchPayment_Success() {
         // Given
         ExecutePaymentCommand.PaymentItem item1 = ExecutePaymentCommand.PaymentItem.builder()
-                .paymentId(1L)
+                .paymentId("1")
                 .amount(new BigDecimal("10000.00"))
                 .build();
         
         ExecutePaymentCommand.PaymentItem item2 = ExecutePaymentCommand.PaymentItem.builder()
-                .paymentId(2L)
+                .paymentId("2")
                 .amount(new BigDecimal("20000.00"))
                 .build();
         
@@ -99,8 +100,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1, item2))
                 .build();
         
-        when(paymentRepository.findById(1L)).thenReturn(payment1);
-        when(paymentRepository.findById(2L)).thenReturn(payment2);
+        when(paymentRepository.findById("1")).thenReturn(Optional.of(payment1));
+        when(paymentRepository.findById("2")).thenReturn(Optional.of(payment2));
         
         // When
         String channelTransactionNumber = paymentDomainService.executeBatchPayment(command);
@@ -128,12 +129,12 @@ class PaymentDomainServiceTest {
         payment2.setResellerId("RESELLER-002"); // 不同的经销商
         
         ExecutePaymentCommand.PaymentItem item1 = ExecutePaymentCommand.PaymentItem.builder()
-                .paymentId(1L)
+                .paymentId("1")
                 .amount(new BigDecimal("10000.00"))
                 .build();
         
         ExecutePaymentCommand.PaymentItem item2 = ExecutePaymentCommand.PaymentItem.builder()
-                .paymentId(2L)
+                .paymentId("2")
                 .amount(new BigDecimal("20000.00"))
                 .build();
         
@@ -142,8 +143,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1, item2))
                 .build();
         
-        when(paymentRepository.findById(1L)).thenReturn(payment1);
-        when(paymentRepository.findById(2L)).thenReturn(payment2);
+        when(paymentRepository.findById("1")).thenReturn(Optional.of(payment1));
+        when(paymentRepository.findById("2")).thenReturn(Optional.of(payment2));
         
         // When & Then
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
@@ -161,7 +162,7 @@ class PaymentDomainServiceTest {
         payment1.setPaymentStatus(PaymentStatus.FROZEN); // 冻结状态不允许支付
         
         ExecutePaymentCommand.PaymentItem item1 = ExecutePaymentCommand.PaymentItem.builder()
-                .paymentId(1L)
+                .paymentId("1")
                 .amount(new BigDecimal("10000.00"))
                 .build();
         
@@ -170,7 +171,7 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1))
                 .build();
         
-        when(paymentRepository.findById(1L)).thenReturn(payment1);
+        when(paymentRepository.findById("1")).thenReturn(Optional.of(payment1));
         
         // When & Then
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
@@ -199,7 +200,7 @@ class PaymentDomainServiceTest {
     void testExecuteBatchPayment_SinglePayment() {
         // Given
         ExecutePaymentCommand.PaymentItem item = ExecutePaymentCommand.PaymentItem.builder()
-                .paymentId(1L)
+                .paymentId("1")
                 .amount(new BigDecimal("10000.00"))
                 .build();
         
@@ -208,7 +209,7 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item))
                 .build();
         
-        when(paymentRepository.findById(1L)).thenReturn(payment1);
+        when(paymentRepository.findById("1")).thenReturn(Optional.of(payment1));
         
         // When
         String channelTransactionNumber = paymentDomainService.executeBatchPayment(command);
@@ -236,7 +237,7 @@ class PaymentDomainServiceTest {
     void testExecuteBatchPayment_ChannelTransactionNumber() {
         // Given
         ExecutePaymentCommand.PaymentItem item1 = ExecutePaymentCommand.PaymentItem.builder()
-                .paymentId(1L)
+                .paymentId("1")
                 .amount(new BigDecimal("10000.00"))
                 .build();
         
@@ -245,7 +246,7 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1))
                 .build();
         
-        when(paymentRepository.findById(1L)).thenReturn(payment1);
+        when(paymentRepository.findById("1")).thenReturn(Optional.of(payment1));
         
         // When
         String channelTransactionNumber = paymentDomainService.executeBatchPayment(command);

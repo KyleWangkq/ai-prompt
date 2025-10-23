@@ -51,7 +51,8 @@ public class PaymentDomainService {
                 .collect(Collectors.toList());
         
         List<PaymentAggregate> payments = paymentIds.stream()
-                .map(paymentRepository::findById)
+                .map(id -> paymentRepository.findById(id)
+                        .orElseThrow(() -> new IllegalArgumentException("支付单不存在: " + id)))
                 .collect(Collectors.toList());
         
         // 2. 验证所有支付单属于同一经销商

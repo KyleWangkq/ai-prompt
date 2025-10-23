@@ -107,10 +107,8 @@ public class PaymentApplicationService implements IPaymentInternalService {
         validateRefundCommand(command);
         
         // 查询支付单
-        PaymentAggregate payment = paymentRepository.findById(command.getPaymentId());
-        if (payment == null) {
-            throw new PaymentException("支付单不存在: " + command.getPaymentId());
-        }
+        PaymentAggregate payment = paymentRepository.findById(command.getPaymentId())
+                .orElseThrow(() -> new PaymentException("支付单不存在: " + command.getPaymentId()));
         
         // 验证退款前置条件（业务规则在聚合根内部）
         payment.validateRefundable(command.getRefundAmount());
