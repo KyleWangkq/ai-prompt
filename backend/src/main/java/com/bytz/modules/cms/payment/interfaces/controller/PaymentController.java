@@ -1,6 +1,6 @@
 package com.bytz.modules.cms.payment.interfaces.controller;
 
-import com.bytz.modules.cms.payment.application.PaymentApplicationService;
+import com.bytz.modules.cms.payment.application.IPaymentApplicationService;
 import com.bytz.modules.cms.payment.application.PaymentQueryService;
 import com.bytz.modules.cms.payment.application.assembler.PaymentAssembler;
 import com.bytz.modules.cms.payment.domain.command.CreatePaymentCommand;
@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 @Validated
 public class PaymentController {
     
-    private final PaymentApplicationService paymentApplicationService;
+    private final IPaymentApplicationService paymentApplicationService;
     private final PaymentQueryService paymentQueryService;
     private final PaymentAssembler paymentAssembler;
     
@@ -46,7 +46,7 @@ public class PaymentController {
      * 创建支付单
      * 
      * ⚠️ 已废弃：支付单创建应该由系统内部调用，不应该通过外部REST接口创建
-     * 请使用 PaymentApplicationService.createPayment() 方法在系统内部创建支付单
+     * 请使用 IPaymentApplicationService.createPayment() 方法在系统内部创建支付单
      * 
      * @deprecated 支付单创建来源于系统内部，不通过接口创建
      */

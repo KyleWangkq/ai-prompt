@@ -1,6 +1,6 @@
-package com.bytz.modules.cms.payment.application;
+package com.bytz.modules.cms.payment.application.impl;
 
-import com.bytz.modules.cms.payment.domain.PaymentDomainService;
+import com.bytz.modules.cms.payment.application.IPaymentApplicationService;
 import com.bytz.modules.cms.payment.domain.command.CreatePaymentCommand;
 import com.bytz.modules.cms.payment.domain.command.ExecutePaymentCommand;
 import com.bytz.modules.cms.payment.domain.command.ExecuteRefundCommand;
@@ -26,8 +26,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * 支付单应用服务（统一应用服务）
- * Payment Application Service
+ * 支付单应用服务实现（统一应用服务）
+ * Payment Application Service Implementation
  * 
  * 协调支付单的创建、查询、筛选、批量支付、渠道查询等用例
  * 应用层不包含业务逻辑，仅负责用例协调
@@ -35,11 +35,10 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PaymentApplicationService implements IPaymentInternalService {
+public class PaymentApplicationServiceImpl implements IPaymentApplicationService {
     
     private final IPaymentRepository paymentRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final PaymentDomainService paymentDomainService;
     private final List<IPaymentChannelService> paymentChannelServices;
     
     /**
@@ -133,7 +132,6 @@ public class PaymentApplicationService implements IPaymentInternalService {
         return refundTransaction.getId();
     }
 
-
     
     /**
      * 验证创建命令（仅验证支付模块自己的业务数据）
@@ -217,13 +215,51 @@ public class PaymentApplicationService implements IPaymentInternalService {
      * @param command 执行支付命令
      * @return 渠道交易号
      */
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public String executeBatchPayment(ExecutePaymentCommand command) {
         log.info("开始执行批量支付，支付单数量: {}, 支付渠道: {}", 
                 command.getPaymentItems().size(), command.getPaymentChannel());
         
-        // 委托给领域服务执行批量支付
-        String channelTransactionNumber = paymentDomainService.executeBatchPayment(command);
+        // TODO: 实现批量支付逻辑
+        // 1. 批量查询所有支付单，避免在循环中调用数据库
+        List<String> paymentIds = command.getPaymentItems().stream()
+                .map(ExecutePaymentCommand.PaymentItem::getPaymentId)
+                .collect(Collectors.toList());
+        
+        List<PaymentAggregate> payments = paymentIds.stream()
+                .map(paymentRepository::findById)
+                .collect(Collectors.toList());
+        
+        // 2. 验证所有支付单属于同一经销商
+        String resellerId = payments.get(0).getResellerId();
+        boolean sameReseller = payments.stream()
+                .allMatch(p -> p.getResellerId().equals(resellerId));
+        if (!sameReseller) {
+            throw new IllegalArgumentException("所有支付单必须属于同一经销商");
+        }
+        
+        // 3. 验证每个支付单的状态是否允许支付
+        boolean allCanPay = payments.stream().allMatch(PaymentAggregate::canPay);
+        if (!allCanPay) {
+            throw new IllegalArgumentException("存在不允许支付的支付单");
+        }
+        
+        // 4. 计算总支付金额
+        // TODO: 实现金额计算和验证
+        
+        // 5. 调用支付渠道创建支付请求
+        // TODO: 实现支付渠道调用
+        String channelTransactionNumber = "MOCK_" + System.currentTimeMillis();
+        
+        // 6. 为每个支付单创建支付流水
+        for (int i = 0; i < payments.size(); i++) {
+            PaymentAggregate payment = payments.get(i);
+            ExecutePaymentCommand.PaymentItem item = command.getPaymentItems().get(i);
+            
+            payment.executePayment(command.getPaymentChannel(), item.getAmount(), channelTransactionNumber);
+            paymentRepository.save(payment);
+        }
         
         log.info("批量支付执行完成，渠道交易号: {}", channelTransactionNumber);
         return channelTransactionNumber;
@@ -235,6 +271,7 @@ public class PaymentApplicationService implements IPaymentInternalService {
      * @param resellerId 经销商ID
      * @return 支付渠道列表（枚举）
      */
+    @Override
     public List<PaymentChannel> queryAvailableChannels(String resellerId) {
         log.info("查询经销商可用支付渠道，经销商ID: {}", resellerId);
         
@@ -276,13 +313,32 @@ public class PaymentApplicationService implements IPaymentInternalService {
         }
         
         // 3. 检查经销商是否有权限使用该渠道
-        boolean hasPermission = paymentDomainService.validateChannelAvailability(channel, resellerId);
+        boolean hasPermission = validateChannelAvailability(channel, resellerId);
         if (!hasPermission) {
             log.warn("经销商 {} 无权限使用渠道: {}", resellerId, channel);
             return false;
         }
         
         return true;
+    }
+    
+    /**
+     * 验证支付渠道是否可用
+     * 
+     * @param channel 支付渠道
+     * @param resellerId 经销商ID
+     * @return 是否可用
+     * TODO: 实现渠道可用性验证逻辑
+     */
+    private boolean validateChannelAvailability(PaymentChannel channel, String resellerId) {
+        log.info("验证支付渠道可用性，渠道: {}, 经销商: {}", channel, resellerId);
+        
+        // TODO: 实现渠道可用性验证
+        // 1. 检查渠道是否启用
+        // 2. 检查经销商是否有权限使用该渠道
+        // 3. 检查渠道当前状态是否正常
+        
+        return true; // 暂时返回true
     }
     
     /**
