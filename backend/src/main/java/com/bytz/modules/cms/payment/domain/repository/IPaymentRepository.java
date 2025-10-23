@@ -3,6 +3,7 @@ package com.bytz.modules.cms.payment.domain.repository;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 支付单仓储接口
@@ -26,19 +27,19 @@ public interface IPaymentRepository {
      * 根据主键ID查找支付单
      * 
      * @param id 主键ID
-     * @return 支付单聚合根，如果未找到返回null
+     * @return 支付单聚合根的Optional包装，如果未找到返回Optional.empty()
      * TODO: 实现支付单的查询逻辑，包括关联的支付流水
      */
-    PaymentAggregate findById(String id);
+    Optional<PaymentAggregate> findById(String id);
     
     /**
      * 根据业务编码查找支付单
      * 
      * @param code 支付单号
-     * @return 支付单聚合根，如果未找到返回null
+     * @return 支付单聚合根的Optional包装，如果未找到返回Optional.empty()
      * TODO: 实现支付单的查询逻辑，包括关联的支付流水
      */
-    PaymentAggregate findByCode(String code);
+    Optional<PaymentAggregate> findByCode(String code);
     
     /**
      * 根据订单号查找支付单列表
@@ -66,6 +67,15 @@ public interface IPaymentRepository {
      * TODO: 实现按关联业务ID查询支付单列表的逻辑，用于信用还款查询
      */
     List<PaymentAggregate> findByRelatedBusinessId(String relatedBusinessId);
+    
+    /**
+     * 根据主键ID列表批量查找支付单
+     * 一次性查询所有支付单及其子聚合（支付流水），避免循环调用数据库
+     * 
+     * @param ids 主键ID列表
+     * @return 支付单聚合根列表
+     */
+    List<PaymentAggregate> findByIds(List<String> ids);
     
     /**
      * 删除支付单（逻辑删除）- 通过主键ID

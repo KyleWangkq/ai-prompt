@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -109,9 +110,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1, item2))
                 .build();
         
-        when(paymentRepository.findById("1")).thenReturn(payment1);
-        when(paymentRepository.findById("2")).thenReturn(payment2);
-        
+        when(paymentRepository.findByIds(Arrays.asList("1", "2")))
+                .thenReturn(Arrays.asList(payment1, payment2));        
         // When
         String channelTransactionNumber = paymentApplicationService.executeBatchPayment(command);
         
@@ -152,9 +152,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1, item2))
                 .build();
         
-        when(paymentRepository.findById("1")).thenReturn(payment1);
-        when(paymentRepository.findById("2")).thenReturn(payment2);
-        
+        when(paymentRepository.findByIds(Arrays.asList("1", "2")))
+                .thenReturn(Arrays.asList(payment1, payment2));        
         // When & Then
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
             paymentApplicationService.executeBatchPayment(command);
@@ -180,8 +179,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1))
                 .build();
         
-        when(paymentRepository.findById("1")).thenReturn(payment1);
-        
+        when(paymentRepository.findByIds(Arrays.asList("1")))
+                .thenReturn(Arrays.asList(payment1));        
         // When & Then
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
             paymentApplicationService.executeBatchPayment(command);
@@ -215,8 +214,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item))
                 .build();
         
-        when(paymentRepository.findById("1")).thenReturn(payment1);
-        
+        when(paymentRepository.findByIds(Arrays.asList("1")))
+                .thenReturn(Arrays.asList(payment1));        
         // When
         String channelTransactionNumber = paymentApplicationService.executeBatchPayment(command);
         
@@ -252,8 +251,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1))
                 .build();
         
-        when(paymentRepository.findById("1")).thenReturn(payment1);
-        
+        when(paymentRepository.findByIds(Arrays.asList("1")))
+                .thenReturn(Arrays.asList(payment1));        
         // When
         String channelTransactionNumber = paymentApplicationService.executeBatchPayment(command);
         

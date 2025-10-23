@@ -77,15 +77,15 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
      * 根据主键ID查找支付单
      *
      * @param id 主键ID
-     * @return 支付单聚合根，如果未找到返回null
+     * @return 支付单聚合根的Optional包装，如果未找到返回Optional.empty()
      */
     @Override
-    public PaymentAggregate findById(String id) {
+    public Optional<PaymentAggregate> findById(String id) {
         log.info("根据ID查找支付单，ID: {}", id);
 
         PaymentEntity entity = paymentMapper.selectById(id);
         if (entity == null) {
-            return null;
+            return Optional.empty();
         }
 
         // 查询支付流水 - 使用payment_id关联
@@ -94,22 +94,22 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         List<PaymentTransactionEntity> transactionEntities = transactionMapper.selectList(wrapper);
 
         // 使用MapStruct转换为领域对象
-        return toPaymentAggregate(entity, transactionEntities);
+        return Optional.of(toPaymentAggregate(entity, transactionEntities));
     }
 
     /**
      * 根据业务编码查找支付单
      *
      * @param code 支付单号
-     * @return 支付单聚合根，如果未找到返回null
+     * @return 支付单聚合根的Optional包装，如果未找到返回Optional.empty()
      */
     @Override
-    public PaymentAggregate findByCode(String code) {
+    public Optional<PaymentAggregate> findByCode(String code) {
         log.info("根据业务编码查找支付单，支付单号: {}", code);
 
         PaymentEntity entity = findEntityByCode(code);
         if (entity == null) {
-            return null;
+            return Optional.empty();
         }
 
         // 查询支付流水 - 使用payment_id关联
@@ -118,7 +118,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         List<PaymentTransactionEntity> transactionEntities = transactionMapper.selectList(wrapper);
 
         // 使用MapStruct转换为领域对象
-        return toPaymentAggregate(entity, transactionEntities);
+        return Optional.of(toPaymentAggregate(entity, transactionEntities));
     }
 
     /**
@@ -197,6 +197,44 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         wrapper.eq(PaymentEntity::getRelatedBusinessId, relatedBusinessId);
 
         List<PaymentEntity> entities = paymentMapper.selectList(wrapper);
+
+        // 批量查询所有支付流水，避免在循环中调用数据库 - 使用ID关联
+        List<String> paymentIds = entities.stream()
+                .map(PaymentEntity::getId)
+                .collect(Collectors.toList());
+        Map<String, List<PaymentTransactionEntity>> transactionsMap =
+                findTransactionsByPaymentIds(paymentIds);
+
+        return entities.stream()
+                .map(entity -> {
+                    List<PaymentTransactionEntity> transactions =
+                            transactionsMap.getOrDefault(entity.getId(), new ArrayList<>());
+                    return toPaymentAggregate(entity, transactions);
+                })
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 根据主键ID列表批量查找支付单
+     * 一次性查询所有支付单及其子聚合（支付流水），避免循环调用数据库
+     *
+     * @param ids 主键ID列表
+     * @return 支付单聚合根列表
+     */
+    @Override
+    public List<PaymentAggregate> findByIds(List<String> ids) {
+        log.info("根据ID列表批量查找支付单，数量: {}", ids == null ? 0 : ids.size());
+        
+        if (ids == null || ids.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 批量查询支付单
+        List<PaymentEntity> entities = paymentMapper.selectBatchIds(ids);
+        
+        if (entities.isEmpty()) {
+            return new ArrayList<>();
+        }
 
         // 批量查询所有支付流水，避免在循环中调用数据库 - 使用ID关联
         List<String> paymentIds = entities.stream()

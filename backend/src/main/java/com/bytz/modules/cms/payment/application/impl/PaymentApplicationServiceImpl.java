@@ -106,10 +106,8 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         validateRefundCommand(command);
         
         // 查询支付单
-        PaymentAggregate payment = paymentRepository.findById(command.getPaymentId());
-        if (payment == null) {
-            throw new PaymentException("支付单不存在: " + command.getPaymentId());
-        }
+        PaymentAggregate payment = paymentRepository.findById(command.getPaymentId())
+                .orElseThrow(() -> new PaymentException("支付单不存在: " + command.getPaymentId()));
         
         // 验证退款前置条件（业务规则在聚合根内部）
         payment.validateRefundable(command.getRefundAmount());
@@ -227,9 +225,13 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
                 .map(ExecutePaymentCommand.PaymentItem::getPaymentId)
                 .collect(Collectors.toList());
         
-        List<PaymentAggregate> payments = paymentIds.stream()
-                .map(paymentRepository::findById)
-                .collect(Collectors.toList());
+        // 使用批量查询方法，一次性查询所有支付单及其子聚合
+        List<PaymentAggregate> payments = paymentRepository.findByIds(paymentIds);
+        
+        // 验证所有支付单都存在
+        if (payments.size() != paymentIds.size()) {
+            throw new IllegalArgumentException("部分支付单不存在");
+        }
         
         // 2. 验证所有支付单属于同一经销商
         String resellerId = payments.get(0).getResellerId();

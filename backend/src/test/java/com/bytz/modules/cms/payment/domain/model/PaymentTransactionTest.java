@@ -27,7 +27,7 @@ class PaymentTransactionTest {
         // 创建支付流水
         paymentTransaction = PaymentTransaction.builder()
                 .code("TXN-PAY-001")
-                .paymentId(1L)
+                .paymentId("1")
                 .transactionType(TransactionType.PAYMENT)
                 .transactionStatus(TransactionStatus.PROCESSING)
                 .transactionAmount(new BigDecimal("10000.00"))
@@ -39,12 +39,12 @@ class PaymentTransactionTest {
         // 创建退款流水
         refundTransaction = PaymentTransaction.builder()
                 .code("TXN-REFUND-001")
-                .paymentId(1L)
+                .paymentId("1")
                 .transactionType(TransactionType.REFUND)
                 .transactionStatus(TransactionStatus.PROCESSING)
                 .transactionAmount(new BigDecimal("3000.00"))
                 .paymentChannel(PaymentChannel.ONLINE_PAYMENT)
-                .originalTransactionId(1L)
+                .originalTransactionId("TXN-PAY-001")
                 .businessOrderId("REFUND-ORDER-001")
                 .createTime(LocalDateTime.now())
                 .build();
@@ -242,7 +242,7 @@ class PaymentTransactionTest {
         // When
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .code("TXN-TEST-001")
-                .paymentId(1L)
+                .paymentId("PAY-TEST-001")
                 .transactionType(TransactionType.PAYMENT)
                 .transactionStatus(TransactionStatus.PROCESSING)
                 .transactionAmount(new BigDecimal("5000.00"))
