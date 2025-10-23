@@ -172,12 +172,12 @@ public class PaymentController {
         ExecutePaymentCommand command = paymentAssembler.toBatchPaymentCommand(ro, resellerId);
         
         // 执行批量支付
-        String channelTransactionNumber = paymentApplicationService.executeBatchPayment(command);
+        String channelPaymentRecordId = paymentApplicationService.executeBatchPayment(command);
         
         // 构建响应对象
-        BatchPaymentResultVO result = buildBatchPaymentResult(ro, ro.getPaymentChannel(), channelTransactionNumber);
+        BatchPaymentResultVO result = buildBatchPaymentResult(ro, ro.getPaymentChannel(), channelPaymentRecordId);
         
-        log.info("批量支付执行完成，渠道交易号: {}", channelTransactionNumber);
+        log.info("批量支付执行完成，渠道交易id: {}", channelPaymentRecordId);
         return ResponseEntity.ok(result);
     }
     
@@ -213,10 +213,10 @@ public class PaymentController {
      * 
      * @param ro 批量支付执行请求对象
      * @param paymentChannel 支付渠道
-     * @param channelTransactionNumber 渠道交易号
+     * @param channelPaymentRecordId 渠道交易id
      * @return 批量支付结果响应对象
      */
-    private BatchPaymentResultVO buildBatchPaymentResult(BatchPaymentExecuteRO ro, PaymentChannel paymentChannel, String channelTransactionNumber) {
+    private BatchPaymentResultVO buildBatchPaymentResult(BatchPaymentExecuteRO ro, PaymentChannel paymentChannel, String channelPaymentRecordId) {
         // 计算总金额
         BigDecimal totalAmount = ro.getPaymentItems().stream()
                 .map(BatchPaymentExecuteRO.PaymentItem::getAmount)
@@ -228,14 +228,14 @@ public class PaymentController {
                         .paymentId(item.getPaymentId())
                         .amount(item.getAmount())
                         .paymentChannel(paymentChannel)
-                        .channelTransactionNumber(channelTransactionNumber)
+                        .channelPaymentRecordId(channelPaymentRecordId)
                         .success(true)  // 此时已提交到渠道，最终结果需要等待回调
                         .build())
                 .collect(Collectors.toList());
         
         return BatchPaymentResultVO.builder()
                 .paymentChannel(paymentChannel)
-                .channelTransactionNumber(channelTransactionNumber)
+                .channelPaymentRecordId(channelPaymentRecordId)
                 .totalAmount(totalAmount)
                 .paymentCount(ro.getPaymentItems().size())
                 .paymentResults(paymentResults)

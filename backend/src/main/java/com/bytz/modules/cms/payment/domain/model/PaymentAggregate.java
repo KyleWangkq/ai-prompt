@@ -225,7 +225,8 @@ public class PaymentAggregate {
     public PaymentTransaction executePayment(
             PaymentChannel paymentChannel,
             BigDecimal amount,
-            String channelTransactionNumber) {
+            String channelTransactionNumber,
+            String channelPaymentRecordId) {
         
         // TODO: 实现支付执行逻辑
         // 1. 验证支付单状态是否允许支付
@@ -241,13 +242,12 @@ public class PaymentAggregate {
                 .transactionAmount(amount)
                 .paymentChannel(paymentChannel)
                 .channelTransactionNumber(channelTransactionNumber)
-                .createTime(LocalDateTime.now())
+                .channelPaymentRecordId(channelPaymentRecordId)
                 .build();
 
         this.transactions.add(transaction);
         this.paymentStatus = PaymentStatus.PAYING;
-        this.updateTime = LocalDateTime.now();
-        
+
         return transaction;
     }
     

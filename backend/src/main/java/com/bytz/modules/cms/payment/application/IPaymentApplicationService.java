@@ -20,7 +20,7 @@ public interface IPaymentApplicationService extends IPaymentInternalService {
      * 执行批量支付
      * 
      * @param command 执行支付命令
-     * @return 渠道交易号
+     * @return 渠道交易id
      */
     String executeBatchPayment(ExecutePaymentCommand command);
     
