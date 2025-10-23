@@ -537,5 +537,3 @@ public class PaymentAggregate {
             }
         }
     }
-
-}
