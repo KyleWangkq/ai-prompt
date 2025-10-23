@@ -67,4 +67,22 @@ public interface IPaymentChannelService {
      * TODO: 实现渠道可用性检查逻辑，每个渠道自行定义经销商可用性规则
      */
     boolean isAvailable(String resellerId);
+    
+    /**
+     * 检查渠道是否支持批量支付
+     * 
+     * @return 是否支持批量支付（合并支付）
+     * TODO: 实现批量支付支持检查逻辑，不同渠道的批量支付能力不同
+     */
+    boolean supportsBatchPayment();
+    
+    /**
+     * 检查渠道是否支持经销商的指定金额支付
+     * 
+     * @param resellerId 经销商ID
+     * @param amount 支付金额
+     * @return 是否支持该金额的支付
+     * TODO: 实现金额支持检查逻辑，考虑渠道限额、经销商信用额度等因素
+     */
+    boolean supportsAmountForReseller(String resellerId, java.math.BigDecimal amount);
 }

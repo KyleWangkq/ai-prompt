@@ -728,4 +728,10 @@ dtos:
       - name: unavailableReason
         type: String
         description: 不可用原因（如果不可用）
+      - name: supportsBatchPayment
+        type: Boolean
+        description: 是否支持批量支付（合并支付）
+      - name: supportsAmount
+        type: Boolean
+        description: 是否支持当前金额的支付（基于经销商和金额的验证）
 

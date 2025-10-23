@@ -327,4 +327,119 @@ class PaymentChannelServiceTest {
         assertNotNull(response.getChannelPaymentRecordId(), "渠道支付记录ID应该在开始退款时即返回");
         assertNotNull(response.getRefundTransactionNumber(), "退款流水号可能在创建时或回调时返回");
     }
+    
+    @Test
+    @DisplayName("测试批量支付支持 - 钱包支付渠道支持批量支付")
+    void testWalletChannel_SupportsBatchPayment() {
+        // When
+        boolean supports = walletChannelService.supportsBatchPayment();
+        
+        // Then
+        assertTrue(supports, "钱包支付应该支持批量支付");
+    }
+    
+    @Test
+    @DisplayName("测试批量支付支持 - 线上支付渠道支持批量支付")
+    void testOnlinePaymentChannel_SupportsBatchPayment() {
+        // When
+        boolean supports = onlinePaymentChannelService.supportsBatchPayment();
+        
+        // Then
+        assertTrue(supports, "线上支付应该支持批量支付");
+    }
+    
+    @Test
+    @DisplayName("测试批量支付支持 - 电汇渠道不支持批量支付")
+    void testWireTransferChannel_DoesNotSupportBatchPayment() {
+        // When
+        boolean supports = wireTransferChannelService.supportsBatchPayment();
+        
+        // Then
+        assertFalse(supports, "电汇支付不应该支持批量支付");
+    }
+    
+    @Test
+    @DisplayName("测试批量支付支持 - 信用账户渠道支持批量支付")
+    void testCreditAccountChannel_SupportsBatchPayment() {
+        // When
+        boolean supports = creditAccountChannelService.supportsBatchPayment();
+        
+        // Then
+        assertTrue(supports, "信用账户应该支持批量支付");
+    }
+    
+    @Test
+    @DisplayName("测试金额支持验证 - 钱包支付渠道支持经销商的支付金额")
+    void testWalletChannel_SupportsAmountForReseller() {
+        // Given
+        BigDecimal amount = new BigDecimal("5000.00");
+        
+        // When
+        boolean supports = walletChannelService.supportsAmountForReseller(resellerId, amount);
+        
+        // Then
+        assertTrue(supports, "钱包支付应该支持经销商的支付金额");
+    }
+    
+    @Test
+    @DisplayName("测试金额支持验证 - 线上支付渠道支持经销商的支付金额")
+    void testOnlinePaymentChannel_SupportsAmountForReseller() {
+        // Given
+        BigDecimal amount = new BigDecimal("10000.00");
+        
+        // When
+        boolean supports = onlinePaymentChannelService.supportsAmountForReseller(resellerId, amount);
+        
+        // Then
+        assertTrue(supports, "线上支付应该支持经销商的支付金额");
+    }
+    
+    @Test
+    @DisplayName("测试金额支持验证 - 电汇渠道支持经销商的支付金额")
+    void testWireTransferChannel_SupportsAmountForReseller() {
+        // Given
+        BigDecimal amount = new BigDecimal("50000.00");
+        
+        // When
+        boolean supports = wireTransferChannelService.supportsAmountForReseller(resellerId, amount);
+        
+        // Then
+        assertTrue(supports, "电汇支付应该支持经销商的支付金额");
+    }
+    
+    @Test
+    @DisplayName("测试金额支持验证 - 信用账户渠道支持经销商的支付金额")
+    void testCreditAccountChannel_SupportsAmountForReseller() {
+        // Given
+        BigDecimal amount = new BigDecimal("20000.00");
+        
+        // When
+        boolean supports = creditAccountChannelService.supportsAmountForReseller(resellerId, amount);
+        
+        // Then
+        assertTrue(supports, "信用账户应该支持经销商的支付金额");
+    }
+    
+    @Test
+    @DisplayName("测试所有渠道 - 批量支付支持状态检查")
+    void testAllChannels_BatchPaymentSupportStatus() {
+        // When & Then
+        assertTrue(walletChannelService.supportsBatchPayment(), "钱包支付支持批量支付");
+        assertTrue(onlinePaymentChannelService.supportsBatchPayment(), "线上支付支持批量支付");
+        assertFalse(wireTransferChannelService.supportsBatchPayment(), "电汇支付不支持批量支付");
+        assertTrue(creditAccountChannelService.supportsBatchPayment(), "信用账户支持批量支付");
+    }
+    
+    @Test
+    @DisplayName("测试所有渠道 - 金额支持验证接受经销商ID和金额")
+    void testAllChannels_SupportsAmountForReseller_WithResellerIdAndAmount() {
+        // Given
+        BigDecimal amount = new BigDecimal("10000.00");
+        
+        // When & Then
+        assertTrue(walletChannelService.supportsAmountForReseller(resellerId, amount));
+        assertTrue(onlinePaymentChannelService.supportsAmountForReseller(resellerId, amount));
+        assertTrue(wireTransferChannelService.supportsAmountForReseller(resellerId, amount));
+        assertTrue(creditAccountChannelService.supportsAmountForReseller(resellerId, amount));
+    }
 }

@@ -100,4 +100,21 @@ public class OnlinePaymentChannelService implements IPaymentChannelService {
         
         return true;
     }
+    
+    @Override
+    public boolean supportsBatchPayment() {
+        log.info("检查线上支付渠道是否支持批量支付");
+        // 线上支付（银联、网银）通常支持批量支付
+        return true;
+    }
+    
+    @Override
+    public boolean supportsAmountForReseller(String resellerId, java.math.BigDecimal amount) {
+        log.info("检查线上支付渠道是否支持经销商的支付金额，经销商ID: {}, 金额: {}", resellerId, amount);
+        // TODO: 实现金额支持检查逻辑
+        // 1. 检查线上支付渠道单笔交易限额
+        // 2. 检查线上支付渠道日累计交易限额
+        // 3. 验证经销商是否有使用权限
+        return true;
+    }
 }

@@ -78,4 +78,21 @@ public class WalletPaymentChannelService implements IPaymentChannelService {
         // TODO: 实现可用性检查逻辑，根据经销商判断渠道是否可用
         return true;
     }
+    
+    @Override
+    public boolean supportsBatchPayment() {
+        log.info("检查钱包支付渠道是否支持批量支付");
+        // 钱包支付支持批量支付（合并支付）
+        return true;
+    }
+    
+    @Override
+    public boolean supportsAmountForReseller(String resellerId, java.math.BigDecimal amount) {
+        log.info("检查钱包支付渠道是否支持经销商的支付金额，经销商ID: {}, 金额: {}", resellerId, amount);
+        // TODO: 实现金额支持检查逻辑
+        // 1. 查询经销商钱包余额
+        // 2. 验证余额是否足够支付当前金额
+        // 3. 考虑钱包支付单笔限额
+        return true;
+    }
 }
