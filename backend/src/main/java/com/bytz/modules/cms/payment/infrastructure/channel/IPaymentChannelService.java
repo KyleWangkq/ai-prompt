@@ -1,9 +1,12 @@
 package com.bytz.modules.cms.payment.infrastructure.channel;
 
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
-
-import java.math.BigDecimal;
-import java.util.Map;
+import com.bytz.modules.cms.payment.infrastructure.channel.command.CreatePaymentRequestCommand;
+import com.bytz.modules.cms.payment.infrastructure.channel.command.CreateRefundRequestCommand;
+import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryPaymentStatusCommand;
+import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryRefundStatusCommand;
+import com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse;
+import com.bytz.modules.cms.payment.infrastructure.channel.response.RefundRequestResponse;
 
 /**
  * 支付渠道接口
@@ -23,56 +26,45 @@ public interface IPaymentChannelService {
     /**
      * 创建支付请求
      * 
-     * @param totalAmount 支付总金额
-     * @param channelParams 渠道特定参数
-     * @return 渠道交易号
-     * TODO: 实现支付请求创建逻辑，返回渠道交易号
+     * @param command 创建支付请求命令
+     * @return 支付请求响应（包含渠道支付记录ID和渠道交易号）
+     * TODO: 实现支付请求创建逻辑，返回渠道支付记录ID和渠道交易号
      */
-    String createPaymentRequest(BigDecimal totalAmount, Map<String, Object> channelParams);
+    PaymentRequestResponse createPaymentRequest(CreatePaymentRequestCommand command);
     
     /**
      * 查询支付状态
      * 
-     * @param channelTransactionNumber 渠道交易号
+     * @param command 查询支付状态命令
      * @return 支付状态（SUCCESS/FAILED/PROCESSING）
      * TODO: 实现支付状态查询逻辑
      */
-    String queryPaymentStatus(String channelTransactionNumber);
+    String queryPaymentStatus(QueryPaymentStatusCommand command);
     
     /**
      * 创建退款请求
      * 
-     * @param channelTransactionNumber 原支付渠道交易号
-     * @param refundAmount 退款金额
-     * @param refundReason 退款原因
-     * @return 退款流水号
+     * @param command 创建退款请求命令
+     * @return 退款请求响应（包含渠道支付记录ID和退款流水号）
      * TODO: 实现退款请求创建逻辑
      */
-    String createRefundRequest(String channelTransactionNumber, BigDecimal refundAmount, String refundReason);
+    RefundRequestResponse createRefundRequest(CreateRefundRequestCommand command);
     
     /**
      * 查询退款状态
      * 
-     * @param refundTransactionNumber 退款流水号
+     * @param command 查询退款状态命令
      * @return 退款状态（SUCCESS/FAILED/PROCESSING）
      * TODO: 实现退款状态查询逻辑
      */
-    String queryRefundStatus(String refundTransactionNumber);
+    String queryRefundStatus(QueryRefundStatusCommand command);
     
     /**
-     * 验证回调签名
+     * 检查渠道对经销商是否可用
      * 
-     * @param callbackData 回调数据
-     * @return 是否验证通过
-     * TODO: 实现回调签名验证逻辑
-     */
-    boolean validateCallback(Map<String, Object> callbackData);
-    
-    /**
-     * 检查渠道是否可用
-     * 
+     * @param resellerId 经销商ID
      * @return 是否可用
-     * TODO: 实现渠道可用性检查逻辑
+     * TODO: 实现渠道可用性检查逻辑，每个渠道自行定义经销商可用性规则
      */
-    boolean isAvailable();
+    boolean isAvailable(String resellerId);
 }
