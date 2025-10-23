@@ -50,10 +50,13 @@ public class PaymentDomainService {
                 .map(ExecutePaymentCommand.PaymentItem::getPaymentId)
                 .collect(Collectors.toList());
         
-        List<PaymentAggregate> payments = paymentIds.stream()
-                .map(id -> paymentRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("支付单不存在: " + id)))
-                .collect(Collectors.toList());
+        // 使用批量查询方法，一次性查询所有支付单及其子聚合
+        List<PaymentAggregate> payments = paymentRepository.findByIds(paymentIds);
+        
+        // 验证所有支付单都存在
+        if (payments.size() != paymentIds.size()) {
+            throw new IllegalArgumentException("部分支付单不存在");
+        }
         
         // 2. 验证所有支付单属于同一经销商
         String resellerId = payments.get(0).getResellerId();

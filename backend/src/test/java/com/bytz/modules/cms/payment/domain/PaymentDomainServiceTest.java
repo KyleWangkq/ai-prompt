@@ -100,8 +100,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1, item2))
                 .build();
         
-        when(paymentRepository.findById("1")).thenReturn(Optional.of(payment1));
-        when(paymentRepository.findById("2")).thenReturn(Optional.of(payment2));
+        when(paymentRepository.findByIds(Arrays.asList("1", "2")))
+                .thenReturn(Arrays.asList(payment1, payment2));
         
         // When
         String channelTransactionNumber = paymentDomainService.executeBatchPayment(command);
@@ -143,8 +143,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1, item2))
                 .build();
         
-        when(paymentRepository.findById("1")).thenReturn(Optional.of(payment1));
-        when(paymentRepository.findById("2")).thenReturn(Optional.of(payment2));
+        when(paymentRepository.findByIds(Arrays.asList("1", "2")))
+                .thenReturn(Arrays.asList(payment1, payment2));
         
         // When & Then
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
@@ -171,7 +171,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1))
                 .build();
         
-        when(paymentRepository.findById("1")).thenReturn(Optional.of(payment1));
+        when(paymentRepository.findByIds(Arrays.asList("1")))
+                .thenReturn(Arrays.asList(payment1));
         
         // When & Then
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
@@ -209,7 +210,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item))
                 .build();
         
-        when(paymentRepository.findById("1")).thenReturn(Optional.of(payment1));
+        when(paymentRepository.findByIds(Arrays.asList("1")))
+                .thenReturn(Arrays.asList(payment1));
         
         // When
         String channelTransactionNumber = paymentDomainService.executeBatchPayment(command);
@@ -246,7 +248,8 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1))
                 .build();
         
-        when(paymentRepository.findById("1")).thenReturn(Optional.of(payment1));
+        when(paymentRepository.findByIds(Arrays.asList("1")))
+                .thenReturn(Arrays.asList(payment1));
         
         // When
         String channelTransactionNumber = paymentDomainService.executeBatchPayment(command);
