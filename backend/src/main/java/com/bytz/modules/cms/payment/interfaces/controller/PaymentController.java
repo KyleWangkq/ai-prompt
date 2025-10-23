@@ -43,41 +43,14 @@ public class PaymentController {
     private final PaymentAssembler paymentAssembler;
     
     /**
-     * 创建支付单
-     * 
-     * ⚠️ 已废弃：支付单创建应该由系统内部调用，不应该通过外部REST接口创建
-     * 请使用 IPaymentApplicationService.createPayment() 方法在系统内部创建支付单
-     * 
-     * @deprecated 支付单创建来源于系统内部，不通过接口创建
-     */
-    @Deprecated
-    @PostMapping
-    public ResponseEntity<PaymentVO> createPayment(@Valid @RequestBody PaymentCreateRO ro) {
-        log.warn("警告：通过REST接口创建支付单已废弃，支付单应该由系统内部创建");
-        log.info("收到创建支付单请求，订单号: {}, 支付类型: {}", ro.getOrderId(), ro.getPaymentType());
-        
-        // 转换为命令对象
-        CreatePaymentCommand command = paymentAssembler.toCreateCommand(ro);
-        
-        // 调用应用服务
-        PaymentAggregate payment = paymentApplicationService.createPayment(command);
-        
-        // 转换为响应对象
-        PaymentVO vo = paymentAssembler.toVO(payment);
-        
-        log.info("支付单创建成功，支付单号: {}", vo.getCode());
-        return ResponseEntity.ok(vo);
-    }
-    
-    /**
      * 根据支付单号查询支付单
      * 
-     * GET /api/v1/payments/{code}
+     * GET /api/v1/payments/byCode/{code}
      * 
      * @param code 支付单号
      * @return 支付单响应对象
      */
-    @GetMapping("/{code}")
+    @GetMapping("/byCode/{code}")
     public ResponseEntity<PaymentVO> getPaymentByCode(@PathVariable String code) {
         log.info("查询支付单，支付单号: {}", code);
         
