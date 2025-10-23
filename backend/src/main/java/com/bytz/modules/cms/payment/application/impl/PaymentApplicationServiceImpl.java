@@ -308,15 +308,8 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
             return false;
         }
         
-        // 2. 检查渠道是否可用
-        if (!channelService.isAvailable()) {
-            log.warn("渠道不可用: {}", channel);
-            return false;
-        }
-        
-        // 3. 检查经销商是否有权限使用该渠道
-        boolean hasPermission = validateChannelAvailability(channel, resellerId);
-        if (!hasPermission) {
+        // 2. 检查渠道对经销商是否可用
+        if (!channelService.isAvailable(resellerId)) {
             log.warn("经销商 {} 无权限使用渠道: {}", resellerId, channel);
             return false;
         }
@@ -330,17 +323,11 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
      * @param channel 支付渠道
      * @param resellerId 经销商ID
      * @return 是否可用
-     * TODO: 实现渠道可用性验证逻辑
+     * @deprecated 使用 isChannelAvailable 方法替代
      */
+    @Deprecated
     private boolean validateChannelAvailability(PaymentChannel channel, String resellerId) {
-        log.info("验证支付渠道可用性，渠道: {}, 经销商: {}", channel, resellerId);
-        
-        // TODO: 实现渠道可用性验证
-        // 1. 检查渠道是否启用
-        // 2. 检查经销商是否有权限使用该渠道
-        // 3. 检查渠道当前状态是否正常
-        
-        return true; // 暂时返回true
+        return isChannelAvailable(channel, resellerId);
     }
     
     /**
