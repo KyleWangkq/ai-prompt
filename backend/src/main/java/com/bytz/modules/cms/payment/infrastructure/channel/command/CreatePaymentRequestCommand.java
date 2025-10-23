@@ -26,12 +26,6 @@ public class CreatePaymentRequestCommand {
     private BigDecimal totalAmount;
     
     /**
-     * 渠道支付记录ID
-     * （渠道系统的支付记录唯一标识，用于后续验证和查询）
-     */
-    private String channelPaymentRecordId;
-    
-    /**
      * 经销商ID
      */
     private String resellerId;

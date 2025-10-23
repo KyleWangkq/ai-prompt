@@ -25,6 +25,12 @@ public class CreateRefundRequestCommand {
     private String channelTransactionNumber;
     
     /**
+     * 原支付的渠道支付记录ID
+     * （用于定位原支付记录）
+     */
+    private String originalChannelPaymentRecordId;
+    
+    /**
      * 退款金额
      */
     private BigDecimal refundAmount;
@@ -33,12 +39,6 @@ public class CreateRefundRequestCommand {
      * 退款原因
      */
     private String refundReason;
-    
-    /**
-     * 渠道支付记录ID
-     * （渠道系统的支付记录唯一标识，用于数据关联）
-     */
-    private String channelPaymentRecordId;
     
     /**
      * 经销商ID

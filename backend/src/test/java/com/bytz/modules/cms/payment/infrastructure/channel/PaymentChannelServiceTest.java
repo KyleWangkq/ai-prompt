@@ -9,6 +9,8 @@ import com.bytz.modules.cms.payment.infrastructure.channel.impl.CreditAccountCha
 import com.bytz.modules.cms.payment.infrastructure.channel.impl.OnlinePaymentChannelService;
 import com.bytz.modules.cms.payment.infrastructure.channel.impl.WalletPaymentChannelService;
 import com.bytz.modules.cms.payment.infrastructure.channel.impl.WireTransferChannelService;
+import com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse;
+import com.bytz.modules.cms.payment.infrastructure.channel.response.RefundRequestResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,33 +50,35 @@ class PaymentChannelServiceTest {
     }
 
     @Test
-    @DisplayName("测试钱包支付渠道 - 创建支付请求使用命令对象")
-    void testWalletChannel_CreatePaymentRequest_WithCommand() {
+    @DisplayName("测试钱包支付渠道 - 创建支付请求返回渠道支付记录ID和交易号")
+    void testWalletChannel_CreatePaymentRequest_ReturnsResponse() {
         // Given
         Map<String, Object> channelParams = new HashMap<>();
         channelParams.put("accountId", "ACC-001");
         
         CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
                 .totalAmount(paymentAmount)
-                .channelPaymentRecordId(channelPaymentRecordId)
                 .resellerId(resellerId)
                 .channelParams(channelParams)
                 .build();
 
         // When
-        String channelTransactionNumber = walletChannelService.createPaymentRequest(command);
+        PaymentRequestResponse response = walletChannelService.createPaymentRequest(command);
 
         // Then
-        assertNotNull(channelTransactionNumber);
-        assertTrue(channelTransactionNumber.startsWith("WALLET_"));
+        assertNotNull(response);
+        assertNotNull(response.getChannelPaymentRecordId());
+        assertNotNull(response.getChannelTransactionNumber());
+        assertTrue(response.getChannelPaymentRecordId().startsWith("WALLET_RECORD_"));
+        assertTrue(response.getChannelTransactionNumber().startsWith("WALLET_TXN_"));
     }
 
     @Test
-    @DisplayName("测试钱包支付渠道 - 查询支付状态使用命令对象")
-    void testWalletChannel_QueryPaymentStatus_WithCommand() {
+    @DisplayName("测试钱包支付渠道 - 查询支付状态使用渠道支付记录ID")
+    void testWalletChannel_QueryPaymentStatus_WithChannelPaymentRecordId() {
         // Given
         QueryPaymentStatusCommand command = QueryPaymentStatusCommand.builder()
-                .channelTransactionNumber("WALLET_12345")
+                .channelTransactionNumber("WALLET_TXN_12345")
                 .channelPaymentRecordId(channelPaymentRecordId)
                 .resellerId(resellerId)
                 .build();
@@ -88,28 +92,31 @@ class PaymentChannelServiceTest {
     }
 
     @Test
-    @DisplayName("测试钱包支付渠道 - 创建退款请求使用命令对象")
-    void testWalletChannel_CreateRefundRequest_WithCommand() {
+    @DisplayName("测试钱包支付渠道 - 创建退款请求返回渠道支付记录ID和退款流水号")
+    void testWalletChannel_CreateRefundRequest_ReturnsResponse() {
         // Given
         CreateRefundRequestCommand command = CreateRefundRequestCommand.builder()
-                .channelTransactionNumber("WALLET_12345")
+                .channelTransactionNumber("WALLET_TXN_12345")
+                .originalChannelPaymentRecordId(channelPaymentRecordId)
                 .refundAmount(new BigDecimal("1000.00"))
                 .refundReason("客户取消订单")
-                .channelPaymentRecordId(channelPaymentRecordId)
                 .resellerId(resellerId)
                 .build();
 
         // When
-        String refundTransactionNumber = walletChannelService.createRefundRequest(command);
+        RefundRequestResponse response = walletChannelService.createRefundRequest(command);
 
         // Then
-        assertNotNull(refundTransactionNumber);
-        assertTrue(refundTransactionNumber.startsWith("REFUND_"));
+        assertNotNull(response);
+        assertNotNull(response.getChannelPaymentRecordId());
+        assertNotNull(response.getRefundTransactionNumber());
+        assertTrue(response.getChannelPaymentRecordId().startsWith("WALLET_REFUND_RECORD_"));
+        assertTrue(response.getRefundTransactionNumber().startsWith("WALLET_REFUND_TXN_"));
     }
 
     @Test
-    @DisplayName("测试钱包支付渠道 - 查询退款状态使用命令对象")
-    void testWalletChannel_QueryRefundStatus_WithCommand() {
+    @DisplayName("测试钱包支付渠道 - 查询退款状态使用渠道支付记录ID")
+    void testWalletChannel_QueryRefundStatus_WithChannelPaymentRecordId() {
         // Given
         QueryRefundStatusCommand command = QueryRefundStatusCommand.builder()
                 .refundTransactionNumber("REFUND_12345")
@@ -146,60 +153,63 @@ class PaymentChannelServiceTest {
     }
 
     @Test
-    @DisplayName("测试电汇渠道 - 创建支付请求")
+    @DisplayName("测试电汇渠道 - 创建支付请求返回响应对象")
     void testWireTransferChannel_CreatePaymentRequest() {
         // Given
         CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
                 .totalAmount(paymentAmount)
-                .channelPaymentRecordId(channelPaymentRecordId)
                 .resellerId(resellerId)
                 .channelParams(new HashMap<>())
                 .build();
 
         // When
-        String channelTransactionNumber = wireTransferChannelService.createPaymentRequest(command);
+        PaymentRequestResponse response = wireTransferChannelService.createPaymentRequest(command);
 
         // Then
-        assertNotNull(channelTransactionNumber);
-        assertTrue(channelTransactionNumber.startsWith("WIRE_"));
+        assertNotNull(response);
+        assertNotNull(response.getChannelPaymentRecordId());
+        assertNotNull(response.getChannelTransactionNumber());
+        assertTrue(response.getChannelPaymentRecordId().startsWith("WIRE_RECORD_"));
     }
 
     @Test
-    @DisplayName("测试信用账户渠道 - 创建支付请求")
+    @DisplayName("测试信用账户渠道 - 创建支付请求返回响应对象")
     void testCreditAccountChannel_CreatePaymentRequest() {
         // Given
         CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
                 .totalAmount(paymentAmount)
-                .channelPaymentRecordId(channelPaymentRecordId)
                 .resellerId(resellerId)
                 .channelParams(new HashMap<>())
                 .build();
 
         // When
-        String channelTransactionNumber = creditAccountChannelService.createPaymentRequest(command);
+        PaymentRequestResponse response = creditAccountChannelService.createPaymentRequest(command);
 
         // Then
-        assertNotNull(channelTransactionNumber);
-        assertTrue(channelTransactionNumber.startsWith("CREDIT_"));
+        assertNotNull(response);
+        assertNotNull(response.getChannelPaymentRecordId());
+        assertNotNull(response.getChannelTransactionNumber());
+        assertTrue(response.getChannelPaymentRecordId().startsWith("CREDIT_RECORD_"));
     }
 
     @Test
-    @DisplayName("测试线上支付渠道 - 创建支付请求")
+    @DisplayName("测试线上支付渠道 - 创建支付请求返回响应对象")
     void testOnlinePaymentChannel_CreatePaymentRequest() {
         // Given
         CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
                 .totalAmount(paymentAmount)
-                .channelPaymentRecordId(channelPaymentRecordId)
                 .resellerId(resellerId)
                 .channelParams(new HashMap<>())
                 .build();
 
         // When
-        String channelTransactionNumber = onlinePaymentChannelService.createPaymentRequest(command);
+        PaymentRequestResponse response = onlinePaymentChannelService.createPaymentRequest(command);
 
         // Then
-        assertNotNull(channelTransactionNumber);
-        assertTrue(channelTransactionNumber.startsWith("ONLINE_"));
+        assertNotNull(response);
+        assertNotNull(response.getChannelPaymentRecordId());
+        assertNotNull(response.getChannelTransactionNumber());
+        assertTrue(response.getChannelPaymentRecordId().startsWith("ONLINE_RECORD_"));
     }
 
     @Test
@@ -213,19 +223,17 @@ class PaymentChannelServiceTest {
     }
 
     @Test
-    @DisplayName("测试命令对象 - 创建支付请求命令包含渠道支付记录ID")
-    void testCreatePaymentRequestCommand_ContainsChannelPaymentRecordId() {
+    @DisplayName("测试命令对象 - 创建支付请求命令不包含渠道支付记录ID")
+    void testCreatePaymentRequestCommand_NoChannelPaymentRecordId() {
         // Given
         CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
                 .totalAmount(paymentAmount)
-                .channelPaymentRecordId(channelPaymentRecordId)
                 .resellerId(resellerId)
                 .channelParams(new HashMap<>())
                 .build();
 
-        // Then
+        // Then - 渠道支付记录ID由渠道返回，不在请求中
         assertEquals(paymentAmount, command.getTotalAmount());
-        assertEquals(channelPaymentRecordId, command.getChannelPaymentRecordId());
         assertEquals(resellerId, command.getResellerId());
         assertNotNull(command.getChannelParams());
     }
@@ -240,29 +248,29 @@ class PaymentChannelServiceTest {
                 .resellerId(resellerId)
                 .build();
 
-        // Then
+        // Then - 查询时需要渠道支付记录ID
         assertEquals("WALLET_12345", command.getChannelTransactionNumber());
         assertEquals(channelPaymentRecordId, command.getChannelPaymentRecordId());
         assertEquals(resellerId, command.getResellerId());
     }
 
     @Test
-    @DisplayName("测试命令对象 - 创建退款请求命令包含渠道支付记录ID")
-    void testCreateRefundRequestCommand_ContainsChannelPaymentRecordId() {
+    @DisplayName("测试命令对象 - 创建退款请求命令使用原支付记录ID")
+    void testCreateRefundRequestCommand_UsesOriginalChannelPaymentRecordId() {
         // Given
         CreateRefundRequestCommand command = CreateRefundRequestCommand.builder()
                 .channelTransactionNumber("WALLET_12345")
+                .originalChannelPaymentRecordId(channelPaymentRecordId)
                 .refundAmount(new BigDecimal("1000.00"))
                 .refundReason("客户取消订单")
-                .channelPaymentRecordId(channelPaymentRecordId)
                 .resellerId(resellerId)
                 .build();
 
-        // Then
+        // Then - 退款请求包含原支付的渠道支付记录ID
         assertEquals("WALLET_12345", command.getChannelTransactionNumber());
+        assertEquals(channelPaymentRecordId, command.getOriginalChannelPaymentRecordId());
         assertEquals(new BigDecimal("1000.00"), command.getRefundAmount());
         assertEquals("客户取消订单", command.getRefundReason());
-        assertEquals(channelPaymentRecordId, command.getChannelPaymentRecordId());
         assertEquals(resellerId, command.getResellerId());
     }
 
@@ -276,9 +284,47 @@ class PaymentChannelServiceTest {
                 .resellerId(resellerId)
                 .build();
 
-        // Then
+        // Then - 查询退款时需要渠道支付记录ID
         assertEquals("REFUND_12345", command.getRefundTransactionNumber());
         assertEquals(channelPaymentRecordId, command.getChannelPaymentRecordId());
         assertEquals(resellerId, command.getResellerId());
+    }
+
+    @Test
+    @DisplayName("测试响应对象 - 支付请求响应包含两个ID")
+    void testPaymentRequestResponse_ContainsBothIds() {
+        // Given
+        CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
+                .totalAmount(paymentAmount)
+                .resellerId(resellerId)
+                .channelParams(new HashMap<>())
+                .build();
+
+        // When
+        PaymentRequestResponse response = walletChannelService.createPaymentRequest(command);
+
+        // Then - 响应包含渠道支付记录ID和渠道交易号
+        assertNotNull(response.getChannelPaymentRecordId(), "渠道支付记录ID应该在开始支付时即返回");
+        assertNotNull(response.getChannelTransactionNumber(), "渠道交易号可能在创建时或回调时返回");
+    }
+
+    @Test
+    @DisplayName("测试响应对象 - 退款请求响应包含两个ID")
+    void testRefundRequestResponse_ContainsBothIds() {
+        // Given
+        CreateRefundRequestCommand command = CreateRefundRequestCommand.builder()
+                .channelTransactionNumber("WALLET_12345")
+                .originalChannelPaymentRecordId(channelPaymentRecordId)
+                .refundAmount(new BigDecimal("1000.00"))
+                .refundReason("客户取消订单")
+                .resellerId(resellerId)
+                .build();
+
+        // When
+        RefundRequestResponse response = walletChannelService.createRefundRequest(command);
+
+        // Then - 响应包含渠道支付记录ID和退款流水号
+        assertNotNull(response.getChannelPaymentRecordId(), "渠道支付记录ID应该在开始退款时即返回");
+        assertNotNull(response.getRefundTransactionNumber(), "退款流水号可能在创建时或回调时返回");
     }
 }

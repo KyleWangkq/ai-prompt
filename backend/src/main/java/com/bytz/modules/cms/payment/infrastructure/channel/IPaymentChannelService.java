@@ -5,6 +5,8 @@ import com.bytz.modules.cms.payment.infrastructure.channel.command.CreatePayment
 import com.bytz.modules.cms.payment.infrastructure.channel.command.CreateRefundRequestCommand;
 import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryPaymentStatusCommand;
 import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryRefundStatusCommand;
+import com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse;
+import com.bytz.modules.cms.payment.infrastructure.channel.response.RefundRequestResponse;
 
 /**
  * 支付渠道接口
@@ -25,10 +27,10 @@ public interface IPaymentChannelService {
      * 创建支付请求
      * 
      * @param command 创建支付请求命令
-     * @return 渠道交易号
-     * TODO: 实现支付请求创建逻辑，返回渠道交易号
+     * @return 支付请求响应（包含渠道支付记录ID和渠道交易号）
+     * TODO: 实现支付请求创建逻辑，返回渠道支付记录ID和渠道交易号
      */
-    String createPaymentRequest(CreatePaymentRequestCommand command);
+    PaymentRequestResponse createPaymentRequest(CreatePaymentRequestCommand command);
     
     /**
      * 查询支付状态
@@ -43,10 +45,10 @@ public interface IPaymentChannelService {
      * 创建退款请求
      * 
      * @param command 创建退款请求命令
-     * @return 退款流水号
+     * @return 退款请求响应（包含渠道支付记录ID和退款流水号）
      * TODO: 实现退款请求创建逻辑
      */
-    String createRefundRequest(CreateRefundRequestCommand command);
+    RefundRequestResponse createRefundRequest(CreateRefundRequestCommand command);
     
     /**
      * 查询退款状态

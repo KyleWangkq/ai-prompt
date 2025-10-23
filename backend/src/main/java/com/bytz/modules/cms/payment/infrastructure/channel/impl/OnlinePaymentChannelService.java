@@ -6,6 +6,8 @@ import com.bytz.modules.cms.payment.infrastructure.channel.command.CreatePayment
 import com.bytz.modules.cms.payment.infrastructure.channel.command.CreateRefundRequestCommand;
 import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryPaymentStatusCommand;
 import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryRefundStatusCommand;
+import com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse;
+import com.bytz.modules.cms.payment.infrastructure.channel.response.RefundRequestResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -26,15 +28,21 @@ public class OnlinePaymentChannelService implements IPaymentChannelService {
     }
     
     @Override
-    public String createPaymentRequest(CreatePaymentRequestCommand command) {
-        log.info("创建线上支付请求，金额: {}, 经销商ID: {}, 渠道支付记录ID: {}", 
-                command.getTotalAmount(), command.getResellerId(), command.getChannelPaymentRecordId());
+    public PaymentRequestResponse createPaymentRequest(CreatePaymentRequestCommand command) {
+        log.info("创建线上支付请求，金额: {}, 经销商ID: {}", 
+                command.getTotalAmount(), command.getResellerId());
         
         // TODO: 实现线上支付请求创建逻辑
         // 1. 调用银联/网银API创建支付订单
-        // 2. 返回渠道交易号
+        // 2. 返回渠道支付记录ID和渠道交易号
         
-        return "ONLINE_" + System.currentTimeMillis();
+        String channelPaymentRecordId = "ONLINE_RECORD_" + System.currentTimeMillis();
+        String channelTransactionNumber = "ONLINE_TXN_" + System.currentTimeMillis();
+        
+        return PaymentRequestResponse.builder()
+                .channelPaymentRecordId(channelPaymentRecordId)
+                .channelTransactionNumber(channelTransactionNumber)
+                .build();
     }
     
     @Override
@@ -50,15 +58,22 @@ public class OnlinePaymentChannelService implements IPaymentChannelService {
     }
     
     @Override
-    public String createRefundRequest(CreateRefundRequestCommand command) {
-        log.info("创建线上支付退款请求，渠道交易号: {}, 退款金额: {}, 渠道支付记录ID: {}", 
-                command.getChannelTransactionNumber(), command.getRefundAmount(), command.getChannelPaymentRecordId());
+    public RefundRequestResponse createRefundRequest(CreateRefundRequestCommand command) {
+        log.info("创建线上支付退款请求，渠道交易号: {}, 退款金额: {}, 原支付记录ID: {}", 
+                command.getChannelTransactionNumber(), command.getRefundAmount(), 
+                command.getOriginalChannelPaymentRecordId());
         
         // TODO: 实现退款请求创建逻辑
         // 1. 调用银联/网银API创建退款订单
-        // 2. 返回退款流水号
+        // 2. 返回渠道支付记录ID和退款流水号
         
-        return "REFUND_" + System.currentTimeMillis();
+        String channelPaymentRecordId = "ONLINE_REFUND_RECORD_" + System.currentTimeMillis();
+        String refundTransactionNumber = "ONLINE_REFUND_TXN_" + System.currentTimeMillis();
+        
+        return RefundRequestResponse.builder()
+                .channelPaymentRecordId(channelPaymentRecordId)
+                .refundTransactionNumber(refundTransactionNumber)
+                .build();
     }
     
     @Override
