@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -271,7 +270,7 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         }
 
         log.info("批量支付执行完成，渠道交易id: {}", paymentRequest.getChannelPaymentRecordId());
-        return  paymentRequest.getChannelPaymentRecordId();
+        return paymentRequest.getChannelPaymentRecordId();
     }
 
     /**
@@ -287,47 +286,9 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         if (resellerId == null || resellerId.trim().isEmpty()) {
             throw new IllegalArgumentException("经销商ID不能为空");
         }
-
-        // 获取所有支付渠道枚举
-        List<PaymentChannel> allChannels = Arrays.asList(PaymentChannel.values());
-
-        // 过滤出可用的渠道
-        List<PaymentChannel> availableChannels = allChannels.stream()
-                .filter(channel -> isChannelAvailable(channel, resellerId))
+        return paymentChannelServices.stream().filter(channal -> channal.isAvailable(resellerId))
+                .map(IPaymentChannelService::getChannelType)
                 .collect(Collectors.toList());
-
-        log.info("经销商 {} 可用支付渠道数量: {}", resellerId, availableChannels.size());
-        return availableChannels;
-    }
-
-    /**
-     * 检查渠道是否可用
-     *
-     * @param channel    支付渠道
-     * @param resellerId 经销商ID
-     * @return 是否可用
-     */
-    private boolean isChannelAvailable(PaymentChannel channel, String resellerId) {
-        // 1. 检查渠道服务是否存在
-        IPaymentChannelService channelService = findChannelService(channel);
-        if (channelService == null) {
-            log.warn("渠道服务未找到: {}", channel);
-            return false;
-        }
-        return channelService.isAvailable(resellerId);
-    }
-
-    /**
-     * 验证支付渠道是否可用
-     *
-     * @param channel    支付渠道
-     * @param resellerId 经销商ID
-     * @return 是否可用
-     * @deprecated 使用 isChannelAvailable 方法替代
-     */
-    @Deprecated
-    private boolean validateChannelAvailability(PaymentChannel channel, String resellerId) {
-        return isChannelAvailable(channel, resellerId);
     }
 
     /**
@@ -340,6 +301,6 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         return paymentChannelServices.stream()
                 .filter(service -> service.getChannelType() == channel)
                 .findFirst()
-                .orElse(null);
+                .orElseThrow(()-> new PaymentException("支付渠道不可用: " + channel.getDescription()));
     }
 }
