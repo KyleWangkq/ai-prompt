@@ -192,7 +192,7 @@ class PaymentAggregateTest {
         // Given
         PaymentAggregate payment = createPaidPayment();
         BigDecimal refundAmount = new BigDecimal("3000.00");
-        String originalTxnId = payment.getTransactions().get(0).getId();
+        String originalTxnId = payment.getCompletedTransactions().get(0).getId();
 
         // When
         PaymentTransaction refundTransaction = payment.executeRefund(
@@ -235,9 +235,11 @@ class PaymentAggregateTest {
         // Given
         PaymentAggregate payment = createPaidPayment();
         BigDecimal refundAmount = new BigDecimal("3000.00");
-        String originalTxnId = payment.getTransactions().get(0).getId();
+        // 获取已完成的支付流水ID（现在在completedTransactions中）
+        String originalTxnId = payment.getCompletedTransactions().get(0).getId();
         payment.executeRefund(refundAmount, originalTxnId, "REFUND-001", "测试退款");
-        PaymentTransaction refundTransaction = payment.getTransactions().get(1);
+        // 获取运行期的退款流水（刚创建的在runningTransactions中）
+        PaymentTransaction refundTransaction = payment.getRunningTransactions().get(0);
         refundTransaction.setId("1");
         refundTransaction.setCode("TXN-REFUND-1"); // 设置退款流水号
         String refundTxnId = refundTransaction.getCode();
@@ -249,7 +251,9 @@ class PaymentAggregateTest {
         assertEquals(refundAmount, payment.getRefundedAmount());
         assertEquals(paymentAmount.subtract(refundAmount), payment.getActualAmount());
         assertEquals(RefundStatus.PARTIAL_REFUNDED, payment.getRefundStatus());
-        assertEquals(TransactionStatus.SUCCESS, payment.getTransactions().get(1).getTransactionStatus());
+        // 退款成功后应该在completedTransactions中
+        assertEquals(2, payment.getCompletedTransactions().size());
+        assertEquals(TransactionStatus.SUCCESS, payment.getCompletedTransactions().get(1).getTransactionStatus());
     }
 
     @Test
@@ -257,9 +261,9 @@ class PaymentAggregateTest {
     void testHandleRefundCallback_Success_FullRefund() {
         // Given
         PaymentAggregate payment = createPaidPayment();
-        String originalTxnId = payment.getTransactions().get(0).getId();
+        String originalTxnId = payment.getCompletedTransactions().get(0).getId();
         payment.executeRefund(paymentAmount, originalTxnId, "REFUND-001", "全额退款");
-        PaymentTransaction refundTransaction = payment.getTransactions().get(1);
+        PaymentTransaction refundTransaction = payment.getRunningTransactions().get(0);
         refundTransaction.setId("1");
         refundTransaction.setCode("TXN-REFUND-1"); // 设置退款流水号
         String refundTxnId = refundTransaction.getCode();
@@ -278,9 +282,9 @@ class PaymentAggregateTest {
     void testHandleRefundCallback_Failed() {
         // Given
         PaymentAggregate payment = createPaidPayment();
-        String originalTxnId = payment.getTransactions().get(0).getId();
+        String originalTxnId = payment.getCompletedTransactions().get(0).getId();
         payment.executeRefund(new BigDecimal("1000.00"), originalTxnId, "REFUND-001", "测试");
-        PaymentTransaction refundTransaction = payment.getTransactions().get(1);
+        PaymentTransaction refundTransaction = payment.getRunningTransactions().get(0);
         refundTransaction.setId("1");
         refundTransaction.setCode("TXN-REFUND-1"); // 设置退款流水号
         String refundTxnId = refundTransaction.getCode();
@@ -456,7 +460,7 @@ class PaymentAggregateTest {
         
         // When - 第一次支付3000
         payment.executePayment(PaymentChannel.ONLINE_PAYMENT, new BigDecimal("3000.00"), "TXN-001", "RECORD-001");
-        PaymentTransaction txn1 = payment.getTransactions().get(0);
+        PaymentTransaction txn1 = payment.getRunningTransactions().get(0);
         txn1.setId("1");
         txn1.setCode("TXN-001"); // 设置第一笔流水号
         String txn1Id = txn1.getCode();
@@ -468,7 +472,7 @@ class PaymentAggregateTest {
         
         // When - 第二次支付7000
         payment.executePayment(PaymentChannel.WALLET_PAYMENT, new BigDecimal("7000.00"), "TXN-002", "RECORD-002");
-        PaymentTransaction txn2 = payment.getTransactions().get(1);
+        PaymentTransaction txn2 = payment.getRunningTransactions().get(0);  // 第一笔已完成，所以这是runningTransactions的第0个
         txn2.setId("2");
         txn2.setCode("TXN-002"); // 设置第二笔流水号
         String txn2Id = txn2.getCode();
@@ -487,9 +491,9 @@ class PaymentAggregateTest {
         assertEquals(paymentAmount, payment.getActualAmount());
         
         // When - 退款3000
-        String originalTxnId = payment.getTransactions().get(0).getId();
+        String originalTxnId = payment.getCompletedTransactions().get(0).getId();
         payment.executeRefund(new BigDecimal("3000.00"), originalTxnId, "REFUND-001", "部分退款");
-        PaymentTransaction refundTransaction = payment.getTransactions().get(1);
+        PaymentTransaction refundTransaction = payment.getRunningTransactions().get(0);
         refundTransaction.setId("1");
         refundTransaction.setCode("TXN-REFUND-1"); // 设置退款流水号
         String refundTxnId = refundTransaction.getCode();

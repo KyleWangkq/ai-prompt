@@ -134,8 +134,6 @@ class PaymentDomainServiceTest {
         // Mock channel service
         when(onlinePaymentChannelService.getChannelType()).thenReturn(PaymentChannel.ONLINE_PAYMENT);
         when(onlinePaymentChannelService.isAvailable(resellerId)).thenReturn(true);
-        when(onlinePaymentChannelService.supportsAmountForReseller(eq(resellerId), any(BigDecimal.class)))
-                .thenReturn(true);
         when(onlinePaymentChannelService.createPaymentRequest(any()))
                 .thenReturn(new com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse(
                         "MOCK_RECORD_001", "MOCK_CHANNEL_TXN_001"));
@@ -259,8 +257,6 @@ class PaymentDomainServiceTest {
         // Mock wallet payment channel service
         when(walletPaymentChannelService.getChannelType()).thenReturn(PaymentChannel.WALLET_PAYMENT);
         when(walletPaymentChannelService.isAvailable(resellerId)).thenReturn(true);
-        when(walletPaymentChannelService.supportsAmountForReseller(eq(resellerId), any(BigDecimal.class)))
-                .thenReturn(true);
         when(walletPaymentChannelService.createPaymentRequest(any()))
                 .thenReturn(new com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse(
                         "WALLET_RECORD_001", "WALLET_TXN_001"));
@@ -309,8 +305,6 @@ class PaymentDomainServiceTest {
         // Mock channel service
         when(onlinePaymentChannelService.getChannelType()).thenReturn(PaymentChannel.ONLINE_PAYMENT);
         when(onlinePaymentChannelService.isAvailable(resellerId)).thenReturn(true);
-        when(onlinePaymentChannelService.supportsAmountForReseller(eq(resellerId), any(BigDecimal.class)))
-                .thenReturn(true);
         when(onlinePaymentChannelService.createPaymentRequest(any()))
                 .thenReturn(new com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse(
                         "MOCK_RECORD_123", "MOCK_CHANNEL_TXN_123"));
