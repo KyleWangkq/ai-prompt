@@ -293,11 +293,6 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
             }
         }
         
-        // 验证渠道是否支持该经销商的该金额支付
-        if (!channelService.supportsAmountForReseller(resellerId, totalAmount)) {
-            throw new PaymentException("支付渠道不支持当前经销商的该金额支付");
-        }
-        
         // ========== 步骤5: 创建支付明细 ==========
         log.info("步骤5: 创建支付明细（支付流水）");
         // 注意：此处仅在内存中创建流水对象，尚未持久化

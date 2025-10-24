@@ -7,6 +7,7 @@ import com.bytz.modules.cms.payment.domain.enums.RefundStatus;
 import com.bytz.modules.cms.payment.domain.enums.RelatedBusinessType;
 import com.bytz.modules.cms.payment.domain.enums.TransactionStatus;
 import com.bytz.modules.cms.payment.domain.enums.TransactionType;
+import com.bytz.modules.cms.payment.domain.valueobject.CompletedPaymentTransactionValueObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -151,10 +152,64 @@ public class PaymentAggregate {
     private String updateByName;
     
     /**
-     * 支付流水列表（聚合内对象）
+     * 运行期支付流水列表（可修改的流水，状态为PROCESSING）
+     * Running transactions that can be modified
      */
     @Builder.Default
-    private List<PaymentTransaction> transactions = new ArrayList<>();
+    private List<PaymentTransaction> runningTransactions = new ArrayList<>();
+    
+    /**
+     * 已完成支付流水列表（不可修改的值对象，状态为SUCCESS或FAILED）
+     * Completed transactions that are immutable value objects
+     */
+    @Builder.Default
+    private List<CompletedPaymentTransactionValueObject> completedTransactions = new ArrayList<>();
+    
+    /**
+     * 获取所有流水（运行期 + 已完成）
+     * 用于向后兼容，返回所有流水的统一视图
+     * 
+     * @return 所有流水列表
+     * @deprecated 建议使用 getRunningTransactions() 和 getCompletedTransactions()
+     */
+    @Deprecated
+    public List<PaymentTransaction> getTransactions() {
+        List<PaymentTransaction> allTransactions = new ArrayList<>(runningTransactions);
+        // 将已完成的值对象转换为PaymentTransaction以保持向后兼容
+        for (CompletedPaymentTransactionValueObject completed : completedTransactions) {
+            allTransactions.add(convertToTransaction(completed));
+        }
+        return allTransactions;
+    }
+    
+    /**
+     * 将已完成流水值对象转换为PaymentTransaction（仅用于向后兼容）
+     */
+    private PaymentTransaction convertToTransaction(CompletedPaymentTransactionValueObject vo) {
+        return PaymentTransaction.builder()
+                .id(vo.getId())
+                .code(vo.getCode())
+                .paymentId(vo.getPaymentId())
+                .transactionType(vo.getTransactionType())
+                .transactionStatus(vo.getTransactionStatus())
+                .transactionAmount(vo.getTransactionAmount())
+                .paymentChannel(vo.getPaymentChannel())
+                .channelTransactionNumber(vo.getChannelTransactionNumber())
+                .channelPaymentRecordId(vo.getChannelPaymentRecordId())
+                .paymentWay(vo.getPaymentWay())
+                .originalTransactionId(vo.getOriginalTransactionId())
+                .businessOrderId(vo.getBusinessOrderId())
+                .createTime(vo.getCreateTime())
+                .completeDateTime(vo.getCompleteDateTime())
+                .expirationTime(vo.getExpirationTime())
+                .businessRemark(vo.getBusinessRemark())
+                .createBy(vo.getCreateBy())
+                .createByName(vo.getCreateByName())
+                .updateBy(vo.getUpdateBy())
+                .updateByName(vo.getUpdateByName())
+                .updateTime(vo.getUpdateTime())
+                .build();
+    }
     
     /**
      * 创建新的支付单
@@ -209,7 +264,8 @@ public class PaymentAggregate {
                 .businessExpireDate(businessExpireDate)
                 .createTime(LocalDateTime.now())
                 .updateTime(LocalDateTime.now())
-                .transactions(new ArrayList<>())
+                .runningTransactions(new ArrayList<>())
+                .completedTransactions(new ArrayList<>())
                 .build();
     }
     
@@ -245,7 +301,7 @@ public class PaymentAggregate {
                 .channelPaymentRecordId(channelPaymentRecordId)
                 .build();
 
-        this.transactions.add(transaction);
+        this.runningTransactions.add(transaction);
         this.paymentStatus = PaymentStatus.PAYING;
 
         return transaction;
@@ -266,6 +322,7 @@ public class PaymentAggregate {
         // 3. 如果成功，累加已支付金额
         // 4. 更新支付单状态（部分支付/已支付）
         // 5. 重新计算实际收款金额
+        // 6. 将完成的流水从运行期列表移到已完成列表
         
         PaymentTransaction transaction = findTransactionByCode(transactionCode);
         if (transaction == null) {
@@ -288,7 +345,47 @@ public class PaymentAggregate {
             this.paymentStatus = PaymentStatus.FAILED;
         }
         
+        // 将完成的流水移到已完成列表（转换为不可变值对象）
+        moveTransactionToCompleted(transaction);
+        
         this.updateTime = LocalDateTime.now();
+    }
+    
+    /**
+     * 将完成的流水从运行期列表移到已完成列表
+     * 
+     * @param transaction 完成的流水
+     */
+    private void moveTransactionToCompleted(PaymentTransaction transaction) {
+        // 从运行期列表中移除
+        this.runningTransactions.remove(transaction);
+        
+        // 转换为不可变值对象并添加到已完成列表
+        CompletedPaymentTransactionValueObject completedTransaction = CompletedPaymentTransactionValueObject.builder()
+                .id(transaction.getId())
+                .code(transaction.getCode())
+                .paymentId(transaction.getPaymentId())
+                .transactionType(transaction.getTransactionType())
+                .transactionStatus(transaction.getTransactionStatus())
+                .transactionAmount(transaction.getTransactionAmount())
+                .paymentChannel(transaction.getPaymentChannel())
+                .channelTransactionNumber(transaction.getChannelTransactionNumber())
+                .channelPaymentRecordId(transaction.getChannelPaymentRecordId())
+                .paymentWay(transaction.getPaymentWay())
+                .originalTransactionId(transaction.getOriginalTransactionId())
+                .businessOrderId(transaction.getBusinessOrderId())
+                .createTime(transaction.getCreateTime())
+                .completeDateTime(transaction.getCompleteDateTime())
+                .expirationTime(transaction.getExpirationTime())
+                .businessRemark(transaction.getBusinessRemark())
+                .createBy(transaction.getCreateBy())
+                .createByName(transaction.getCreateByName())
+                .updateBy(transaction.getUpdateBy())
+                .updateByName(transaction.getUpdateByName())
+                .updateTime(transaction.getUpdateTime())
+                .build();
+        
+        this.completedTransactions.add(completedTransaction);
     }
     
     /**
@@ -322,8 +419,8 @@ public class PaymentAggregate {
             throw new IllegalArgumentException("退款金额不能超过可退款金额");
         }
         
-        // 4. 查找并验证原支付流水
-        PaymentTransaction originalTransaction = findTransactionById(originalTransactionId);
+        // 4. 查找并验证原支付流水（需要在已完成列表中查找）
+        CompletedPaymentTransactionValueObject originalTransaction = findCompletedTransactionById(originalTransactionId);
         if (originalTransaction == null) {
             throw new IllegalArgumentException("未找到原支付流水: " + originalTransactionId);
         }
@@ -350,7 +447,7 @@ public class PaymentAggregate {
                 .build();
 
         // 6. 更新退款状态
-        this.transactions.add(refundTransaction);
+        this.runningTransactions.add(refundTransaction);
         this.refundStatus = RefundStatus.REFUNDING;
         this.updateTime = LocalDateTime.now();
         
@@ -372,6 +469,7 @@ public class PaymentAggregate {
         // 3. 如果成功，累加已退款金额
         // 4. 重新计算实际收款金额
         // 5. 更新退款状态（部分退款/全额退款）
+        // 6. 将完成的流水从运行期列表移到已完成列表
         
         PaymentTransaction transaction = findTransactionByCode(transactionCode);
         if (transaction == null) {
@@ -393,6 +491,9 @@ public class PaymentAggregate {
             transaction.markAsFailed("退款失败");
             this.refundStatus = RefundStatus.REFUND_FAILED;
         }
+        
+        // 将完成的流水移到已完成列表
+        moveTransactionToCompleted(transaction);
         
         this.updateTime = LocalDateTime.now();
     }
@@ -469,26 +570,39 @@ public class PaymentAggregate {
     }
     
     /**
-     * 根据主键ID查找支付流水
+     * 根据主键ID查找运行期支付流水
      * 
      * @param transactionId 流水ID
      * @return 支付流水，如果未找到返回null
      */
     private PaymentTransaction findTransactionById(String transactionId) {
-        return this.transactions.stream()
+        return this.runningTransactions.stream()
                 .filter(t -> t.getId() != null && t.getId().equals(transactionId))
                 .findFirst()
                 .orElse(null);
     }
     
     /**
-     * 根据业务编码查找支付流水
+     * 根据主键ID查找已完成的支付流水
+     * 
+     * @param transactionId 流水ID
+     * @return 已完成的支付流水值对象，如果未找到返回null
+     */
+    private CompletedPaymentTransactionValueObject findCompletedTransactionById(String transactionId) {
+        return this.completedTransactions.stream()
+                .filter(t -> t.getId() != null && t.getId().equals(transactionId))
+                .findFirst()
+                .orElse(null);
+    }
+    
+    /**
+     * 根据业务编码查找运行期支付流水
      * 
      * @param transactionCode 流水业务编码
      * @return 支付流水，如果未找到返回null
      */
     private PaymentTransaction findTransactionByCode(String transactionCode) {
-        return this.transactions.stream()
+        return this.runningTransactions.stream()
                 .filter(t -> t.getCode() != null && t.getCode().equals(transactionCode))
                 .findFirst()
                 .orElse(null);
@@ -501,13 +615,13 @@ public class PaymentAggregate {
      * @return 最新的处理中的支付流水，如果未找到返回null
      */
     public PaymentTransaction getLatestProcessingTransaction() {
-        if (this.transactions == null || this.transactions.isEmpty()) {
+        if (this.runningTransactions == null || this.runningTransactions.isEmpty()) {
             return null;
         }
         
         // 从后往前查找，找到第一个状态为PROCESSING且类型为PAYMENT的流水
-        for (int i = this.transactions.size() - 1; i >= 0; i--) {
-            PaymentTransaction transaction = this.transactions.get(i);
+        for (int i = this.runningTransactions.size() - 1; i >= 0; i--) {
+            PaymentTransaction transaction = this.runningTransactions.get(i);
             if (transaction != null 
                     && TransactionType.PAYMENT.equals(transaction.getTransactionType())
                     && TransactionStatus.PROCESSING.equals(transaction.getTransactionStatus())) {
@@ -552,8 +666,8 @@ public class PaymentAggregate {
     // 新增：当设置聚合根ID时，确保同步所有子聚合的 paymentId
     public void setId(String id) {
         this.id = id;
-        if (this.transactions != null) {
-            for (PaymentTransaction t : this.transactions) {
+        if (this.runningTransactions != null) {
+            for (PaymentTransaction t : this.runningTransactions) {
                 if (t != null) {
                     t.setPaymentId(id);
                 }

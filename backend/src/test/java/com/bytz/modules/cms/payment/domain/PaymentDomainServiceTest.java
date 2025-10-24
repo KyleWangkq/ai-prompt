@@ -89,7 +89,8 @@ class PaymentDomainServiceTest {
                 .paymentStatus(PaymentStatus.UNPAID)
                 .refundStatus(RefundStatus.NO_REFUND)
                 .createTime(LocalDateTime.now())
-                .transactions(new java.util.ArrayList<>())
+                .runningTransactions(new java.util.ArrayList<>())
+                .completedTransactions(new java.util.ArrayList<>())
                 .build();
         
         // 创建第二个支付单
@@ -106,7 +107,8 @@ class PaymentDomainServiceTest {
                 .paymentStatus(PaymentStatus.UNPAID)
                 .refundStatus(RefundStatus.NO_REFUND)
                 .createTime(LocalDateTime.now())
-                .transactions(new java.util.ArrayList<>())
+                .runningTransactions(new java.util.ArrayList<>())
+                .completedTransactions(new java.util.ArrayList<>())
                 .build();
     }
 

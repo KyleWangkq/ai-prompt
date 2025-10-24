@@ -395,8 +395,47 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         List<PaymentTransaction> transactions =
                 infrastructureAssembler.toDomainTransactions(transactionEntities);
 
-        // 设置流水列表
-        aggregate.setTransactions(transactions);
+        // 分离运行期和已完成的流水
+        List<PaymentTransaction> runningTransactions = new ArrayList<>();
+        List<com.bytz.modules.cms.payment.domain.valueobject.CompletedPaymentTransactionValueObject> completedTransactions = new ArrayList<>();
+        
+        for (PaymentTransaction transaction : transactions) {
+            if (com.bytz.modules.cms.payment.domain.enums.TransactionStatus.PROCESSING.equals(transaction.getTransactionStatus())) {
+                // 运行期流水（状态为PROCESSING）
+                runningTransactions.add(transaction);
+            } else {
+                // 已完成流水（状态为SUCCESS或FAILED），转换为不可变值对象
+                completedTransactions.add(
+                        com.bytz.modules.cms.payment.domain.valueobject.CompletedPaymentTransactionValueObject.builder()
+                                .id(transaction.getId())
+                                .code(transaction.getCode())
+                                .paymentId(transaction.getPaymentId())
+                                .transactionType(transaction.getTransactionType())
+                                .transactionStatus(transaction.getTransactionStatus())
+                                .transactionAmount(transaction.getTransactionAmount())
+                                .paymentChannel(transaction.getPaymentChannel())
+                                .channelTransactionNumber(transaction.getChannelTransactionNumber())
+                                .channelPaymentRecordId(transaction.getChannelPaymentRecordId())
+                                .paymentWay(transaction.getPaymentWay())
+                                .originalTransactionId(transaction.getOriginalTransactionId())
+                                .businessOrderId(transaction.getBusinessOrderId())
+                                .createTime(transaction.getCreateTime())
+                                .completeDateTime(transaction.getCompleteDateTime())
+                                .expirationTime(transaction.getExpirationTime())
+                                .businessRemark(transaction.getBusinessRemark())
+                                .createBy(transaction.getCreateBy())
+                                .createByName(transaction.getCreateByName())
+                                .updateBy(transaction.getUpdateBy())
+                                .updateByName(transaction.getUpdateByName())
+                                .updateTime(transaction.getUpdateTime())
+                                .build()
+                );
+            }
+        }
+
+        // 设置运行期和已完成流水列表
+        aggregate.setRunningTransactions(runningTransactions);
+        aggregate.setCompletedTransactions(completedTransactions);
 
         return aggregate;
     }
