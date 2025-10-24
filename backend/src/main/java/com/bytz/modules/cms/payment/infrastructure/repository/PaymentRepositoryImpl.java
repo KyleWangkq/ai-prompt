@@ -396,13 +396,17 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
                 infrastructureAssembler.toDomainTransactions(transactionEntities);
 
         // 分离运行期和已完成的流水
-        List<PaymentTransaction> runningTransactions = new ArrayList<>();
+        PaymentTransaction runningTransaction = null;
         List<com.bytz.modules.cms.payment.domain.valueobject.CompletedPaymentTransactionValueObject> completedTransactions = new ArrayList<>();
         
         for (PaymentTransaction transaction : transactions) {
             if (com.bytz.modules.cms.payment.domain.enums.TransactionStatus.PROCESSING.equals(transaction.getTransactionStatus())) {
                 // 运行期流水（状态为PROCESSING）
-                runningTransactions.add(transaction);
+                // 业务规则保证最多只有一条
+                if (runningTransaction != null) {
+                    log.warn("发现多条运行期流水，支付单ID: {}, 保留最后一条", entity.getId());
+                }
+                runningTransaction = transaction;
             } else {
                 // 已完成流水（状态为SUCCESS或FAILED），转换为不可变值对象
                 completedTransactions.add(
@@ -433,8 +437,8 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
             }
         }
 
-        // 设置运行期和已完成流水列表
-        aggregate.setRunningTransactions(runningTransactions);
+        // 设置运行期和已完成流水
+        aggregate.setRunningTransaction(runningTransaction);
         aggregate.setCompletedTransactions(completedTransactions);
 
         return aggregate;

@@ -43,7 +43,7 @@ public interface InfrastructureAssembler {
     @Mapping(target = "refundedAmount", source = "refundedAmount", qualifiedByName = "toBigDecimalOrZero")
     @Mapping(target = "actualAmount", source = "actualAmount", qualifiedByName = "toBigDecimalOrZero")
     @Mapping(target = "currency", source = "currency", defaultValue = "CNY")
-    @Mapping(target = "runningTransactions", ignore = true)
+    @Mapping(target = "runningTransaction", ignore = true)
     @Mapping(target = "completedTransactions", ignore = true)
     PaymentAggregate toPaymentAggregate(PaymentEntity entity);
     

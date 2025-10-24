@@ -89,7 +89,7 @@ class PaymentDomainServiceTest {
                 .paymentStatus(PaymentStatus.UNPAID)
                 .refundStatus(RefundStatus.NO_REFUND)
                 .createTime(LocalDateTime.now())
-                .runningTransactions(new java.util.ArrayList<>())
+                .runningTransaction(null)
                 .completedTransactions(new java.util.ArrayList<>())
                 .build();
         
@@ -107,7 +107,7 @@ class PaymentDomainServiceTest {
                 .paymentStatus(PaymentStatus.UNPAID)
                 .refundStatus(RefundStatus.NO_REFUND)
                 .createTime(LocalDateTime.now())
-                .runningTransactions(new java.util.ArrayList<>())
+                .runningTransaction(null)
                 .completedTransactions(new java.util.ArrayList<>())
                 .build();
     }
