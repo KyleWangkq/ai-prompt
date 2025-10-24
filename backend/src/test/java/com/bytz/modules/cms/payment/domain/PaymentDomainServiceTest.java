@@ -43,7 +43,10 @@ class PaymentDomainServiceTest {
     private ApplicationEventPublisher eventPublisher;
 
     @Mock
-    private List<IPaymentChannelService> paymentChannelServices;
+    private IPaymentChannelService onlinePaymentChannelService;
+    
+    @Mock
+    private IPaymentChannelService walletPaymentChannelService;
 
     @InjectMocks
     private PaymentApplicationServiceImpl paymentApplicationService;
@@ -54,6 +57,22 @@ class PaymentDomainServiceTest {
     
     @BeforeEach
     void setUp() {
+        // 手动设置 paymentChannelServices 列表
+        List<IPaymentChannelService> channelServices = Arrays.asList(
+                onlinePaymentChannelService, 
+                walletPaymentChannelService
+        );
+        
+        // 使用反射设置私有字段
+        try {
+            java.lang.reflect.Field field = PaymentApplicationServiceImpl.class
+                    .getDeclaredField("paymentChannelServices");
+            field.setAccessible(true);
+            field.set(paymentApplicationService, channelServices);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to inject paymentChannelServices", e);
+        }
+        
         resellerId = "RESELLER-001";
         
         // 创建第一个支付单
@@ -110,14 +129,26 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1, item2))
                 .build();
         
+        // Mock channel service
+        when(onlinePaymentChannelService.getChannelType()).thenReturn(PaymentChannel.ONLINE_PAYMENT);
+        when(onlinePaymentChannelService.isAvailable(resellerId)).thenReturn(true);
+        when(onlinePaymentChannelService.supportsAmountForReseller(eq(resellerId), any(BigDecimal.class)))
+                .thenReturn(true);
+        when(onlinePaymentChannelService.createPaymentRequest(any()))
+                .thenReturn(new com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse(
+                        "MOCK_RECORD_001", "MOCK_CHANNEL_TXN_001"));
+        
         when(paymentRepository.findByIds(Arrays.asList("1", "2")))
                 .thenReturn(Arrays.asList(payment1, payment2));        
+        when(paymentRepository.save(any(PaymentAggregate.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+                
         // When
         String channelTransactionNumber = paymentApplicationService.executeBatchPayment(command);
         
         // Then
         assertNotNull(channelTransactionNumber);
-        assertTrue(channelTransactionNumber.startsWith("MOCK_"));
+        assertEquals("MOCK_RECORD_001", channelTransactionNumber);
         
         // 验证两个支付单都被保存
         verify(paymentRepository, times(2)).save(any(PaymentAggregate.class));
@@ -152,10 +183,14 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1, item2))
                 .build();
         
+        // Mock channel service
+        when(onlinePaymentChannelService.getChannelType()).thenReturn(PaymentChannel.ONLINE_PAYMENT);
+        
         when(paymentRepository.findByIds(Arrays.asList("1", "2")))
                 .thenReturn(Arrays.asList(payment1, payment2));        
         // When & Then
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        com.bytz.modules.cms.payment.shared.exception.PaymentException exception = assertThrows(
+                com.bytz.modules.cms.payment.shared.exception.PaymentException.class, () -> {
             paymentApplicationService.executeBatchPayment(command);
         });
         
@@ -179,14 +214,19 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1))
                 .build();
         
+        // Mock channel service
+        when(onlinePaymentChannelService.getChannelType()).thenReturn(PaymentChannel.ONLINE_PAYMENT);
+        when(onlinePaymentChannelService.isAvailable(resellerId)).thenReturn(true);
+        
         when(paymentRepository.findByIds(Arrays.asList("1")))
                 .thenReturn(Arrays.asList(payment1));        
         // When & Then
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        com.bytz.modules.cms.payment.shared.exception.PaymentException exception = assertThrows(
+                com.bytz.modules.cms.payment.shared.exception.PaymentException.class, () -> {
             paymentApplicationService.executeBatchPayment(command);
         });
         
-        assertEquals("存在不允许支付的支付单", exception.getMessage());
+        assertTrue(exception.getMessage().contains("当前状态不允许支付"));
         verify(paymentRepository, never()).save(any(PaymentAggregate.class));
     }
 
@@ -214,13 +254,26 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item))
                 .build();
         
+        // Mock wallet payment channel service
+        when(walletPaymentChannelService.getChannelType()).thenReturn(PaymentChannel.WALLET_PAYMENT);
+        when(walletPaymentChannelService.isAvailable(resellerId)).thenReturn(true);
+        when(walletPaymentChannelService.supportsAmountForReseller(eq(resellerId), any(BigDecimal.class)))
+                .thenReturn(true);
+        when(walletPaymentChannelService.createPaymentRequest(any()))
+                .thenReturn(new com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse(
+                        "WALLET_RECORD_001", "WALLET_TXN_001"));
+        
         when(paymentRepository.findByIds(Arrays.asList("1")))
-                .thenReturn(Arrays.asList(payment1));        
+                .thenReturn(Arrays.asList(payment1));
+        when(paymentRepository.save(any(PaymentAggregate.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+                
         // When
         String channelTransactionNumber = paymentApplicationService.executeBatchPayment(command);
         
         // Then
         assertNotNull(channelTransactionNumber);
+        assertEquals("WALLET_RECORD_001", channelTransactionNumber);
         verify(paymentRepository, times(1)).save(payment1);
         assertEquals(PaymentStatus.PAYING, payment1.getPaymentStatus());
         assertEquals(1, payment1.getTransactions().size());
@@ -251,14 +304,27 @@ class PaymentDomainServiceTest {
                 .paymentItems(Arrays.asList(item1))
                 .build();
         
+        // Mock channel service
+        when(onlinePaymentChannelService.getChannelType()).thenReturn(PaymentChannel.ONLINE_PAYMENT);
+        when(onlinePaymentChannelService.isAvailable(resellerId)).thenReturn(true);
+        when(onlinePaymentChannelService.supportsAmountForReseller(eq(resellerId), any(BigDecimal.class)))
+                .thenReturn(true);
+        when(onlinePaymentChannelService.createPaymentRequest(any()))
+                .thenReturn(new com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse(
+                        "MOCK_RECORD_123", "MOCK_CHANNEL_TXN_123"));
+        
         when(paymentRepository.findByIds(Arrays.asList("1")))
-                .thenReturn(Arrays.asList(payment1));        
+                .thenReturn(Arrays.asList(payment1));
+        when(paymentRepository.save(any(PaymentAggregate.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+                
         // When
-        String channelTransactionNumber = paymentApplicationService.executeBatchPayment(command);
+        String channelRecordId = paymentApplicationService.executeBatchPayment(command);
         
         // Then
         PaymentTransaction transaction = payment1.getTransactions().get(0);
-        assertEquals(channelTransactionNumber, transaction.getChannelTransactionNumber());
-        assertTrue(channelTransactionNumber.startsWith("MOCK_"));
+        assertEquals("MOCK_CHANNEL_TXN_123", transaction.getChannelTransactionNumber());
+        assertEquals("MOCK_RECORD_123", transaction.getChannelPaymentRecordId());
+        assertEquals("MOCK_RECORD_123", channelRecordId);
     }
 }

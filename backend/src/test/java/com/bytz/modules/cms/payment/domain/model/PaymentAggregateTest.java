@@ -96,7 +96,8 @@ class PaymentAggregateTest {
         PaymentTransaction transaction = payment.executePayment(
                 PaymentChannel.ONLINE_PAYMENT,
                 payAmount,
-                "CHANNEL-TXN-001"
+                "CHANNEL-TXN-001",
+                "CHANNEL-RECORD-001"
         );
 
         // Then
@@ -116,7 +117,7 @@ class PaymentAggregateTest {
     void testHandlePaymentCallback_Success_FullPaid() {
         // Given
         PaymentAggregate payment = createDefaultPayment();
-        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, paymentAmount, "CHANNEL-001");
+        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, paymentAmount, "CHANNEL-001", "RECORD-001");
         PaymentTransaction transaction = payment.getTransactions().get(0);
         transaction.setId("1"); 
         transaction.setCode("TXN-001"); // 设置流水号
@@ -138,7 +139,7 @@ class PaymentAggregateTest {
         // Given
         PaymentAggregate payment = createDefaultPayment();
         BigDecimal partialAmount = new BigDecimal("5000.00");
-        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, partialAmount, "CHANNEL-001");
+        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, partialAmount, "CHANNEL-001", "RECORD-001");
         PaymentTransaction transaction = payment.getTransactions().get(0);
         transaction.setId("1");
         transaction.setCode("TXN-001"); // 设置流水号
@@ -158,7 +159,7 @@ class PaymentAggregateTest {
     void testHandlePaymentCallback_Failed() {
         // Given
         PaymentAggregate payment = createDefaultPayment();
-        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, paymentAmount, "CHANNEL-001");
+        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, paymentAmount, "CHANNEL-001", "RECORD-001");
         PaymentTransaction transaction = payment.getTransactions().get(0);
         transaction.setId("1");
         transaction.setCode("TXN-001"); // 设置流水号
@@ -454,7 +455,7 @@ class PaymentAggregateTest {
         PaymentAggregate payment = createDefaultPayment();
         
         // When - 第一次支付3000
-        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, new BigDecimal("3000.00"), "TXN-001");
+        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, new BigDecimal("3000.00"), "TXN-001", "RECORD-001");
         PaymentTransaction txn1 = payment.getTransactions().get(0);
         txn1.setId("1");
         txn1.setCode("TXN-001"); // 设置第一笔流水号
@@ -466,7 +467,7 @@ class PaymentAggregateTest {
         assertEquals(PaymentStatus.PARTIAL_PAID, payment.getPaymentStatus());
         
         // When - 第二次支付7000
-        payment.executePayment(PaymentChannel.WALLET_PAYMENT, new BigDecimal("7000.00"), "TXN-002");
+        payment.executePayment(PaymentChannel.WALLET_PAYMENT, new BigDecimal("7000.00"), "TXN-002", "RECORD-002");
         PaymentTransaction txn2 = payment.getTransactions().get(1);
         txn2.setId("2");
         txn2.setCode("TXN-002"); // 设置第二笔流水号
@@ -530,7 +531,7 @@ class PaymentAggregateTest {
         PaymentAggregate payment = createDefaultPayment();
         
         // 执行支付并回调成功
-        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, paymentAmount, "CHANNEL-001");
+        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, paymentAmount, "CHANNEL-001", "RECORD-001");
         PaymentTransaction transaction = payment.getTransactions().get(0);
         transaction.setId("TXN-" + System.currentTimeMillis());
         transaction.setCode("TXN-" + System.currentTimeMillis());

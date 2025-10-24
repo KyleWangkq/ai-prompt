@@ -495,6 +495,29 @@ public class PaymentAggregate {
     }
     
     /**
+     * 获取最新的处理中的支付流水
+     * 用于批量支付流程中回写渠道信息
+     * 
+     * @return 最新的处理中的支付流水，如果未找到返回null
+     */
+    public PaymentTransaction getLatestProcessingTransaction() {
+        if (this.transactions == null || this.transactions.isEmpty()) {
+            return null;
+        }
+        
+        // 从后往前查找，找到第一个状态为PROCESSING且类型为PAYMENT的流水
+        for (int i = this.transactions.size() - 1; i >= 0; i--) {
+            PaymentTransaction transaction = this.transactions.get(i);
+            if (transaction != null 
+                    && TransactionType.PAYMENT.equals(transaction.getTransactionType())
+                    && TransactionStatus.PROCESSING.equals(transaction.getTransactionStatus())) {
+                return transaction;
+            }
+        }
+        return null;
+    }
+    
+    /**
      * 停止支付单
      * 
      * @param reason 停止原因
