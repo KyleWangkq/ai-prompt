@@ -543,4 +543,63 @@ class PaymentAggregateTest {
         
         return payment;
     }
+    
+    @Test
+    @DisplayName("同时只能有一条支付明细为运行期 - 支付流水")
+    void testOnlyOneRunningTransaction_Payment() {
+        // Given
+        PaymentAggregate payment = createDefaultPayment();
+        
+        // When - 创建第一条运行期支付流水
+        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, new BigDecimal("3000.00"), null, null);
+        
+        // Then - 尝试创建第二条运行期支付流水应该失败
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
+            payment.executePayment(PaymentChannel.WALLET_PAYMENT, new BigDecimal("2000.00"), null, null);
+        });
+        
+        assertEquals("已存在运行期的支付流水，同时只能有一条支付明细为运行期状态", exception.getMessage());
+        assertEquals(1, payment.getRunningTransactions().size());
+    }
+    
+    @Test
+    @DisplayName("同时只能有一条支付明细为运行期 - 退款流水")
+    void testOnlyOneRunningTransaction_Refund() {
+        // Given - 创建一个已支付的支付单
+        PaymentAggregate payment = createPaidPayment();
+        String originalTxnId = payment.getCompletedTransactions().get(0).getId();
+        
+        // When - 创建第一条运行期退款流水
+        payment.executeRefund(new BigDecimal("1000.00"), originalTxnId, "REFUND-001", "测试退款");
+        
+        // Then - 尝试创建第二条运行期退款流水应该失败
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
+            payment.executeRefund(new BigDecimal("500.00"), originalTxnId, "REFUND-002", "测试退款2");
+        });
+        
+        assertEquals("已存在运行期的支付流水，同时只能有一条支付明细为运行期状态", exception.getMessage());
+        assertEquals(1, payment.getRunningTransactions().size());
+    }
+    
+    @Test
+    @DisplayName("运行期流水完成后可以创建新的运行期流水")
+    void testNewRunningTransactionAfterCompletion() {
+        // Given
+        PaymentAggregate payment = createDefaultPayment();
+        
+        // When - 创建第一条支付流水并完成
+        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, new BigDecimal("3000.00"), "TXN-001", "RECORD-001");
+        PaymentTransaction txn1 = payment.getRunningTransactions().get(0);
+        txn1.setId("1");
+        txn1.setCode("TXN-001");
+        payment.handlePaymentCallback("TXN-001", true, LocalDateTime.now());
+        
+        // Then - 第一条流水已完成，应该可以创建第二条运行期流水
+        assertDoesNotThrow(() -> {
+            payment.executePayment(PaymentChannel.WALLET_PAYMENT, new BigDecimal("2000.00"), null, null);
+        });
+        
+        assertEquals(1, payment.getRunningTransactions().size()); // 第二条已创建在运行期
+        assertEquals(1, payment.getCompletedTransactions().size()); // 第一条已完成
+    }
 }

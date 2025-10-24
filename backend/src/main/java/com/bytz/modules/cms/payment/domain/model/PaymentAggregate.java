@@ -291,6 +291,11 @@ public class PaymentAggregate {
         // 4. 更新支付单状态为"支付中"
         // 5. 返回支付流水
         
+        // 业务规则：同时只能有一条支付明细为运行期
+        if (!this.runningTransactions.isEmpty()) {
+            throw new IllegalStateException("已存在运行期的支付流水，同时只能有一条支付明细为运行期状态");
+        }
+        
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .paymentId(this.id)
                 .transactionType(TransactionType.PAYMENT)
@@ -431,6 +436,11 @@ public class PaymentAggregate {
         
         if (!originalTransaction.isSuccess()) {
             throw new IllegalArgumentException("指定的支付流水未成功，无法退款");
+        }
+        
+        // 业务规则：同时只能有一条支付明细为运行期
+        if (!this.runningTransactions.isEmpty()) {
+            throw new IllegalStateException("已存在运行期的支付流水，同时只能有一条支付明细为运行期状态");
         }
         
         // 5. 创建退款流水记录
