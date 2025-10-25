@@ -1,6 +1,7 @@
 package com.bytz.modules.cms.payment.domain.model;
 
 import com.bytz.modules.cms.payment.domain.enums.*;
+import com.bytz.modules.cms.payment.domain.valueobject.CompletedPaymentTransactionValueObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -130,7 +132,8 @@ class PaymentAggregateTest {
         assertEquals(paymentAmount, payment.getPaidAmount());
         assertEquals(paymentAmount, payment.getActualAmount());
         assertEquals(PaymentStatus.PAID, payment.getPaymentStatus());
-        assertEquals(TransactionStatus.SUCCESS, payment.getTransactions().get(0).getTransactionStatus());
+        // 支付流水仍在runningTransaction中（状态已变为SUCCESS）
+        assertEquals(TransactionStatus.SUCCESS, payment.getRunningTransaction().getTransactionStatus());
     }
 
     @Test
@@ -171,7 +174,8 @@ class PaymentAggregateTest {
         // Then
         assertEquals(BigDecimal.ZERO, payment.getPaidAmount());
         assertEquals(PaymentStatus.FAILED, payment.getPaymentStatus());
-        assertEquals(TransactionStatus.FAILED, payment.getTransactions().get(0).getTransactionStatus());
+        // 支付流水仍在runningTransaction中（状态已变为FAILED）
+        assertEquals(TransactionStatus.FAILED, payment.getRunningTransaction().getTransactionStatus());
     }
 
     @Test
@@ -251,9 +255,9 @@ class PaymentAggregateTest {
         assertEquals(refundAmount, payment.getRefundedAmount());
         assertEquals(paymentAmount.subtract(refundAmount), payment.getActualAmount());
         assertEquals(RefundStatus.PARTIAL_REFUNDED, payment.getRefundStatus());
-        // 退款成功后应该在completedTransactions中
-        assertEquals(2, payment.getCompletedTransactions().size());
-        assertEquals(TransactionStatus.SUCCESS, payment.getCompletedTransactions().get(1).getTransactionStatus());
+        // 退款流水仍在runningTransaction中（状态已变为SUCCESS）
+        assertEquals(TransactionStatus.SUCCESS, payment.getRunningTransaction().getTransactionStatus());
+        assertEquals(TransactionType.REFUND, payment.getRunningTransaction().getTransactionType());
     }
 
     @Test
@@ -295,7 +299,8 @@ class PaymentAggregateTest {
         // Then
         assertEquals(BigDecimal.ZERO, payment.getRefundedAmount());
         assertEquals(RefundStatus.REFUND_FAILED, payment.getRefundStatus());
-        assertEquals(TransactionStatus.FAILED, payment.getTransactions().get(1).getTransactionStatus());
+        // 退款流水仍在runningTransaction中（状态已变为FAILED），通过getTransactions()可以访问
+        assertEquals(TransactionStatus.FAILED, payment.getRunningTransaction().getTransactionStatus());
     }
 
     @Test
@@ -466,6 +471,9 @@ class PaymentAggregateTest {
         String txn1Id = txn1.getCode();
         payment.handlePaymentCallback(txn1Id, true, LocalDateTime.now());
         
+        // 模拟持久化后重新加载
+        simulateRepositoryReload(payment);
+        
         // Then - 检查第一次支付后的状态
         assertEquals(new BigDecimal("3000.00"), payment.getPaidAmount());
         assertEquals(PaymentStatus.PARTIAL_PAID, payment.getPaymentStatus());
@@ -541,7 +549,59 @@ class PaymentAggregateTest {
         transaction.setCode("TXN-" + System.currentTimeMillis());
         payment.handlePaymentCallback(transaction.getCode(), true, LocalDateTime.now());
         
+        // 模拟持久化后重新加载：将完成的流水转换为值对象
+        // 这模拟了 PaymentRepositoryImpl.toPaymentAggregate() 的行为
+        simulateRepositoryReload(payment);
+        
         return payment;
+    }
+    
+    /**
+     * 模拟仓储层在加载聚合根时的流水分离和转换逻辑
+     * 这模拟了 PaymentRepositoryImpl.toPaymentAggregate() 方法的行为
+     */
+    private void simulateRepositoryReload(PaymentAggregate payment) {
+        // 将所有已完成的流水（SUCCESS或FAILED状态）转换为值对象
+        List<PaymentTransaction> allTransactions = new ArrayList<>(payment.getTransactions());
+        
+        PaymentTransaction runningTxn = null;
+        List<CompletedPaymentTransactionValueObject> completedTxns = new ArrayList<>();
+        
+        for (PaymentTransaction txn : allTransactions) {
+            if (TransactionStatus.PROCESSING.equals(txn.getTransactionStatus())) {
+                runningTxn = txn;
+            } else {
+                // 已完成的流水（SUCCESS或FAILED），转换为值对象
+                completedTxns.add(
+                    CompletedPaymentTransactionValueObject.builder()
+                        .id(txn.getId())
+                        .code(txn.getCode())
+                        .paymentId(txn.getPaymentId())
+                        .transactionType(txn.getTransactionType())
+                        .transactionStatus(txn.getTransactionStatus())
+                        .transactionAmount(txn.getTransactionAmount())
+                        .paymentChannel(txn.getPaymentChannel())
+                        .channelTransactionNumber(txn.getChannelTransactionNumber())
+                        .channelPaymentRecordId(txn.getChannelPaymentRecordId())
+                        .paymentWay(txn.getPaymentWay())
+                        .originalTransactionId(txn.getOriginalTransactionId())
+                        .businessOrderId(txn.getBusinessOrderId())
+                        .createTime(txn.getCreateTime())
+                        .completeDateTime(txn.getCompleteDateTime())
+                        .expirationTime(txn.getExpirationTime())
+                        .businessRemark(txn.getBusinessRemark())
+                        .createBy(txn.getCreateBy())
+                        .createByName(txn.getCreateByName())
+                        .updateBy(txn.getUpdateBy())
+                        .updateByName(txn.getUpdateByName())
+                        .updateTime(txn.getUpdateTime())
+                        .build()
+                );
+            }
+        }
+        
+        payment.setRunningTransaction(runningTxn);
+        payment.setCompletedTransactions(completedTxns);
     }
     
     @Test
@@ -593,6 +653,9 @@ class PaymentAggregateTest {
         txn1.setId("1");
         txn1.setCode("TXN-001");
         payment.handlePaymentCallback("TXN-001", true, LocalDateTime.now());
+        
+        // 模拟持久化后重新加载
+        simulateRepositoryReload(payment);
         
         // Then - 第一条流水已完成，应该可以创建第二条运行期流水
         assertDoesNotThrow(() -> {

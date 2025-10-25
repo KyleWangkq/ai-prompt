@@ -294,8 +294,8 @@ public class PaymentAggregate {
         // 4. 更新支付单状态为"支付中"
         // 5. 返回支付流水
         
-        // 业务规则：同时只能有一条支付明细为运行期
-        if (this.runningTransaction != null) {
+        // 业务规则：同时只能有一条支付明细为运行期（PROCESSING状态）
+        if (this.runningTransaction != null && this.runningTransaction.isProcessing()) {
             throw new IllegalStateException("已存在运行期的支付流水，同时只能有一条支付明细为运行期状态");
         }
         
@@ -321,28 +321,28 @@ public class PaymentAggregate {
      * @param transactionCode 流水号
      * @param success 是否成功
      * @param completeTime 完成时间
-     * TODO: 实现支付回调处理逻辑，包括流水状态更新、支付单金额和状态更新等
+     * 
+     * 注意：完成的流水保持在 runningTransaction 中，不在此处转换为值对象。
+     * 在持久化后重新从数据库查询时，由仓储层（PaymentRepositoryImpl.toPaymentAggregate）
+     * 根据流水状态（PROCESSING vs SUCCESS/FAILED）自动分离运行期和已完成的流水，
+     * 并将已完成的流水转换为不可变值对象。
      */
     public void handlePaymentCallback(String transactionCode, boolean success, LocalDateTime completeTime) {
-        // TODO: 实现回调处理逻辑
         // 1. 查找对应的支付流水
-        // 2. 更新流水状态
-        // 3. 如果成功，累加已支付金额
-        // 4. 更新支付单状态（部分支付/已支付）
-        // 5. 重新计算实际收款金额
-        // 6. 将完成的流水从运行期列表移到已完成列表
-        
         PaymentTransaction transaction = findTransactionByCode(transactionCode);
         if (transaction == null) {
             throw new IllegalArgumentException("未找到对应的支付流水");
         }
         
+        // 2. 更新流水状态（但保持在 runningTransaction 中，以便持久化）
         if (success) {
             transaction.markAsSuccess(completeTime);
+            // 3. 如果成功，累加已支付金额
             this.paidAmount = this.paidAmount.add(transaction.getTransactionAmount());
+            // 5. 重新计算实际收款金额
             this.actualAmount = this.paidAmount.subtract(this.refundedAmount);
             
-            // 判断是否全额支付
+            // 4. 更新支付单状态（部分支付/已支付）
             if (this.paidAmount.compareTo(this.paymentAmount) == 0) {
                 this.paymentStatus = PaymentStatus.PAID;
             } else {
@@ -353,8 +353,11 @@ public class PaymentAggregate {
             this.paymentStatus = PaymentStatus.FAILED;
         }
         
-        // 将完成的流水移到已完成列表（转换为不可变值对象）
-        moveTransactionToCompleted(transaction);
+        // 流水保持在 runningTransaction 中（虽然状态已变为完成），直到持久化
+        // 这样可以确保：
+        // 1. 流水能被正确持久化（通过 getTransactions() 方法）
+        // 2. 不在聚合根内进行值对象转换
+        // 3. 重新加载时，仓储层会根据状态自动分离和转换
         
         this.updateTime = LocalDateTime.now();
     }
@@ -363,7 +366,10 @@ public class PaymentAggregate {
      * 将完成的流水从运行期移到已完成列表
      * 
      * @param transaction 完成的流水
+     * @deprecated 此方法已废弃。流水转换应该在持久化后重新从数据库查询时由仓储层处理。
+     * 聚合根内不应该直接进行这种转换，因为这违反了"先落库后转换"的原则。
      */
+    @Deprecated
     private void moveTransactionToCompleted(PaymentTransaction transaction) {
         // 清空运行期流水
         this.runningTransaction = null;
@@ -441,8 +447,8 @@ public class PaymentAggregate {
             throw new IllegalArgumentException("指定的支付流水未成功，无法退款");
         }
         
-        // 业务规则：同时只能有一条支付明细为运行期
-        if (this.runningTransaction != null) {
+        // 业务规则：同时只能有一条支付明细为运行期（PROCESSING状态）
+        if (this.runningTransaction != null && this.runningTransaction.isProcessing()) {
             throw new IllegalStateException("已存在运行期的支付流水，同时只能有一条支付明细为运行期状态");
         }
         
@@ -473,28 +479,28 @@ public class PaymentAggregate {
      * @param transactionCode 退款流水号
      * @param success 是否成功
      * @param completeTime 完成时间
-     * TODO: 实现退款回调处理逻辑，包括流水状态更新、退款金额累加、退款状态更新等
+     * 
+     * 注意：完成的流水保持在 runningTransaction 中，不在此处转换为值对象。
+     * 在持久化后重新从数据库查询时，由仓储层（PaymentRepositoryImpl.toPaymentAggregate）
+     * 根据流水状态（PROCESSING vs SUCCESS/FAILED）自动分离运行期和已完成的流水，
+     * 并将已完成的流水转换为不可变值对象。
      */
     public void handleRefundCallback(String transactionCode, boolean success, LocalDateTime completeTime) {
-        // TODO: 实现退款回调处理逻辑
         // 1. 查找对应的退款流水
-        // 2. 更新流水状态
-        // 3. 如果成功，累加已退款金额
-        // 4. 重新计算实际收款金额
-        // 5. 更新退款状态（部分退款/全额退款）
-        // 6. 将完成的流水从运行期列表移到已完成列表
-        
         PaymentTransaction transaction = findTransactionByCode(transactionCode);
         if (transaction == null) {
             throw new IllegalArgumentException("未找到对应的退款流水");
         }
         
+        // 2. 更新流水状态（但保持在 runningTransaction 中，以便持久化）
         if (success) {
             transaction.markAsSuccess(completeTime);
+            // 3. 如果成功，累加已退款金额
             this.refundedAmount = this.refundedAmount.add(transaction.getTransactionAmount());
+            // 4. 重新计算实际收款金额
             this.actualAmount = this.paidAmount.subtract(this.refundedAmount);
             
-            // 判断是否全额退款
+            // 5. 更新退款状态（部分退款/全额退款）
             if (this.refundedAmount.compareTo(this.paidAmount) == 0) {
                 this.refundStatus = RefundStatus.FULL_REFUNDED;
             } else {
@@ -505,8 +511,11 @@ public class PaymentAggregate {
             this.refundStatus = RefundStatus.REFUND_FAILED;
         }
         
-        // 将完成的流水移到已完成列表
-        moveTransactionToCompleted(transaction);
+        // 流水保持在 runningTransaction 中（虽然状态已变为完成），直到持久化
+        // 这样可以确保：
+        // 1. 流水能被正确持久化（通过 getTransactions() 方法）
+        // 2. 不在聚合根内进行值对象转换
+        // 3. 重新加载时，仓储层会根据状态自动分离和转换
         
         this.updateTime = LocalDateTime.now();
     }
