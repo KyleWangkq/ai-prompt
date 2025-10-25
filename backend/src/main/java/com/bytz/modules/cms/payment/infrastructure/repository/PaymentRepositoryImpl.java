@@ -70,7 +70,10 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
             }
         }
 
-        return payment;
+        // 落库后重新从数据库查询，由仓储层根据流水状态自动分离运行期和已完成的流水
+        // 这确保了值对象转换发生在持久化之后，符合DDD原则
+        log.info("重新加载支付单聚合根以完成流水分离和转换，支付单ID: {}", payment.getId());
+        return findById(payment.getId()).orElse(payment);
     }
 
     /**
