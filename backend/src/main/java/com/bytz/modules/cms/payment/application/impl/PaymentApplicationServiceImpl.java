@@ -1,9 +1,9 @@
 package com.bytz.modules.cms.payment.application.impl;
 
 import com.bytz.modules.cms.payment.application.IPaymentApplicationService;
-import com.bytz.modules.cms.payment.domain.command.CreatePaymentCommand;
-import com.bytz.modules.cms.payment.domain.command.ExecutePaymentCommand;
-import com.bytz.modules.cms.payment.domain.command.ExecuteRefundCommand;
+import com.bytz.modules.cms.payment.application.command.CreatePaymentCommand;
+import com.bytz.modules.cms.payment.application.command.ExecutePaymentCommand;
+import com.bytz.modules.cms.payment.application.command.ExecuteRefundCommand;
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;

@@ -1,4 +1,4 @@
-package com.bytz.modules.cms.payment.domain.command;
+package com.bytz.modules.cms.payment.application.command;
 
 import com.bytz.modules.cms.payment.domain.enums.PaymentType;
 import com.bytz.modules.cms.payment.domain.enums.RelatedBusinessType;

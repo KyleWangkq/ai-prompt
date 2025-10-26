@@ -1,8 +1,7 @@
 package com.bytz.modules.cms.payment.domain;
 
 import com.bytz.modules.cms.payment.application.impl.PaymentApplicationServiceImpl;
-import com.bytz.modules.cms.payment.domain.command.ExecutePaymentCommand;
-import com.bytz.modules.cms.payment.domain.command.ExecuteRefundCommand;
+import com.bytz.modules.cms.payment.application.command.ExecutePaymentCommand;
 import com.bytz.modules.cms.payment.domain.enums.*;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
@@ -20,9 +19,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;

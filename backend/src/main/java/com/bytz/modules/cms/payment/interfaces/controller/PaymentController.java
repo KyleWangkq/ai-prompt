@@ -3,15 +3,11 @@ package com.bytz.modules.cms.payment.interfaces.controller;
 import com.bytz.modules.cms.payment.application.IPaymentApplicationService;
 import com.bytz.modules.cms.payment.application.PaymentQueryService;
 import com.bytz.modules.cms.payment.application.assembler.PaymentAssembler;
-import com.bytz.modules.cms.payment.domain.command.CreatePaymentCommand;
-import com.bytz.modules.cms.payment.domain.command.ExecutePaymentCommand;
+import com.bytz.modules.cms.payment.application.command.ExecutePaymentCommand;
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
-import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity;
 import com.bytz.modules.cms.payment.interfaces.model.BatchPaymentExecuteRO;
 import com.bytz.modules.cms.payment.interfaces.model.BatchPaymentResultVO;
-import com.bytz.modules.cms.payment.interfaces.model.PaymentChannelVO;
-import com.bytz.modules.cms.payment.interfaces.model.PaymentCreateRO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
