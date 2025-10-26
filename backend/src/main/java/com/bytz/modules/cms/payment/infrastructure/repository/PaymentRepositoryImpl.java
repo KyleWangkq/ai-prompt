@@ -67,6 +67,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
             runningTransaction.setId(transactionEntity.getId());
         }
 
+
         return findById(payment.getId()).get();
     }
 

@@ -174,7 +174,7 @@ public class PaymentAggregate {
      * @deprecated 建议使用 getRunningTransaction() 和 getCompletedTransactions()
      */
     public List<PaymentTransaction> getTransactions() {
-        List<PaymentTransaction> allTransactions = new ArrayList<>();
+        List<PaymentTransaction> allTransactions = new ArrayList<>(completedTransactions.size()+1);
         if (runningTransaction != null) {
             allTransactions.add(runningTransaction);
         }
