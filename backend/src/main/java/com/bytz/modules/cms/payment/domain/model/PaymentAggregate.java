@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -157,22 +158,21 @@ public class PaymentAggregate {
      * Running transaction that can be modified (only one at a time)
      */
     private PaymentTransaction runningTransaction;
-    
+
     /**
      * 已完成支付流水列表（不可修改的值对象，状态为SUCCESS或FAILED）
      * Completed transactions that are immutable value objects
      */
     @Builder.Default
     private List<CompletedPaymentTransactionValueObject> completedTransactions = new ArrayList<>();
-    
+
     /**
      * 获取所有流水（运行期 + 已完成）
      * 用于向后兼容，返回所有流水的统一视图
-     * 
-     * @return 所有流水列表
+     *
+     * @return 按创建时间倒序排列的所有流水列表
      * @deprecated 建议使用 getRunningTransaction() 和 getCompletedTransactions()
      */
-    @Deprecated
     public List<PaymentTransaction> getTransactions() {
         List<PaymentTransaction> allTransactions = new ArrayList<>();
         if (runningTransaction != null) {
@@ -182,9 +182,10 @@ public class PaymentAggregate {
         for (CompletedPaymentTransactionValueObject completed : completedTransactions) {
             allTransactions.add(convertToTransaction(completed));
         }
+        allTransactions.sort(Comparator.reverseOrder());
         return allTransactions;
     }
-    
+
     /**
      * 将已完成流水值对象转换为PaymentTransaction（仅用于向后兼容）
      */
@@ -213,7 +214,7 @@ public class PaymentAggregate {
                 .updateTime(vo.getUpdateTime())
                 .build();
     }
-    
+
     /**
      * 创建新的支付单
      * 
@@ -298,7 +299,7 @@ public class PaymentAggregate {
         if (this.runningTransaction != null) {
             throw new IllegalStateException("已存在运行期的支付流水，同时只能有一条支付明细为运行期状态");
         }
-        
+
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .paymentId(this.id)
                 .transactionType(TransactionType.PAYMENT)
@@ -331,7 +332,7 @@ public class PaymentAggregate {
         // 4. 更新支付单状态（部分支付/已支付）
         // 5. 重新计算实际收款金额
         // 6. 将完成的流水从运行期列表移到已完成列表
-        
+
         PaymentTransaction transaction = findTransactionByCode(transactionCode);
         if (transaction == null) {
             throw new IllegalArgumentException("未找到对应的支付流水");
@@ -355,19 +356,19 @@ public class PaymentAggregate {
         
         // 将完成的流水移到已完成列表（转换为不可变值对象）
         moveTransactionToCompleted(transaction);
-        
+
         this.updateTime = LocalDateTime.now();
     }
     
     /**
      * 将完成的流水从运行期移到已完成列表
-     * 
+     *
      * @param transaction 完成的流水
      */
     private void moveTransactionToCompleted(PaymentTransaction transaction) {
         // 清空运行期流水
         this.runningTransaction = null;
-        
+
         // 转换为不可变值对象并添加到已完成列表
         CompletedPaymentTransactionValueObject completedTransaction = CompletedPaymentTransactionValueObject.builder()
                 .id(transaction.getId())
@@ -392,10 +393,10 @@ public class PaymentAggregate {
                 .updateByName(transaction.getUpdateByName())
                 .updateTime(transaction.getUpdateTime())
                 .build();
-        
+
         this.completedTransactions.add(completedTransaction);
     }
-    
+
     /**
      * 执行退款操作
      * 
@@ -445,7 +446,7 @@ public class PaymentAggregate {
         if (this.runningTransaction != null) {
             throw new IllegalStateException("已存在运行期的支付流水，同时只能有一条支付明细为运行期状态");
         }
-        
+
         // 5. 创建退款流水记录
         PaymentTransaction refundTransaction = PaymentTransaction.builder()
                 .paymentId(this.id)
@@ -483,7 +484,7 @@ public class PaymentAggregate {
         // 4. 重新计算实际收款金额
         // 5. 更新退款状态（部分退款/全额退款）
         // 6. 将完成的流水从运行期列表移到已完成列表
-        
+
         PaymentTransaction transaction = findTransactionByCode(transactionCode);
         if (transaction == null) {
             throw new IllegalArgumentException("未找到对应的退款流水");
@@ -507,7 +508,7 @@ public class PaymentAggregate {
         
         // 将完成的流水移到已完成列表
         moveTransactionToCompleted(transaction);
-        
+
         this.updateTime = LocalDateTime.now();
     }
     
@@ -584,22 +585,22 @@ public class PaymentAggregate {
     
     /**
      * 根据主键ID查找运行期支付流水
-     * 
+     *
      * @param transactionId 流水ID
      * @return 支付流水，如果未找到返回null
      */
     private PaymentTransaction findTransactionById(String transactionId) {
-        if (this.runningTransaction != null 
-                && this.runningTransaction.getId() != null 
+        if (this.runningTransaction != null
+                && this.runningTransaction.getId() != null
                 && this.runningTransaction.getId().equals(transactionId)) {
             return this.runningTransaction;
         }
         return null;
     }
-    
+
     /**
      * 根据主键ID查找已完成的支付流水
-     * 
+     *
      * @param transactionId 流水ID
      * @return 已完成的支付流水值对象，如果未找到返回null
      */
@@ -612,27 +613,27 @@ public class PaymentAggregate {
     
     /**
      * 根据业务编码查找运行期支付流水
-     * 
+     *
      * @param transactionCode 流水业务编码
      * @return 支付流水，如果未找到返回null
      */
     private PaymentTransaction findTransactionByCode(String transactionCode) {
-        if (this.runningTransaction != null 
-                && this.runningTransaction.getCode() != null 
+        if (this.runningTransaction != null
+                && this.runningTransaction.getCode() != null
                 && this.runningTransaction.getCode().equals(transactionCode)) {
             return this.runningTransaction;
         }
         return null;
     }
-    
+
     /**
      * 获取最新的处理中的支付流水
      * 用于批量支付流程中回写渠道信息
-     * 
+     *
      * @return 最新的处理中的支付流水，如果未找到返回null
      */
     public PaymentTransaction getLatestProcessingTransaction() {
-        if (this.runningTransaction != null 
+        if (this.runningTransaction != null
                 && TransactionType.PAYMENT.equals(this.runningTransaction.getTransactionType())
                 && TransactionStatus.PROCESSING.equals(this.runningTransaction.getTransactionStatus())) {
             return this.runningTransaction;

@@ -22,8 +22,8 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PaymentTransaction {
-    
+public class PaymentTransaction implements Comparable<PaymentTransaction> {
+
     /**
      * 数据库主键ID（使用雪花算法生成）
      */
@@ -207,5 +207,10 @@ public class PaymentTransaction {
     public void updateChannelTransactionNumber(String channelTransactionNumber) {
         this.channelTransactionNumber = channelTransactionNumber;
         this.updateTime = LocalDateTime.now();
+    }
+
+    @Override
+    public int compareTo(PaymentTransaction other) {
+        return this.createTime.compareTo(other.createTime);
     }
 }
