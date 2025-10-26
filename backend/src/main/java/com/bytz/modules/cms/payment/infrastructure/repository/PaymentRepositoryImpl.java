@@ -351,56 +351,45 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
 
         // 使用MapStruct转换支付单
         PaymentAggregate aggregate = infrastructureAssembler.toPaymentAggregate(entity);
+        // todo： 请从 entity即分组成两种对象，然后直接封装成普通对象和不可变对象
+        Map<Boolean, List<PaymentTransactionEntity>> map = transactionEntities.stream().collect(Collectors.partitioningBy(
+                tra -> tra.getTransactionStatus() == TransactionStatus.SUCCESS
 
-        // 使用MapStruct转换流水列表
-        List<PaymentTransaction> transactions =
-                infrastructureAssembler.toDomainTransactions(transactionEntities);
+        ));
+        List<PaymentTransactionEntity> processing = map.getOrDefault(true, Collections.emptyList());
+        if (!processing.isEmpty()) {
+            PaymentTransactionEntity paymentTransactionEntity = processing.get(0);
+            PaymentTransaction runningTransaction = infrastructureAssembler.toDomainTransaction(paymentTransactionEntity);
+            aggregate.setRunningTransaction(runningTransaction);
 
-        // 分离运行期和已完成的流水
-        PaymentTransaction runningTransaction = null;
-        List<CompletedPaymentTransactionValueObject> completedTransactions = new ArrayList<>();
-
-        for (PaymentTransaction transaction : transactions) {
-            if (TransactionStatus.PROCESSING.equals(transaction.getTransactionStatus())) {
-                // 运行期流水（状态为PROCESSING）
-                // 业务规则保证最多只有一条
-                if (runningTransaction != null) {
-                    log.warn("发现多条运行期流水，支付单ID: {}, 保留最后一条", entity.getId());
-                }
-                runningTransaction = transaction;
-            } else {
-                // 已完成流水（状态为SUCCESS或FAILED），转换为不可变值对象
-                completedTransactions.add(
-                        CompletedPaymentTransactionValueObject.builder()
-                                .id(transaction.getId())
-                                .code(transaction.getCode())
-                                .paymentId(transaction.getPaymentId())
-                                .transactionType(transaction.getTransactionType())
-                                .transactionStatus(transaction.getTransactionStatus())
-                                .transactionAmount(transaction.getTransactionAmount())
-                                .paymentChannel(transaction.getPaymentChannel())
-                                .channelTransactionNumber(transaction.getChannelTransactionNumber())
-                                .channelPaymentRecordId(transaction.getChannelPaymentRecordId())
-                                .paymentWay(transaction.getPaymentWay())
-                                .originalTransactionId(transaction.getOriginalTransactionId())
-                                .businessOrderId(transaction.getBusinessOrderId())
-                                .createTime(transaction.getCreateTime())
-                                .completeDateTime(transaction.getCompleteDateTime())
-                                .expirationTime(transaction.getExpirationTime())
-                                .businessRemark(transaction.getBusinessRemark())
-                                .createBy(transaction.getCreateBy())
-                                .createByName(transaction.getCreateByName())
-                                .updateBy(transaction.getUpdateBy())
-                                .updateByName(transaction.getUpdateByName())
-                                .updateTime(transaction.getUpdateTime())
-                                .build()
-                );
-            }
         }
-
-        // 设置运行期和已完成流水
-        aggregate.setRunningTransaction(runningTransaction);
-        aggregate.setCompletedTransactions(completedTransactions);
+        List<PaymentTransactionEntity> end = map.getOrDefault(false, Collections.emptyList());
+        if (!end.isEmpty()) {
+            List<CompletedPaymentTransactionValueObject> completedPaymentTransactions = end.stream().map(transaction -> new CompletedPaymentTransactionValueObject(
+                    transaction.getId(),
+                    transaction.getCode(),
+                    transaction.getPaymentId(),
+                    transaction.getTransactionType(),
+                    transaction.getTransactionStatus(),
+                    transaction.getTransactionAmount(),
+                    transaction.getPaymentChannel(),
+                    transaction.getChannelTransactionNumber(),
+                    transaction.getChannelPaymentRecordId(),
+                    transaction.getPaymentWay(),
+                    transaction.getOriginalTransactionId(),
+                    transaction.getBusinessOrderId(),
+                    transaction.getCreateTime(),
+                    transaction.getCompleteDateTime(),
+                    transaction.getExpirationTime(),
+                    transaction.getBusinessRemark(),
+                    transaction.getCreateBy(),
+                    transaction.getCreateByName(),
+                    transaction.getUpdateBy(),
+                    transaction.getUpdateByName(),
+                    transaction.getUpdateTime()
+            )).collect(Collectors.toList());
+            aggregate.setCompletedTransactions(completedPaymentTransactions);
+        }
 
         return aggregate;
     }
