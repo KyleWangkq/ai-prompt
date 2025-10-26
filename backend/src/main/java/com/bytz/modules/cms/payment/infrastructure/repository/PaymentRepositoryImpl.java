@@ -5,7 +5,6 @@ import com.bytz.modules.cms.payment.domain.enums.TransactionStatus;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
-import com.bytz.modules.cms.payment.domain.valueobject.CompletedPaymentTransactionValueObject;
 import com.bytz.modules.cms.payment.infrastructure.assembler.InfrastructureAssembler;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity;
@@ -14,6 +13,7 @@ import com.bytz.modules.cms.payment.infrastructure.mapper.PaymentTransactionMapp
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -44,7 +44,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
      * @return 保存后的支付单聚合根
      */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public PaymentAggregate save(PaymentAggregate payment) {
         log.info("保存支付单聚合根，支付单号: {}", payment.getCode());
 
@@ -66,9 +66,8 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
             transactionMapper.insert(transactionEntity);
             runningTransaction.setId(transactionEntity.getId());
         }
-
-
-        return findById(payment.getId()).get();
+        payment.updateAggregateAfterPersistence();
+        return payment;
     }
 
     /**
@@ -350,48 +349,25 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
             PaymentEntity entity,
             List<PaymentTransactionEntity> transactionEntities) {
 
-        // 使用MapStruct转换支付单
-        PaymentAggregate aggregate = infrastructureAssembler.toPaymentAggregate(entity);
-        // todo： 请从 entity即分组成两种对象，然后直接封装成普通对象和不可变对象
-        Map<Boolean, List<PaymentTransactionEntity>> map = transactionEntities.stream().collect(Collectors.partitioningBy(
-                tra -> tra.getTransactionStatus() == TransactionStatus.SUCCESS
 
+        Map<Boolean, List<PaymentTransactionEntity>> map = transactionEntities.stream().collect(Collectors.partitioningBy(
+                tra -> tra.getTransactionStatus() == TransactionStatus.PROCESSING
         ));
         List<PaymentTransactionEntity> processing = map.getOrDefault(true, Collections.emptyList());
+        PaymentTransaction runningTransaction = null;
         if (!processing.isEmpty()) {
             PaymentTransactionEntity paymentTransactionEntity = processing.get(0);
-            PaymentTransaction runningTransaction = infrastructureAssembler.toDomainTransaction(paymentTransactionEntity);
-            aggregate.setRunningTransaction(runningTransaction);
+            runningTransaction = infrastructureAssembler.toDomainTransaction(paymentTransactionEntity);
 
         }
         List<PaymentTransactionEntity> end = map.getOrDefault(false, Collections.emptyList());
-        if (!end.isEmpty()) {
-            List<CompletedPaymentTransactionValueObject> completedPaymentTransactions = end.stream().map(transaction -> new CompletedPaymentTransactionValueObject(
-                    transaction.getId(),
-                    transaction.getCode(),
-                    transaction.getPaymentId(),
-                    transaction.getTransactionType(),
-                    transaction.getTransactionStatus(),
-                    transaction.getTransactionAmount(),
-                    transaction.getPaymentChannel(),
-                    transaction.getChannelTransactionNumber(),
-                    transaction.getChannelPaymentRecordId(),
-                    transaction.getPaymentWay(),
-                    transaction.getOriginalTransactionId(),
-                    transaction.getBusinessOrderId(),
-                    transaction.getCreateTime(),
-                    transaction.getCompleteDateTime(),
-                    transaction.getExpirationTime(),
-                    transaction.getBusinessRemark(),
-                    transaction.getCreateBy(),
-                    transaction.getCreateByName(),
-                    transaction.getUpdateBy(),
-                    transaction.getUpdateByName(),
-                    transaction.getUpdateTime()
-            )).collect(Collectors.toList());
-            aggregate.setCompletedTransactions(completedPaymentTransactions);
-        }
+        List<PaymentTransaction> endTransactions = infrastructureAssembler.toDomainTransactions(end);
 
-        return aggregate;
+        // 使用MapStruct转换支付单
+        PaymentAggregate aggregate = infrastructureAssembler.toPaymentAggregate(entity);
+        return aggregate.toBuilder().runningTransaction(runningTransaction)
+                .completedTransactions(endTransactions).build();
     }
+
+
 }
