@@ -1,9 +1,11 @@
 package com.bytz.modules.cms.payment.infrastructure.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.bytz.modules.cms.payment.domain.enums.TransactionStatus;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
+import com.bytz.modules.cms.payment.domain.valueobject.CompletedPaymentTransactionValueObject;
 import com.bytz.modules.cms.payment.infrastructure.assembler.InfrastructureAssembler;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentTransactionEntity;
@@ -56,21 +58,16 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
             // 回填生成的ID
             payment.setId(entity.getId());
         }
-
-        // 保存支付流水：仅根据 transaction.id 判断插入或更新（不再检查 code 是否已存在）
-        for (PaymentTransaction transaction : payment.getTransactions()) {
-            PaymentTransactionEntity transactionEntity =
-                    infrastructureAssembler.toTransactionEntity(transaction);
-            if (transaction.getId() != null) {
-                transactionMapper.updateById(transactionEntity);
-            } else {
-                // 无 id 但有 code 时也直接插入（按要求不额外检查）
-                transactionMapper.insert(transactionEntity);
-                transaction.setId(transactionEntity.getId());
-            }
+        PaymentTransaction runningTransaction = payment.getRunningTransaction();
+        PaymentTransactionEntity transactionEntity = infrastructureAssembler.toTransactionEntity(runningTransaction);
+        if (transactionEntity.getId() != null) {
+            transactionMapper.updateById(transactionEntity);
+        } else {
+            transactionMapper.insert(transactionEntity);
+            runningTransaction.setId(transactionEntity.getId());
         }
 
-        return payment;
+        return findById(payment.getId()).get();
     }
 
     /**
@@ -213,7 +210,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
                 })
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * 根据主键ID列表批量查找支付单
      * 一次性查询所有支付单及其子聚合（支付流水），避免循环调用数据库
@@ -224,14 +221,14 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     @Override
     public List<PaymentAggregate> findByIds(List<String> ids) {
         log.info("根据ID列表批量查找支付单，数量: {}", ids == null ? 0 : ids.size());
-        
+
         if (ids == null || ids.isEmpty()) {
             return new ArrayList<>();
         }
 
         // 批量查询支付单
         List<PaymentEntity> entities = paymentMapper.selectBatchIds(ids);
-        
+
         if (entities.isEmpty()) {
             return new ArrayList<>();
         }
@@ -397,10 +394,10 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
 
         // 分离运行期和已完成的流水
         PaymentTransaction runningTransaction = null;
-        List<com.bytz.modules.cms.payment.domain.valueobject.CompletedPaymentTransactionValueObject> completedTransactions = new ArrayList<>();
-        
+        List<CompletedPaymentTransactionValueObject> completedTransactions = new ArrayList<>();
+
         for (PaymentTransaction transaction : transactions) {
-            if (com.bytz.modules.cms.payment.domain.enums.TransactionStatus.PROCESSING.equals(transaction.getTransactionStatus())) {
+            if (TransactionStatus.PROCESSING.equals(transaction.getTransactionStatus())) {
                 // 运行期流水（状态为PROCESSING）
                 // 业务规则保证最多只有一条
                 if (runningTransaction != null) {
@@ -410,7 +407,7 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
             } else {
                 // 已完成流水（状态为SUCCESS或FAILED），转换为不可变值对象
                 completedTransactions.add(
-                        com.bytz.modules.cms.payment.domain.valueobject.CompletedPaymentTransactionValueObject.builder()
+                        CompletedPaymentTransactionValueObject.builder()
                                 .id(transaction.getId())
                                 .code(transaction.getCode())
                                 .paymentId(transaction.getPaymentId())

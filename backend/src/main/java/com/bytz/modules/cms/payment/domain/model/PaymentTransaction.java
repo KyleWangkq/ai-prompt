@@ -183,7 +183,6 @@ public class PaymentTransaction implements Comparable<PaymentTransaction> {
     public void markAsSuccess(LocalDateTime completeTime) {
         this.transactionStatus = TransactionStatus.SUCCESS;
         this.completeDateTime = completeTime;
-        this.updateTime = LocalDateTime.now();
     }
     
     /**
@@ -195,7 +194,6 @@ public class PaymentTransaction implements Comparable<PaymentTransaction> {
     public void markAsFailed(String failureReason) {
         this.transactionStatus = TransactionStatus.FAILED;
         this.businessRemark = failureReason;
-        this.updateTime = LocalDateTime.now();
     }
     
     /**
@@ -206,7 +204,6 @@ public class PaymentTransaction implements Comparable<PaymentTransaction> {
      */
     public void updateChannelTransactionNumber(String channelTransactionNumber) {
         this.channelTransactionNumber = channelTransactionNumber;
-        this.updateTime = LocalDateTime.now();
     }
 
     @Override
