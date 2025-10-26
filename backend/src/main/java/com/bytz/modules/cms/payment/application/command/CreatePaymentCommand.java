@@ -38,11 +38,6 @@ public class CreatePaymentCommand {
     private BigDecimal paymentAmount;
     
     /**
-     * 币种（可选，默认CNY）
-     */
-    private String currency;
-    
-    /**
      * 支付类型（必填）
      */
     private PaymentType paymentType;
@@ -71,19 +66,5 @@ public class CreatePaymentCommand {
      * 业务到期日（可选）
      */
     private LocalDateTime businessExpireDate;
-    
-    /**
-     * 业务标签（可选，JSON格式）
-     */
-    private String businessTags;
-    
-    /**
-     * 创建人（可选）
-     */
-    private String createBy;
-    
-    /**
-     * 创建人姓名（可选）
-     */
-    private String createByName;
+
 }

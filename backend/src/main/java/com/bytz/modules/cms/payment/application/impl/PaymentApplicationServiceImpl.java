@@ -67,7 +67,7 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
                 command.getOrderId(),
                 command.getResellerId(),
                 command.getPaymentAmount(),
-                command.getCurrency() != null ? command.getCurrency() : "CNY",
+                "CNY",
                 command.getPaymentType(),
                 command.getBusinessDesc(),
                 command.getPaymentDeadline(),
@@ -78,9 +78,6 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
 
         // 设置支付单号和审计信息
         payment.setCode(paymentCode);
-        payment.setCreateBy(command.getCreateBy());
-        payment.setCreateByName(command.getCreateByName());
-        payment.setBusinessTags(command.getBusinessTags());
 
         // 持久化
         payment = paymentRepository.save(payment);
@@ -211,7 +208,7 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
 
     /**
      * 执行批量支付（重构版 - 严格按照9步支付流程）
-     * 
+     * <p>
      * 支付流程：
      * 1. 获取支付渠道
      * 2. 验证支付渠道可用
@@ -233,23 +230,21 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
                 command.getPaymentItems().size(), command.getPaymentChannel());
 
         // ========== 步骤1: 获取支付渠道 ==========
-        log.info("步骤1: 获取支付渠道 - {}", command.getPaymentChannel());
         IPaymentChannelService channelService = findChannelService(command.getPaymentChannel());
-        
+
         // ========== 步骤2: 验证支付渠道可用 ==========
-        log.info("步骤2: 验证支付渠道可用");
         // 批量查询所有支付单，验证所有支付单属于同一经销商
         List<String> paymentIds = command.getPaymentItems().stream()
                 .map(ExecutePaymentCommand.PaymentItem::getPaymentId)
                 .collect(Collectors.toList());
-        
+
         List<PaymentAggregate> payments = paymentRepository.findByIds(paymentIds);
-        
+
         // 验证所有支付单都存在
         if (payments.size() != paymentIds.size()) {
             throw new PaymentException("部分支付单不存在");
         }
-        
+
         // 验证所有支付单属于同一经销商
         Set<String> resellerIds = payments.stream()
                 .map(PaymentAggregate::getResellerId)
@@ -258,87 +253,82 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
             throw new PaymentException("所有支付单必须属于同一经销商");
         }
         String resellerId = resellerIds.iterator().next();
-        
+
         // 验证渠道对该经销商是否可用
         if (!channelService.isAvailable(resellerId)) {
             throw new PaymentException("支付渠道对当前经销商不可用");
         }
-        
+
         // ========== 步骤3: 计算支付总金额 ==========
-        log.info("步骤3: 计算支付总金额");
         BigDecimal totalAmount = command.getPaymentItems().stream()
                 .map(ExecutePaymentCommand.PaymentItem::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         log.info("总支付金额: {}", totalAmount);
-        
+
         // ========== 步骤4: 验证该经销商该金额可支付 ==========
-        log.info("步骤4: 验证经销商该金额可支付");
+        channelService.supportsAmountForReseller(resellerId, totalAmount);
+
         // 验证每个支付单的状态是否允许支付
         for (PaymentAggregate payment : payments) {
             if (!payment.canPay()) {
                 throw new PaymentException("支付单 " + payment.getCode() + " 当前状态不允许支付");
             }
         }
-        
+
         // 验证每个支付单的金额不超过待支付金额
         for (int i = 0; i < payments.size(); i++) {
             PaymentAggregate payment = payments.get(i);
             ExecutePaymentCommand.PaymentItem item = command.getPaymentItems().get(i);
-            
-            BigDecimal pendingAmount = payment.getPaymentAmount()
-                    .subtract(payment.getPaidAmount());
+
+            BigDecimal pendingAmount = payment.getPendingAmount();
             if (item.getAmount().compareTo(pendingAmount) > 0) {
-                throw new PaymentException("支付单 " + payment.getCode() + 
-                        " 的支付金额超过待支付金额");
+                throw new PaymentException("支付单 " + payment.getCode() +
+                                           " 的支付金额超过待支付金额");
             }
         }
-        
+
         // ========== 步骤5: 创建支付明细 ==========
-        log.info("步骤5: 创建支付明细（支付流水）");
         // 注意：此处仅在内存中创建流水对象，尚未持久化
         // 每个支付单创建一个对应的支付流水
         for (int i = 0; i < payments.size(); i++) {
             PaymentAggregate payment = payments.get(i);
             ExecutePaymentCommand.PaymentItem item = command.getPaymentItems().get(i);
-            
+
             // 在聚合根中创建支付流水（流水状态为PROCESSING，尚未提交到渠道）
-            // 注意：此时channelTransactionNumber和channelPaymentRecordId尚未获取，暂时传null
             payment.executePayment(
                     command.getPaymentChannel(),
-                    item.getAmount(),
-                    null,  // channelTransactionNumber 将在步骤8回写
-                    null   // channelPaymentRecordId 将在步骤8回写
+                    item.getAmount()
             );
             log.info("为支付单 {} 创建支付流水，金额: {}", payment.getCode(), item.getAmount());
         }
-        
+
         // ========== 步骤6: 创建渠道支付请求 ==========
-        log.info("步骤6: 创建渠道支付请求");
+
         CreatePaymentRequestCommand createPaymentRequestCommand = CreatePaymentRequestCommand.builder()
                 .totalAmount(totalAmount)
                 .resellerId(resellerId)
                 .build();
-        
+
         // ========== 步骤7: 发起渠道支付 ==========
-        log.info("步骤7: 发起渠道支付");
-        PaymentRequestResponse paymentRequest = channelService.createPaymentRequest(createPaymentRequestCommand);
-        log.info("渠道支付请求创建成功，渠道交易号: {}, 渠道支付记录ID: {}",
-                paymentRequest.getChannelTransactionNumber(),
-                paymentRequest.getChannelPaymentRecordId());
-        
+        PaymentRequestResponse paymentResponse = channelService.createPaymentRequest(createPaymentRequestCommand);
+        log.info("渠道支付请求创建成功，渠道交易号: {}, 渠道支付记录ID: {}, 支付结果：{}",
+                paymentResponse.getChannelTransactionNumber(),
+                paymentResponse.getChannelPaymentRecordId(),
+                paymentResponse.getTransactionStatus().getDescription()
+        );
+
         // ========== 步骤8: 获得支付请求结果，并回写到所有支付明细中 ==========
         log.info("步骤8: 回写渠道交易信息到所有支付流水");
         for (PaymentAggregate payment : payments) {
             // 获取该支付单最新创建的支付流水（即刚在步骤5创建的）
-            PaymentTransaction latestTransaction = payment.getLatestProcessingTransaction();
-            if (latestTransaction != null) {
-                // 回写渠道交易号和渠道支付记录ID
-                latestTransaction.setChannelTransactionNumber(paymentRequest.getChannelTransactionNumber());
-                latestTransaction.setChannelPaymentRecordId(paymentRequest.getChannelPaymentRecordId());
-                log.info("支付单 {} 的流水已回写渠道信息", payment.getCode());
-            }
+            PaymentTransaction runningTransaction = payment.getRunningTransaction();
+
+            runningTransaction.setChannelTransactionNumber(paymentResponse.getChannelTransactionNumber());
+            runningTransaction.setChannelPaymentRecordId(paymentResponse.getChannelPaymentRecordId());
+            log.info("支付单 {} 的流水 {} 已回写渠道信息", payment.getCode(), runningTransaction.getCode());
+
         }
-        
+
         // ========== 步骤9: 持久化支付明细 ==========
         log.info("步骤9: 持久化所有支付单及流水");
         for (PaymentAggregate payment : payments) {
@@ -346,8 +336,8 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
             log.info("支付单 {} 及其流水已持久化", payment.getCode());
         }
 
-        log.info("批量支付执行完成，渠道交易id: {}", paymentRequest.getChannelPaymentRecordId());
-        return paymentRequest.getChannelPaymentRecordId();
+        log.info("批量支付执行完成，渠道交易id: {}", paymentResponse.getChannelPaymentRecordId());
+        return paymentResponse.getChannelPaymentRecordId();
     }
 
     /**
@@ -378,6 +368,6 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         return paymentChannelServices.stream()
                 .filter(service -> service.getChannelType() == channel)
                 .findFirst()
-                .orElseThrow(()-> new PaymentException("支付渠道不可用: " + channel.getDescription()));
+                .orElseThrow(() -> new PaymentException("支付渠道不可用: " + channel.getDescription()));
     }
 }

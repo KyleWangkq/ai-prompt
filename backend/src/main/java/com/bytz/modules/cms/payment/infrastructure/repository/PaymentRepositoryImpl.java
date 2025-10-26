@@ -59,12 +59,15 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
             payment.setId(entity.getId());
         }
         PaymentTransaction runningTransaction = payment.getRunningTransaction();
-        PaymentTransactionEntity transactionEntity = infrastructureAssembler.toTransactionEntity(runningTransaction);
-        if (transactionEntity.getId() != null) {
-            transactionMapper.updateById(transactionEntity);
-        } else {
-            transactionMapper.insert(transactionEntity);
-            runningTransaction.setId(transactionEntity.getId());
+        if (runningTransaction != null) {
+
+            PaymentTransactionEntity transactionEntity = infrastructureAssembler.toTransactionEntity(runningTransaction);
+            if (transactionEntity.getId() != null) {
+                transactionMapper.updateById(transactionEntity);
+            } else {
+                transactionMapper.insert(transactionEntity);
+                runningTransaction.setId(transactionEntity.getId());
+            }
         }
         payment.updateAggregateAfterPersistence();
         return payment;
