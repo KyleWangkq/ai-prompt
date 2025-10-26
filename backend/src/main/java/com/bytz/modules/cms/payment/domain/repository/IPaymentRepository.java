@@ -95,23 +95,7 @@ public interface IPaymentRepository {
      */
     boolean deleteByCode(String code);
     
-    /**
-     * 检查支付单是否存在 - 通过主键ID
-     * 
-     * @param id 主键ID
-     * @return 是否存在
-     * TODO: 实现支付单存在性检查
-     */
-    boolean existsById(String id);
-    
-    /**
-     * 检查支付单是否存在 - 通过业务编码
-     * 
-     * @param code 支付单号
-     * @return 是否存在
-     * TODO: 实现支付单存在性检查
-     */
-    boolean existsByCode(String code);
+
     
     /**
      * 生成唯一的支付单号

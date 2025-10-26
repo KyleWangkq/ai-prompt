@@ -278,28 +278,6 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
     }
 
     /**
-     * 检查支付单是否存在 - 通过主键ID
-     *
-     * @param id 主键ID
-     * @return 是否存在
-     */
-    @Override
-    public boolean existsById(String id) {
-        return paymentMapper.selectById(id) != null;
-    }
-
-    /**
-     * 检查支付单是否存在 - 通过业务编码
-     *
-     * @param code 支付单号
-     * @return 是否存在
-     */
-    @Override
-    public boolean existsByCode(String code) {
-        return findEntityByCode(code) != null;
-    }
-
-    /**
      * 生成唯一的支付单号
      *
      * @return 唯一的支付单号
@@ -341,20 +319,6 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         LambdaQueryWrapper<PaymentTransactionEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PaymentTransactionEntity::getCode, code);
         return transactionMapper.selectOne(wrapper);
-    }
-
-    /**
-     * 检查支付流水是否存在（通过主键ID）
-     */
-    private boolean existsTransactionById(String id) {
-        return transactionMapper.selectById(id) != null;
-    }
-
-    /**
-     * 检查支付流水是否存在（通过业务编码）
-     */
-    private boolean existsTransactionByCode(String code) {
-        return findTransactionEntityByCode(code) != null;
     }
 
     /**
