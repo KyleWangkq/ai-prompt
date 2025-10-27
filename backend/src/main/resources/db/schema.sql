@@ -27,7 +27,6 @@ CREATE TABLE IF NOT EXISTS cms_payment
     related_business_id     VARCHAR(32) NULL COMMENT '关联业务ID',
     related_business_type   VARCHAR(20) NULL COMMENT '关联业务类型（CREDIT_RECORD/DELIVERY_ORDER/ORDER）',
     business_expire_date    DATETIME NULL COMMENT '业务到期日',
-    business_tags           JSON NULL COMMENT '业务标签',
     del_flag                INT NULL DEFAULT 0 COMMENT '删除状态（0-正常，1-删除）',
     create_by               VARCHAR(32) NULL COMMENT '创建人',
     create_by_name          VARCHAR(32) NULL COMMENT '创建人姓名',

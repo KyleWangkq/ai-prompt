@@ -363,7 +363,6 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         );
 
         // ========== 步骤8: 获得支付请求结果，并回写到所有支付明细中 ==========
-        log.info("步骤8: 回写渠道交易信息到所有支付流水");
         for (PaymentAggregate payment : payments) {
             // 获取该支付单最新创建的支付流水（即刚在步骤5创建的）
             PaymentTransaction runningTransaction = payment.getRunningTransaction();

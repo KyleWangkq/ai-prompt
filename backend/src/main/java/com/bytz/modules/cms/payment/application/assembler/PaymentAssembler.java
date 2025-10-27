@@ -3,16 +3,10 @@ package com.bytz.modules.cms.payment.application.assembler;
 import com.bytz.modules.cms.payment.application.command.CancelPaymentCommand;
 import com.bytz.modules.cms.payment.application.command.CreatePaymentCommand;
 import com.bytz.modules.cms.payment.application.command.ExecutePaymentCommand;
-import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity;
-import com.bytz.modules.cms.payment.interfaces.model.BatchPaymentExecuteRO;
-import com.bytz.modules.cms.payment.interfaces.model.CancelPaymentRO;
-import com.bytz.modules.cms.payment.interfaces.model.PaymentChannelVO;
-import com.bytz.modules.cms.payment.interfaces.model.PaymentCreateRO;
-import com.bytz.modules.cms.payment.interfaces.model.PaymentTransactionVO;
-import com.bytz.modules.cms.payment.interfaces.model.PaymentVO;
+import com.bytz.modules.cms.payment.interfaces.model.*;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
@@ -24,74 +18,74 @@ import java.util.stream.Collectors;
 /**
  * 支付单转换器
  * Payment Assembler
- * 
+ * <p>
  * 使用MapStruct进行支付单相关对象之间的转换
  * RO → Command → Domain Aggregate/PaymentEntity → VO
  */
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface PaymentAssembler {
-    
+
     /**
      * PaymentCreateRO转换为CreatePaymentCommand
-     * 
+     *
      * @param ro 创建支付单请求对象
      * @return 创建支付单命令
      */
     CreatePaymentCommand toCreateCommand(PaymentCreateRO ro);
-    
+
     /**
      * PaymentAggregate转换为PaymentVO
-     * 
+     *
      * @param aggregate 支付单聚合根
      * @return 支付单响应对象
      */
     @Mapping(target = "pendingAmount", expression = "java(aggregate.getPendingAmount())")
     PaymentVO toVO(PaymentAggregate aggregate);
-    
+
     /**
      * PaymentAggregate列表转换为PaymentVO列表
-     * 
+     *
      * @param aggregates 支付单聚合根列表
      * @return 支付单响应对象列表
      */
     List<PaymentVO> toVOs(List<PaymentAggregate> aggregates);
-    
+
     /**
      * PaymentEntity转换为PaymentVO（用于CQRS查询）
-     * 
+     *
      * @param entity 支付单数据库实体
      * @return 支付单响应对象
      */
     @Mapping(target = "pendingAmount", expression = "java(calculatePendingAmount(entity))")
     PaymentVO entityToVO(PaymentEntity entity);
-    
+
     /**
      * PaymentEntity列表转换为PaymentVO列表（用于CQRS查询）
-     * 
+     *
      * @param entities 支付单数据库实体列表
      * @return 支付单响应对象列表
      */
     List<PaymentVO> entitiesToVOs(List<PaymentEntity> entities);
-    
+
     /**
      * PaymentTransaction转换为PaymentTransactionVO
-     * 
+     *
      * @param transaction 支付流水对象
      * @return 支付流水响应对象
      */
     PaymentTransactionVO toTransactionVO(PaymentTransaction transaction);
-    
+
     /**
      * PaymentTransaction列表转换为PaymentTransactionVO列表
-     * 
+     *
      * @param transactions 支付流水对象列表
      * @return 支付流水响应对象列表
      */
     List<PaymentTransactionVO> toTransactionVOs(List<PaymentTransaction> transactions);
-    
+
     /**
      * 计算待支付金额（用于查询场景）
-     * 
+     *
      * @param entity 支付单实体
      * @return 待支付金额
      */
@@ -101,12 +95,12 @@ public interface PaymentAssembler {
         }
         return entity.getPaymentAmount().subtract(entity.getPaidAmount());
     }
-    
+
     /**
      * BatchPaymentExecuteRO转换为ExecutePaymentCommand
      * RO中已经包含paymentId（数据库主键），直接映射即可
-     * 
-     * @param ro 批量支付执行请求对象
+     *
+     * @param ro         批量支付执行请求对象
      * @param resellerId 经销商ID
      * @return 执行支付命令
      */
@@ -114,14 +108,14 @@ public interface PaymentAssembler {
         if (ro == null) {
             return null;
         }
-        
+
         List<ExecutePaymentCommand.PaymentItem> items = ro.getPaymentItems().stream()
                 .map(item -> ExecutePaymentCommand.PaymentItem.builder()
                         .paymentId(item.getPaymentId())  // 直接使用paymentId
                         .amount(item.getAmount())
                         .build())
                 .collect(Collectors.toList());
-        
+
         return ExecutePaymentCommand.builder()
                 .paymentItems(items)
                 .paymentChannel(ro.getPaymentChannel())
@@ -129,54 +123,11 @@ public interface PaymentAssembler {
                 .operatorName(resellerId)
                 .build();
     }
-    
-    /**
-     * PaymentChannel枚举转换为渠道代码字符串
-     * 
-     * @param channel 支付渠道枚举
-     * @return 渠道代码
-     */
-    default String channelToCode(PaymentChannel channel) {
-        return channel != null ? channel.getCode() : null;
-    }
-    
-    /**
-     * PaymentChannel列表转换为渠道代码列表
-     * 
-     * @param channels 支付渠道枚举列表
-     * @return 渠道代码列表
-     */
-    default List<String> channelsToCodes(List<PaymentChannel> channels) {
-        if (channels == null) {
-            return null;
-        }
-        return channels.stream()
-                .map(PaymentChannel::getCode)
-                .collect(Collectors.toList());
-    }
-    
-    /**
-     * PaymentChannel枚举转换为PaymentChannelVO
-     * 使用MapStruct进行转换
-     * 
-     * @param channel 支付渠道枚举
-     * @return 支付渠道VO
-     */
-    default PaymentChannelVO toChannelVO(PaymentChannel channel) {
-        if (channel == null) {
-            return null;
-        }
-        return PaymentChannelVO.builder()
-                .channelCode(channel.getCode())
-                .channelName(channel.getDescription())
-                .channelDescription(channel.getEnglishName())
-                .available(true)
-                .build();
-    }
-    
+
+
     /**
      * CancelPaymentRO转换为CancelPaymentCommand
-     * 
+     *
      * @param ro 取消支付单请求对象
      * @return 取消支付单命令
      */
