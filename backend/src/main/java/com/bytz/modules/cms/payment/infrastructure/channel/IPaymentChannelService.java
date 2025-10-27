@@ -7,6 +7,7 @@ import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryPaymentS
 import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryRefundStatusCommand;
 import com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse;
 import com.bytz.modules.cms.payment.infrastructure.channel.response.RefundRequestResponse;
+import java.math.BigDecimal;
 
 /**
  * 支付渠道接口
@@ -22,7 +23,7 @@ public interface IPaymentChannelService {
      * @return 渠道类型
      */
     PaymentChannel getChannelType();
-    
+
     /**
      * 创建支付请求
      * 
@@ -84,5 +85,5 @@ public interface IPaymentChannelService {
      * @return 是否支持该金额的支付
      * TODO: 实现金额支持检查逻辑，考虑渠道限额、经销商信用额度等因素
      */
-    boolean supportsAmountForReseller(String resellerId, java.math.BigDecimal amount);
+    boolean supportsAmountForReseller(String resellerId, BigDecimal amount);
 }
