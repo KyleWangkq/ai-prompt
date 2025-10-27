@@ -1,6 +1,7 @@
 package com.bytz.modules.cms.payment.application.impl;
 
 import com.bytz.modules.cms.payment.application.IPaymentApplicationService;
+import com.bytz.modules.cms.payment.application.command.CancelPaymentCommand;
 import com.bytz.modules.cms.payment.application.command.CreatePaymentCommand;
 import com.bytz.modules.cms.payment.application.command.ExecutePaymentCommand;
 import com.bytz.modules.cms.payment.application.command.ExecuteRefundCommand;
@@ -129,6 +130,41 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         return refundTransaction.getId();
     }
 
+    /**
+     * 取消支付单（实现内部接口）
+     * 此方法供订单系统等内部模块调用，也可由经销商主动调用
+     *
+     * @param command 取消支付单命令
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelPayment(CancelPaymentCommand command) {
+        log.info("开始取消支付单，支付单ID: {}, 取消原因: {}", command.getPaymentId(), command.getReason());
+
+        // 参数验证
+        validateCancelCommand(command);
+
+        // 查询支付单
+        PaymentAggregate payment = paymentRepository.findById(command.getPaymentId())
+                .orElseThrow(() -> new PaymentException("支付单不存在: " + command.getPaymentId()));
+
+        // 执行取消（业务规则在聚合根内部）
+        payment.cancel(command.getReason() != null ? command.getReason() : "用户主动取消");
+
+        // 设置操作人信息
+        if (command.getOperatorId() != null) {
+            payment.setUpdateBy(command.getOperatorId());
+        }
+        if (command.getOperatorName() != null) {
+            payment.setUpdateByName(command.getOperatorName());
+        }
+
+        // 持久化
+        paymentRepository.save(payment);
+
+        log.info("支付单取消成功，支付单号: {}", payment.getCode());
+    }
+
 
     /**
      * 验证创建命令（仅验证支付模块自己的业务数据）
@@ -160,6 +196,15 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         }
         if (command.getRefundOrderId() == null || command.getRefundOrderId().trim().isEmpty()) {
             throw new IllegalArgumentException("退款单号不能为空");
+        }
+    }
+
+    /**
+     * 验证取消命令
+     */
+    private void validateCancelCommand(CancelPaymentCommand command) {
+        if (command.getPaymentId() == null || command.getPaymentId().trim().isEmpty()) {
+            throw new IllegalArgumentException("支付单ID不能为空");
         }
     }
 
