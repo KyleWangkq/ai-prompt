@@ -5,9 +5,7 @@ import com.bytz.modules.cms.payment.application.command.CancelPaymentCommand;
 import com.bytz.modules.cms.payment.application.command.CreatePaymentCommand;
 import com.bytz.modules.cms.payment.application.command.ExecutePaymentCommand;
 import com.bytz.modules.cms.payment.application.command.ExecuteRefundCommand;
-import com.bytz.modules.cms.payment.domain.PaymentExecutionService;
-import com.bytz.modules.cms.payment.domain.PaymentValidationService;
-import com.bytz.modules.cms.payment.domain.RefundService;
+import com.bytz.modules.cms.payment.domain.PaymentDomainService;
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
@@ -43,10 +41,8 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
     private final ApplicationEventPublisher eventPublisher;
     private final List<IPaymentChannelService> paymentChannelServices;
     
-    // 领域服务
-    private final PaymentValidationService validationService;
-    private final PaymentExecutionService executionService;
-    private final RefundService refundService;
+    // 统一的支付领域服务
+    private final PaymentDomainService domainService;
 
     /**
      * 创建支付单（实现内部接口）
@@ -62,7 +58,7 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         log.info("创建支付单，订单号: {}, 支付类型: {}", command.getOrderId(), command.getPaymentType());
 
         // 使用领域服务进行业务校验
-        validationService.validateCreate(
+        domainService.validateCreate(
                 command.getOrderId(),
                 command.getResellerId(),
                 command.getPaymentAmount(),
@@ -114,7 +110,7 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         log.info("开始执行退款，支付单ID: {}, 退款金额: {}", command.getPaymentId(), command.getRefundAmount());
 
         // 委托给领域服务处理
-        PaymentTransaction refundTransaction = refundService.executeRefund(
+        PaymentTransaction refundTransaction = domainService.executeRefund(
                 command.getPaymentId(),
                 command.getRefundAmount(),
                 command.getOriginalTransactionId(),
@@ -179,7 +175,7 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
      * 2. 准备数据
      * 3. 委托给领域服务执行
      * <p>
-     * 业务逻辑已移至PaymentExecutionService领域服务
+     * 业务逻辑已移至PaymentDomainService领域服务
      *
      * @param command 执行支付命令
      * @return 渠道交易id
@@ -208,7 +204,7 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
                 .collect(Collectors.toList());
 
         // 委托给领域服务执行
-        String channelRecordId = executionService.executeUnifiedPayment(
+        String channelRecordId = domainService.executeUnifiedPayment(
                 payments,
                 allocatedAmounts,
                 command.getPaymentChannel()
