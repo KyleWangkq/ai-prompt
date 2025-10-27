@@ -19,6 +19,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PaymentRequestResponse {
 
+    /**
+     * 支付交易状态
+     * （支付请求提交后的状态，有些业务可能直接成功）
+     */
     private TransactionStatus transactionStatus;
     
     /**
