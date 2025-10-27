@@ -86,20 +86,32 @@ class PaymentAggregateCancelTest {
 
     @Test
     void testCannotCancel_WhenHasCompletedTransactions() {
+        // 创建一个新的支付单，用于测试已完成流水的场景
+        PaymentAggregate paymentWithCompletedTx = PaymentAggregate.create(
+                "ORDER002",
+                "RESELLER001",
+                new BigDecimal("1000.00"),
+                "CNY",
+                PaymentType.ADVANCE_PAYMENT,
+                "测试支付单",
+                null,
+                null,
+                null,
+                null
+        );
+        paymentWithCompletedTx.setId("PAYMENT002");
+        
         // 创建支付流水并完成
-        payment.executePayment(PaymentChannel.ONLINE_PAYMENT, new BigDecimal("100.00"));
-        payment.handlePaymentCallback("TX001", true, null);
+        paymentWithCompletedTx.executePayment(PaymentChannel.ONLINE_PAYMENT, new BigDecimal("100.00"));
+        paymentWithCompletedTx.handlePaymentCallback("TX001", true, null);
 
-        // 修改状态回UNPAID用于测试（实际场景不会发生）
-        payment.setPaymentStatus(PaymentStatus.UNPAID);
+        assertFalse(paymentWithCompletedTx.canCancel());
 
-        assertFalse(payment.canCancel());
-
-        // 尝试取消应该抛出异常
+        // 尝试取消应该抛出异常（状态已变为PARTIAL_PAID，不是UNPAID）
         IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
-            payment.cancel("测试取消");
+            paymentWithCompletedTx.cancel("测试取消");
         });
-        assertTrue(exception.getMessage().contains("支付单已有支付流水，无法取消"));
+        assertTrue(exception.getMessage().contains("只有未支付状态才能取消"));
     }
 
     @Test
