@@ -43,7 +43,12 @@ public enum PaymentStatus {
     /**
      * 已冻结 - 支付单因特殊原因暂时无法操作
      */
-    FROZEN("FROZEN", "已冻结", "Frozen");
+    FROZEN("FROZEN", "已冻结", "Frozen"),
+    
+    /**
+     * 已取消 - 支付单已被取消，不可再操作
+     */
+    CANCELED("CANCELED", "已取消", "Canceled");
     
     @EnumValue
     private final String code;

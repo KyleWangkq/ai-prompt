@@ -3,11 +3,13 @@ package com.bytz.modules.cms.payment.interfaces.controller;
 import com.bytz.modules.cms.payment.application.IPaymentApplicationService;
 import com.bytz.modules.cms.payment.application.PaymentQueryService;
 import com.bytz.modules.cms.payment.application.assembler.PaymentAssembler;
+import com.bytz.modules.cms.payment.application.command.CancelPaymentCommand;
 import com.bytz.modules.cms.payment.application.command.ExecutePaymentCommand;
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity;
 import com.bytz.modules.cms.payment.interfaces.model.BatchPaymentExecuteRO;
 import com.bytz.modules.cms.payment.interfaces.model.BatchPaymentResultVO;
+import com.bytz.modules.cms.payment.interfaces.model.CancelPaymentRO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -174,6 +176,29 @@ public class PaymentController {
         
         log.info("经销商 {} 可用支付渠道数量: {}", resellerId, availableChannels.size());
         return ResponseEntity.ok(availableChannels);
+    }
+    
+    /**
+     * 取消支付单接口
+     * 当支付单创建但未发起任何支付时，可以取消支付单
+     * 
+     * POST /api/v1/payments/cancel
+     * 
+     * @param ro 取消支付单请求对象
+     * @return 无内容响应
+     */
+    @PostMapping("/cancel")
+    public ResponseEntity<Void> cancelPayment(@Valid @RequestBody CancelPaymentRO ro) {
+        log.info("收到取消支付单请求，支付单ID: {}, 取消原因: {}", ro.getPaymentId(), ro.getReason());
+        
+        // 转换RO为Command
+        CancelPaymentCommand command = paymentAssembler.toCancelPaymentCommand(ro);
+        
+        // 执行取消
+        paymentApplicationService.cancelPayment(command);
+        
+        log.info("支付单取消成功，支付单ID: {}", ro.getPaymentId());
+        return ResponseEntity.noContent().build();
     }
     
     /**

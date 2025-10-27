@@ -1,5 +1,6 @@
 package com.bytz.modules.cms.payment.application.assembler;
 
+import com.bytz.modules.cms.payment.application.command.CancelPaymentCommand;
 import com.bytz.modules.cms.payment.application.command.CreatePaymentCommand;
 import com.bytz.modules.cms.payment.application.command.ExecutePaymentCommand;
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
@@ -7,6 +8,7 @@ import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.infrastructure.entity.PaymentEntity;
 import com.bytz.modules.cms.payment.interfaces.model.BatchPaymentExecuteRO;
+import com.bytz.modules.cms.payment.interfaces.model.CancelPaymentRO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentChannelVO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentCreateRO;
 import com.bytz.modules.cms.payment.interfaces.model.PaymentTransactionVO;
@@ -169,6 +171,22 @@ public interface PaymentAssembler {
                 .channelName(channel.getDescription())
                 .channelDescription(channel.getEnglishName())
                 .available(true)
+                .build();
+    }
+    
+    /**
+     * CancelPaymentRO转换为CancelPaymentCommand
+     * 
+     * @param ro 取消支付单请求对象
+     * @return 取消支付单命令
+     */
+    default CancelPaymentCommand toCancelPaymentCommand(CancelPaymentRO ro) {
+        if (ro == null) {
+            return null;
+        }
+        return CancelPaymentCommand.builder()
+                .paymentId(ro.getPaymentId())
+                .reason(ro.getReason())
                 .build();
     }
 }

@@ -1,5 +1,6 @@
 package com.bytz.modules.cms.payment.application;
 
+import com.bytz.modules.cms.payment.application.command.CancelPaymentCommand;
 import com.bytz.modules.cms.payment.application.command.CreatePaymentCommand;
 import com.bytz.modules.cms.payment.application.command.ExecutePaymentCommand;
 import com.bytz.modules.cms.payment.application.command.ExecuteRefundCommand;
@@ -40,6 +41,23 @@ public interface IPaymentApplicationService {
      * @return 退款流水号
      */
     String executeRefund(ExecuteRefundCommand command);
+
+    /**
+     * 取消支付单
+     * 此方法供订单系统等内部模块调用
+     *
+     * 使用场景：
+     * - 订单系统取消订单时，调用此接口取消未支付的支付单
+     * - 经销商主动取消未支付的支付单
+     * 
+     * 业务规则：
+     * - 只有未支付(UNPAID)状态的支付单才可以取消
+     * - 不能有任何支付流水（即未发起任何支付操作）
+     * - 取消后状态变为已取消(CANCELED)，不可逆
+     *
+     * @param command 取消支付单命令
+     */
+    void cancelPayment(CancelPaymentCommand command);
 
     /**
      * 执行批量支付

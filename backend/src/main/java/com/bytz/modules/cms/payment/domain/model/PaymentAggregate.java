@@ -527,6 +527,56 @@ public class PaymentAggregate {
         this.updateTime = LocalDateTime.now();
     }
 
+    /**
+     * 取消支付单
+     * 业务规则：
+     * 1. 只有未支付(UNPAID)状态的支付单才可以取消
+     * 2. 不能有任何支付流水（即未发起任何支付操作）
+     * 3. 取消后状态变为已取消(CANCELED)，不可逆
+     *
+     * @param reason 取消原因
+     * @throws IllegalStateException 如果支付单状态不允许取消
+     */
+    public void cancel(String reason) {
+        // 验证当前状态必须是未支付
+        if (!PaymentStatus.UNPAID.equals(this.paymentStatus)) {
+            throw new IllegalStateException(
+                    String.format("当前支付单状态为 %s，只有未支付状态才能取消", 
+                            this.paymentStatus.getDescription()));
+        }
+
+        // 验证不能有任何支付流水（包括运行期和已完成的流水）
+        if (this.runningTransaction != null) {
+            throw new IllegalStateException("支付单存在运行中的流水，无法取消");
+        }
+
+        if (!this.completedTransactions.isEmpty()) {
+            throw new IllegalStateException("支付单已有支付流水，无法取消");
+        }
+
+        // 验证已支付金额必须为0
+        if (this.paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+            throw new IllegalStateException("支付单已有支付金额，无法取消");
+        }
+
+        // 更新状态为已取消
+        this.paymentStatus = PaymentStatus.CANCELED;
+        this.businessDesc = (this.businessDesc != null ? this.businessDesc + "; " : "") + "取消原因: " + reason;
+        this.updateTime = LocalDateTime.now();
+    }
+
+    /**
+     * 判断是否可以取消
+     * 
+     * @return true如果可以取消，否则false
+     */
+    public boolean canCancel() {
+        return PaymentStatus.UNPAID.equals(this.paymentStatus)
+               && this.runningTransaction == null
+               && this.completedTransactions.isEmpty()
+               && this.paidAmount.compareTo(BigDecimal.ZERO) == 0;
+    }
+
     // 新增：当设置聚合根ID时，确保同步所有子聚合的 paymentId
     public void setId(String id) {
         this.id = id;
