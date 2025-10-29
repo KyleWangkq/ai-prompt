@@ -106,10 +106,15 @@ public class UserEntity {
 
 - MyBatis-Plus automatically handles SQL injection prevention through parameterized queries.
 - Always use wrapper conditions or parameterized annotations (`@Param`) for dynamic SQL.
-- Validate request bodies and parameters using JSR-380 (`@NotNull`, `@Size`, etc.) annotations and `BindingResult`
+- Use Spring Validation: add dependency spring-boot-starter-validation.~~~~
+- Annotate controllers or service classes with `@Validated` and validate DTOs with `@Valid` on method parameters.
+- Use standard javax.validation / jakarta.validation annotations (`@NotNull`, `@Size`, `@Min`, `@Max`, `@Pattern`, etc.).
+- Handle failures centrally: prefer `@ControllerAdvice` to catch `MethodArgumentNotValidException` and return consistent error responses.
+- For method-level validation, enable `@Validated` on the class and place `@Valid` on arguments; use `BindingResult` only for fine-grained handling.
+- Consider validation groups for create/update differences; keep validation rules in DTOs, not in domain logic.
 
 ## Build and Verification
-
+~~~~~~~~
 - After adding or modifying code, verify the project continues to build successfully.
 - If the project uses Maven, run `mvn clean install`.
 - If the project uses Gradle, run `./gradlew build` (or `gradlew.bat build` on Windows).

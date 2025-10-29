@@ -1,5 +1,6 @@
 package com.bytz.modules.cms.payment.domain;
 
+import com.bytz.modules.cms.payment.application.command.CreatePaymentCommand;
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.enums.PaymentType;
 import com.bytz.modules.cms.payment.domain.enums.RelatedBusinessType;
@@ -10,11 +11,17 @@ import com.bytz.modules.cms.payment.infrastructure.channel.IPaymentChannelServic
 import com.bytz.modules.cms.payment.infrastructure.channel.command.CreatePaymentRequestCommand;
 import com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse;
 import com.bytz.modules.cms.payment.shared.exception.PaymentException;
+import com.bytz.modules.cms.payment.shared.exception.BusinessException;
+import com.bytz.modules.cms.payment.shared.model.PaymentExecutedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import javax.validation.Valid;
+import javax.validation.Validator;
+import javax.validation.ConstraintViolation;
+import java.util.Set;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -46,6 +53,7 @@ public class PaymentDomainService {
     private final IPaymentRepository paymentRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final List<IPaymentChannelService> paymentChannelServices;
+    private final Validator validator;
 
     // ==================== 验证相关方法 ====================
 
@@ -61,56 +69,31 @@ public class PaymentDomainService {
      * <p>
      * 用例来源：UC-PM-001步骤3-4、UC-PM-007步骤3-4
      *
-     * @param orderId             订单号
-     * @param resellerId          经销商ID
-     * @param paymentAmount       支付金额
-     * @param paymentType         支付类型
-     * @param relatedBusinessId   关联业务ID
-     * @param relatedBusinessType 关联业务类型
-     * @throws IllegalArgumentException 如果验证失败
+     * @param command 创建支付单命令对象
+     * @throws BusinessException 如果验证失败
      */
-    public void validateCreate(
-            String orderId,
-            String resellerId,
-            BigDecimal paymentAmount,
-            PaymentType paymentType,
-            String relatedBusinessId,
-            RelatedBusinessType relatedBusinessType) {
+    public void validateCreate(@Valid CreatePaymentCommand command) {
+        log.debug("开始校验支付单创建请求，订单号: {}, 支付类型: {}", command.getOrderId(), command.getPaymentType());
 
-        log.debug("开始校验支付单创建请求，订单号: {}, 支付类型: {}", orderId, paymentType);
-
-        // 验证必填字段
-        if (orderId == null || orderId.trim().isEmpty()) {
-            throw new IllegalArgumentException("订单号不能为空");
-        }
-
-        if (resellerId == null || resellerId.trim().isEmpty()) {
-            throw new IllegalArgumentException("经销商ID不能为空");
-        }
-
-        if (paymentType == null) {
-            throw new IllegalArgumentException("支付类型不能为空");
-        }
-
-        // 验证金额合法性
-        if (paymentAmount == null || paymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("支付金额必须大于0");
+        // 使用 valid 框架统一校验参数
+        Set<ConstraintViolation<CreatePaymentCommand>> violations = validator.validate(command);
+        if (!violations.isEmpty()) {
+            String errorMsg = violations.stream()
+                    .map(ConstraintViolation::getMessage)
+                    .reduce((m1, m2) -> m1 + ", " + m2)
+                    .orElse("参数校验失败");
+            throw new BusinessException(errorMsg);
         }
 
         // 信用还款特殊校验：必须提供关联业务ID和类型
-        if (PaymentType.CREDIT_REPAYMENT.equals(paymentType)) {
-            if (relatedBusinessId == null || relatedBusinessId.trim().isEmpty()) {
-                throw new IllegalArgumentException("信用还款支付单必须提供关联业务ID（信用记录ID）");
+        if (PaymentType.CREDIT_REPAYMENT.equals(command.getPaymentType())) {
+            if (command.getRelatedBusinessId() == null || command.getRelatedBusinessId().trim().isEmpty()
+                    || command.getRelatedBusinessType() == null) {
+                throw new BusinessException("信用还款必须提供关联业务ID和类型");
             }
-
-            if (!RelatedBusinessType.CREDIT_RECORD.equals(relatedBusinessType)) {
-                throw new IllegalArgumentException("信用还款支付单的关联业务类型必须为CREDIT_RECORD");
-            }
-
-            // TODO: 调用信用管理系统接口，验证订单号与信用记录ID的绑定关系
-            log.info("信用还款校验通过，订单号: {}, 信用记录ID: {}", orderId, relatedBusinessId);
         }
 
+        // TODO: 其他业务规则校验
         log.debug("支付单创建请求校验通过");
     }
 
@@ -515,12 +498,6 @@ public class PaymentDomainService {
         // ========== 步骤5: 持久化 ==========
         payment = paymentRepository.save(payment);
 
-        // ========== 步骤6: 发布领域事件 ==========
-        publishPaymentCompletedEvent(payment, success);
-
-        // ========== 步骤7: 通知相关系统 ==========
-        notifyRelatedSystems(payment, success);
-
         log.info("支付回调处理完成，支付单号: {}", payment.getCode());
     }
 
@@ -565,12 +542,6 @@ public class PaymentDomainService {
 
         // 持久化
         payment = paymentRepository.save(payment);
-
-        // 发布领域事件
-        publishRefundCompletedEvent(payment, success);
-
-        // 通知相关系统
-        notifyRelatedSystemsForRefund(payment, success);
 
         log.info("退款回调处理完成，支付单号: {}", payment.getCode());
     }
@@ -724,63 +695,5 @@ public class PaymentDomainService {
         log.debug("验证回调签名（未实现）");
     }
 
-    /**
-     * 发布支付完成事件
-     */
-    private void publishPaymentCompletedEvent(PaymentAggregate payment, boolean success) {
-        log.debug("发布支付完成事件，支付单号: {}, 支付类型: {}",
-                payment.getCode(), payment.getPaymentType());
 
-        // TODO: 发布PaymentCompletedEvent
-        // eventPublisher.publishEvent(new PaymentCompletedEvent(...));
-
-        // 如果是信用还款支付单，发布CreditRepaymentCompletedEvent
-        if (PaymentType.CREDIT_REPAYMENT.equals(payment.getPaymentType()) && success) {
-            publishCreditRepaymentCompletedEvent(payment);
-        }
-    }
-
-    /**
-     * 发布信用还款完成事件
-     */
-    private void publishCreditRepaymentCompletedEvent(PaymentAggregate payment) {
-        log.info("发布信用还款完成事件，支付单号: {}, 关联业务ID: {}",
-                payment.getCode(), payment.getRelatedBusinessId());
-
-        // TODO: 发布CreditRepaymentCompletedEvent
-        // eventPublisher.publishEvent(new CreditRepaymentCompletedEvent(...));
-    }
-
-    /**
-     * 发布退款完成事件
-     */
-    private void publishRefundCompletedEvent(PaymentAggregate payment, boolean success) {
-        log.debug("发布退款完成事件，支付单号: {}", payment.getCode());
-
-        // TODO: 发布RefundCompletedEvent
-        // eventPublisher.publishEvent(new RefundCompletedEvent(...));
-    }
-
-    /**
-     * 通知相关系统（支付完成）
-     */
-    private void notifyRelatedSystems(PaymentAggregate payment, boolean success) {
-        log.debug("通知相关系统，支付单号: {}, 成功: {}", payment.getCode(), success);
-
-        // TODO: 实现系统通知逻辑
-        // 1. 通知订单系统
-        // 2. 通知财务系统
-        // 3. 如果是信用还款，通知信用管理系统
-    }
-
-    /**
-     * 通知相关系统（退款完成）
-     */
-    private void notifyRelatedSystemsForRefund(PaymentAggregate payment, boolean success) {
-        log.debug("通知相关系统退款结果，支付单号: {}, 成功: {}", payment.getCode(), success);
-
-        // TODO: 实现系统通知逻辑
-        // 1. 通知订单系统
-        // 2. 通知财务系统
-    }
 }

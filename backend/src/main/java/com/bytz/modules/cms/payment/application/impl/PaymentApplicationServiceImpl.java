@@ -10,6 +10,7 @@ import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
+import com.bytz.modules.cms.payment.domain.PaymentCodeGenerator;
 import com.bytz.modules.cms.payment.infrastructure.channel.IPaymentChannelService;
 import com.bytz.modules.cms.payment.shared.model.PaymentCreatedEvent;
 import com.bytz.modules.cms.payment.shared.model.RefundExecutedEvent;
@@ -18,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -44,6 +46,8 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
     // 统一的支付领域服务
     private final PaymentDomainService domainService;
 
+    private final PaymentCodeGenerator paymentCodeGenerator;
+
     /**
      * 创建支付单（实现内部接口）
      * <p>
@@ -54,21 +58,9 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public PaymentAggregate createPayment(CreatePaymentCommand command) {
+    public PaymentAggregate createPayment(@Validated  CreatePaymentCommand command) {
         log.info("创建支付单，订单号: {}, 支付类型: {}", command.getOrderId(), command.getPaymentType());
 
-        // 使用领域服务进行业务校验
-        domainService.validateCreate(
-                command.getOrderId(),
-                command.getResellerId(),
-                command.getPaymentAmount(),
-                command.getPaymentType(),
-                command.getRelatedBusinessId(),
-                command.getRelatedBusinessType()
-        );
-
-        // 生成支付单号
-        String paymentCode = paymentRepository.generatePaymentCode();
 
         // 创建支付单聚合根
         PaymentAggregate payment = PaymentAggregate.create(
@@ -85,7 +77,7 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         );
 
         // 设置支付单号和审计信息
-        payment.setCode(paymentCode);
+        payment.setCode(paymentCodeGenerator.generatePaymentCode());
 
         // 持久化
         payment = paymentRepository.save(payment);
@@ -96,6 +88,7 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
         log.info("支付单创建成功，支付单号: {}", payment.getCode());
         return payment;
     }
+
 
     /**
      * 执行退款（实现内部接口）
@@ -165,6 +158,7 @@ public class PaymentApplicationServiceImpl implements IPaymentApplicationService
 
         log.info("支付单取消成功，支付单号: {}", payment.getCode());
     }
+
 
 
     /**

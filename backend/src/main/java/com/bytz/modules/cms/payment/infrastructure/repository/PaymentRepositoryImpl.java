@@ -280,31 +280,6 @@ public class PaymentRepositoryImpl implements IPaymentRepository {
         return false;
     }
 
-    /**
-     * 生成唯一的支付单号
-     *
-     * @return 唯一的支付单号
-     */
-    @Override
-    public String generatePaymentCode() {
-        // 格式：PAY + 年月日 + 8位随机字符
-        String dateStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String randomStr = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
-        return "PAY" + dateStr + randomStr;
-    }
-
-    /**
-     * 生成唯一的支付流水号
-     *
-     * @return 唯一的支付流水号
-     */
-    @Override
-    public String generateTransactionCode() {
-        // 格式：TXN + 年月日时分秒 + 6位随机字符
-        String dateTimeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-        String randomStr = UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase();
-        return "TXN" + dateTimeStr + randomStr;
-    }
 
     /**
      * 根据业务编码查找支付单实体

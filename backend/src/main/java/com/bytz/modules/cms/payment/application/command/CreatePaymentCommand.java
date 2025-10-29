@@ -7,6 +7,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -25,28 +28,30 @@ public class CreatePaymentCommand {
     /**
      * 关联订单号（必填）
      */
+    @NotBlank(message = "订单号不能为空")
     private String orderId;
-    
     /**
      * 经销商ID（必填）
      */
+    @NotBlank(message = "经销商ID不能为空")
     private String resellerId;
-    
     /**
      * 支付金额（必填）
      */
+    @NotNull(message = "支付金额不能为空")
+    @DecimalMin(value = "0.01", message = "支付金额必须大于0")
     private BigDecimal paymentAmount;
-    
     /**
      * 支付类型（必填）
      */
+    @NotNull(message = "支付类型不能为空")
     private PaymentType paymentType;
     
     /**
      * 业务描述（可选）
      */
     private String businessDesc;
-    
+
     /**
      * 支付截止时间（可选）
      */

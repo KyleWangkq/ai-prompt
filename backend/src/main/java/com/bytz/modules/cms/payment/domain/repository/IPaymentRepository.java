@@ -94,22 +94,5 @@ public interface IPaymentRepository {
      * TODO: 实现支付单的逻辑删除
      */
     boolean deleteByCode(String code);
-    
 
-    
-    /**
-     * 生成唯一的支付单号
-     * 
-     * @return 唯一的支付单号
-     * TODO: 实现支付单号生成策略，确保全局唯一
-     */
-    String generatePaymentCode();
-    
-    /**
-     * 生成唯一的支付流水号
-     * 
-     * @return 唯一的支付流水号
-     * TODO: 实现支付流水号生成策略，确保全局唯一
-     */
-    String generateTransactionCode();
 }
