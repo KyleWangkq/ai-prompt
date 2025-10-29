@@ -1,4 +1,4 @@
-package com.bytz.modules.cms.payment.infrastructure.channel.command;
+package com.bytz.modules.cms.payment.domain.command;
 
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import lombok.AllArgsConstructor;

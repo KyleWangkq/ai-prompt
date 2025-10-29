@@ -11,7 +11,7 @@ import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
 import com.bytz.modules.cms.payment.domain.PaymentCodeGenerator;
-import com.bytz.modules.cms.payment.infrastructure.channel.IPaymentChannelService;
+import com.bytz.modules.cms.payment.domain.repository.IPaymentChannelService;
 import com.bytz.modules.cms.payment.shared.model.PaymentCreatedEvent;
 import com.bytz.modules.cms.payment.shared.model.RefundExecutedEvent;
 import lombok.RequiredArgsConstructor;

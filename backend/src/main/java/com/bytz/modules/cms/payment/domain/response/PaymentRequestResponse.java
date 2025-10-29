@@ -1,4 +1,4 @@
-package com.bytz.modules.cms.payment.infrastructure.channel.response;
+package com.bytz.modules.cms.payment.domain.response;
 
 import com.bytz.modules.cms.payment.domain.enums.TransactionStatus;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;

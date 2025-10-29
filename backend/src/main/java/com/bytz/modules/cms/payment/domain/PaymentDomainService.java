@@ -3,16 +3,14 @@ package com.bytz.modules.cms.payment.domain;
 import com.bytz.modules.cms.payment.application.command.CreatePaymentCommand;
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.enums.PaymentType;
-import com.bytz.modules.cms.payment.domain.enums.RelatedBusinessType;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
-import com.bytz.modules.cms.payment.infrastructure.channel.IPaymentChannelService;
-import com.bytz.modules.cms.payment.infrastructure.channel.command.CreatePaymentRequestCommand;
-import com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse;
+import com.bytz.modules.cms.payment.domain.repository.IPaymentChannelService;
+import com.bytz.modules.cms.payment.domain.command.CreatePaymentRequestCommand;
+import com.bytz.modules.cms.payment.domain.response.PaymentRequestResponse;
 import com.bytz.modules.cms.payment.shared.exception.PaymentException;
 import com.bytz.modules.cms.payment.shared.exception.BusinessException;
-import com.bytz.modules.cms.payment.shared.model.PaymentExecutedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -27,7 +25,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**

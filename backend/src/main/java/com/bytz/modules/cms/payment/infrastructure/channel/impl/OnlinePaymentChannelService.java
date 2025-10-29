@@ -1,13 +1,13 @@
 package com.bytz.modules.cms.payment.infrastructure.channel.impl;
 
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
-import com.bytz.modules.cms.payment.infrastructure.channel.IPaymentChannelService;
-import com.bytz.modules.cms.payment.infrastructure.channel.command.CreatePaymentRequestCommand;
-import com.bytz.modules.cms.payment.infrastructure.channel.command.CreateRefundRequestCommand;
-import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryPaymentStatusCommand;
-import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryRefundStatusCommand;
-import com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse;
-import com.bytz.modules.cms.payment.infrastructure.channel.response.RefundRequestResponse;
+import com.bytz.modules.cms.payment.domain.repository.IPaymentChannelService;
+import com.bytz.modules.cms.payment.domain.command.CreatePaymentRequestCommand;
+import com.bytz.modules.cms.payment.domain.command.CreateRefundRequestCommand;
+import com.bytz.modules.cms.payment.domain.command.QueryPaymentStatusCommand;
+import com.bytz.modules.cms.payment.domain.command.QueryRefundStatusCommand;
+import com.bytz.modules.cms.payment.domain.response.PaymentRequestResponse;
+import com.bytz.modules.cms.payment.domain.response.RefundRequestResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 

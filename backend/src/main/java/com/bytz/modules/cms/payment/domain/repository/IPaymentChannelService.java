@@ -1,12 +1,12 @@
-package com.bytz.modules.cms.payment.infrastructure.channel;
+package com.bytz.modules.cms.payment.domain.repository;
 
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
-import com.bytz.modules.cms.payment.infrastructure.channel.command.CreatePaymentRequestCommand;
-import com.bytz.modules.cms.payment.infrastructure.channel.command.CreateRefundRequestCommand;
-import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryPaymentStatusCommand;
-import com.bytz.modules.cms.payment.infrastructure.channel.command.QueryRefundStatusCommand;
-import com.bytz.modules.cms.payment.infrastructure.channel.response.PaymentRequestResponse;
-import com.bytz.modules.cms.payment.infrastructure.channel.response.RefundRequestResponse;
+import com.bytz.modules.cms.payment.domain.command.CreatePaymentRequestCommand;
+import com.bytz.modules.cms.payment.domain.command.CreateRefundRequestCommand;
+import com.bytz.modules.cms.payment.domain.command.QueryPaymentStatusCommand;
+import com.bytz.modules.cms.payment.domain.command.QueryRefundStatusCommand;
+import com.bytz.modules.cms.payment.domain.response.PaymentRequestResponse;
+import com.bytz.modules.cms.payment.domain.response.RefundRequestResponse;
 import java.math.BigDecimal;
 
 /**
