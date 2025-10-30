@@ -101,10 +101,9 @@ public interface PaymentAssembler {
      * RO中已经包含paymentId（数据库主键），直接映射即可
      *
      * @param ro         批量支付执行请求对象
-     * @param resellerId 经销商ID
      * @return 执行支付命令
      */
-    default ExecutePaymentCommand toBatchPaymentCommand(BatchPaymentExecuteRO ro, String resellerId) {
+    default ExecutePaymentCommand toBatchPaymentCommand(BatchPaymentExecuteRO ro) {
         if (ro == null) {
             return null;
         }
@@ -119,8 +118,7 @@ public interface PaymentAssembler {
         return ExecutePaymentCommand.builder()
                 .paymentItems(items)
                 .paymentChannel(ro.getPaymentChannel())
-                .operatorId(resellerId)
-                .operatorName(resellerId)
+                .channelBusinessId(ro.getChannelBusinessId())
                 .build();
     }
 

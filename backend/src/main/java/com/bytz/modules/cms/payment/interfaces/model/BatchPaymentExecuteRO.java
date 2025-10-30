@@ -36,6 +36,11 @@ public class BatchPaymentExecuteRO {
      */
     @NotNull(message = "支付渠道不能为空")
     private PaymentChannel paymentChannel;
+
+    /**
+     * 渠道数据业务ID（如银行流水号）
+     */
+    private String channelBusinessId;
     
     /**
      * 支付单项

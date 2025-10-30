@@ -74,7 +74,6 @@ public class PaymentDomainService {
         } else {
             throw new PaymentException("支付渠道异常");
         }
-
     }
 
 
@@ -115,6 +114,7 @@ public class PaymentDomainService {
         payments.forEach(payment -> {
             BigDecimal amount = allocatedAmounts.get(payment.getId());
             validateCanPay(payment, amount);
+            //todo: 增加remark生成
             PaymentTransaction paymentTransaction = payment.executePayment(paymentChannel, amount, "businessRemark");
         });
         BigDecimal total = allocatedAmounts.values().stream()

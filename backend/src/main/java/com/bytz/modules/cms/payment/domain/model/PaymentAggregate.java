@@ -264,7 +264,7 @@ public class PaymentAggregate {
      * @param transactionCode 流水号
      * @param success         是否成功
      * @param completeTime    完成时间
-     *                                                                                                                                                                  TODO: 实现支付回调处理逻辑，包括流水状态更新、支付单金额和状态更新等
+     *                                                                                                                                                                                         TODO: 实现支付回调处理逻辑，包括流水状态更新、支付单金额和状态更新等
      */
     public void handlePaymentCallback(String transactionCode, boolean success, LocalDateTime completeTime) {
         // TODO: 实现回调处理逻辑
@@ -383,7 +383,7 @@ public class PaymentAggregate {
      * @param transactionCode 退款流水号
      * @param success         是否成功
      * @param completeTime    完成时间
-     *                                                                                                                                                                  TODO: 实现退款回调处理逻辑，包括流水状态更新、退款金额累加、退款状态更新等
+     *                                                                                                                                                                                         TODO: 实现退款回调处理逻辑，包括流水状态更新、退款金额累加、退款状态更新等
      */
     public void handleRefundCallback(String transactionCode, boolean success, LocalDateTime completeTime) {
         // TODO: 实现退款回调处理逻辑
@@ -501,7 +501,7 @@ public class PaymentAggregate {
      * 停止支付单
      *
      * @param reason 停止原因
-     *                                                                                                   TODO: 实现停止支付单的逻辑
+     *                                                                                                                 TODO: 实现停止支付单的逻辑
      */
     public void stop(String reason) {
         // TODO: 实现停止逻辑
@@ -517,7 +517,7 @@ public class PaymentAggregate {
      * 冻结支付单
      *
      * @param reason 冻结原因
-     *                                                                                                   TODO: 实现冻结支付单的逻辑
+     *                                                                                                                 TODO: 实现冻结支付单的逻辑
      */
     public void freeze(String reason) {
         // TODO: 实现冻结逻辑
@@ -543,7 +543,7 @@ public class PaymentAggregate {
         // 验证当前状态必须是未支付
         if (!PaymentStatus.UNPAID.equals(this.paymentStatus)) {
             throw new IllegalStateException(
-                    String.format("当前支付单状态为 %s，只有未支付状态才能取消", 
+                    String.format("当前支付单状态为 %s，只有未支付状态才能取消",
                             this.paymentStatus.getDescription()));
         }
 
@@ -569,7 +569,7 @@ public class PaymentAggregate {
 
     /**
      * 判断是否可以取消
-     * 
+     *
      * @return true如果可以取消，否则false
      */
     public boolean canCancel() {

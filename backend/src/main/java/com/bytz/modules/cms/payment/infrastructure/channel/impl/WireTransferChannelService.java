@@ -1,11 +1,8 @@
 package com.bytz.modules.cms.payment.infrastructure.channel.impl;
 
+import com.bytz.modules.cms.payment.domain.command.*;
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentChannelService;
-import com.bytz.modules.cms.payment.domain.command.StartPaymentCommand;
-import com.bytz.modules.cms.payment.domain.command.CreateRefundRequestCommand;
-import com.bytz.modules.cms.payment.domain.command.QueryPaymentStatusCommand;
-import com.bytz.modules.cms.payment.domain.command.QueryRefundStatusCommand;
 import com.bytz.modules.cms.payment.domain.response.StarPaymentResponse;
 import com.bytz.modules.cms.payment.domain.response.RefundRequestResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +37,12 @@ public class WireTransferChannelService implements IPaymentChannelService {
                 .channelTransactionNumber(channelTransactionNumber)
                 .build();
     }
-    
+
+    @Override
+    public StarPaymentResponse starMultiPaymentRequest(StartMultiPaymentCommand command) {
+        return null;
+    }
+
     @Override
     public String queryPaymentStatus(QueryPaymentStatusCommand command) {
         log.info("查询电汇支付状态，渠道交易号: {}, 渠道支付记录ID: {}", 
