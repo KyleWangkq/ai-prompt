@@ -1,7 +1,6 @@
 package com.bytz.modules.cms.payment.domain.response;
 
 import com.bytz.modules.cms.payment.domain.enums.TransactionStatus;
-import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,7 +16,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PaymentRequestResponse {
+public class StarPaymentResponse {
 
     /**
      * 支付交易状态

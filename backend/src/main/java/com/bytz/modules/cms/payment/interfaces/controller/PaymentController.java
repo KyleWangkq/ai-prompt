@@ -177,30 +177,7 @@ public class PaymentController {
         log.info("经销商 {} 可用支付渠道数量: {}", resellerId, availableChannels.size());
         return ResponseEntity.ok(availableChannels);
     }
-    
-    /**
-     * 取消支付单接口
-     * 当支付单创建但未发起任何支付时，可以取消支付单
-     * 
-     * POST /api/v1/payments/cancel
-     * 
-     * @param ro 取消支付单请求对象
-     * @return 无内容响应
-     */
-    @PostMapping("/cancel")
-    public ResponseEntity<Void> cancelPayment(@Valid @RequestBody CancelPaymentRO ro) {
-        log.info("收到取消支付单请求，支付单ID: {}, 取消原因: {}", ro.getPaymentId(), ro.getReason());
-        
-        // 转换RO为Command
-        CancelPaymentCommand command = paymentAssembler.toCancelPaymentCommand(ro);
-        
-        // 执行取消
-        paymentApplicationService.cancelPayment(command);
-        
-        log.info("支付单取消成功，支付单ID: {}", ro.getPaymentId());
-        return ResponseEntity.noContent().build();
-    }
-    
+
     /**
      * 构建批量支付结果响应对象
      * 

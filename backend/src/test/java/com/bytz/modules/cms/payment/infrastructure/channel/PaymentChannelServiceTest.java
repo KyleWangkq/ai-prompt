@@ -1,7 +1,7 @@
 package com.bytz.modules.cms.payment.infrastructure.channel;
 
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
-import com.bytz.modules.cms.payment.domain.command.CreatePaymentRequestCommand;
+import com.bytz.modules.cms.payment.domain.command.StartPaymentCommand;
 import com.bytz.modules.cms.payment.domain.command.CreateRefundRequestCommand;
 import com.bytz.modules.cms.payment.domain.command.QueryPaymentStatusCommand;
 import com.bytz.modules.cms.payment.domain.command.QueryRefundStatusCommand;
@@ -9,7 +9,7 @@ import com.bytz.modules.cms.payment.infrastructure.channel.impl.CreditAccountCha
 import com.bytz.modules.cms.payment.infrastructure.channel.impl.OnlinePaymentChannelService;
 import com.bytz.modules.cms.payment.infrastructure.channel.impl.WalletPaymentChannelService;
 import com.bytz.modules.cms.payment.infrastructure.channel.impl.WireTransferChannelService;
-import com.bytz.modules.cms.payment.domain.response.PaymentRequestResponse;
+import com.bytz.modules.cms.payment.domain.response.StarPaymentResponse;
 import com.bytz.modules.cms.payment.domain.response.RefundRequestResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -56,14 +56,14 @@ class PaymentChannelServiceTest {
         Map<String, Object> channelParams = new HashMap<>();
         channelParams.put("accountId", "ACC-001");
         
-        CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
-                .totalAmount(paymentAmount)
+        StartPaymentCommand command = StartPaymentCommand.builder()
+                .amount(paymentAmount)
                 .resellerId(resellerId)
                 .channelParams(channelParams)
                 .build();
 
         // When
-        PaymentRequestResponse response = walletChannelService.createPaymentRequest(command);
+        StarPaymentResponse response = walletChannelService.starPaymentRequest(command);
 
         // Then
         assertNotNull(response);
@@ -156,14 +156,14 @@ class PaymentChannelServiceTest {
     @DisplayName("测试电汇渠道 - 创建支付请求返回响应对象")
     void testWireTransferChannel_CreatePaymentRequest() {
         // Given
-        CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
-                .totalAmount(paymentAmount)
+        StartPaymentCommand command = StartPaymentCommand.builder()
+                .amount(paymentAmount)
                 .resellerId(resellerId)
                 .channelParams(new HashMap<>())
                 .build();
 
         // When
-        PaymentRequestResponse response = wireTransferChannelService.createPaymentRequest(command);
+        StarPaymentResponse response = wireTransferChannelService.starPaymentRequest(command);
 
         // Then
         assertNotNull(response);
@@ -176,14 +176,14 @@ class PaymentChannelServiceTest {
     @DisplayName("测试信用账户渠道 - 创建支付请求返回响应对象")
     void testCreditAccountChannel_CreatePaymentRequest() {
         // Given
-        CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
-                .totalAmount(paymentAmount)
+        StartPaymentCommand command = StartPaymentCommand.builder()
+                .amount(paymentAmount)
                 .resellerId(resellerId)
                 .channelParams(new HashMap<>())
                 .build();
 
         // When
-        PaymentRequestResponse response = creditAccountChannelService.createPaymentRequest(command);
+        StarPaymentResponse response = creditAccountChannelService.starPaymentRequest(command);
 
         // Then
         assertNotNull(response);
@@ -196,14 +196,14 @@ class PaymentChannelServiceTest {
     @DisplayName("测试线上支付渠道 - 创建支付请求返回响应对象")
     void testOnlinePaymentChannel_CreatePaymentRequest() {
         // Given
-        CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
-                .totalAmount(paymentAmount)
+        StartPaymentCommand command = StartPaymentCommand.builder()
+                .amount(paymentAmount)
                 .resellerId(resellerId)
                 .channelParams(new HashMap<>())
                 .build();
 
         // When
-        PaymentRequestResponse response = onlinePaymentChannelService.createPaymentRequest(command);
+        StarPaymentResponse response = onlinePaymentChannelService.starPaymentRequest(command);
 
         // Then
         assertNotNull(response);
@@ -226,14 +226,14 @@ class PaymentChannelServiceTest {
     @DisplayName("测试命令对象 - 创建支付请求命令不包含渠道支付记录ID")
     void testCreatePaymentRequestCommand_NoChannelPaymentRecordId() {
         // Given
-        CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
-                .totalAmount(paymentAmount)
+        StartPaymentCommand command = StartPaymentCommand.builder()
+                .amount(paymentAmount)
                 .resellerId(resellerId)
                 .channelParams(new HashMap<>())
                 .build();
 
         // Then - 渠道支付记录ID由渠道返回，不在请求中
-        assertEquals(paymentAmount, command.getTotalAmount());
+        assertEquals(paymentAmount, command.getAmount());
         assertEquals(resellerId, command.getResellerId());
         assertNotNull(command.getChannelParams());
     }
@@ -294,14 +294,14 @@ class PaymentChannelServiceTest {
     @DisplayName("测试响应对象 - 支付请求响应包含两个ID")
     void testPaymentRequestResponse_ContainsBothIds() {
         // Given
-        CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
-                .totalAmount(paymentAmount)
+        StartPaymentCommand command = StartPaymentCommand.builder()
+                .amount(paymentAmount)
                 .resellerId(resellerId)
                 .channelParams(new HashMap<>())
                 .build();
 
         // When
-        PaymentRequestResponse response = walletChannelService.createPaymentRequest(command);
+        StarPaymentResponse response = walletChannelService.starPaymentRequest(command);
 
         // Then - 响应包含渠道支付记录ID和渠道交易号
         assertNotNull(response.getChannelPaymentRecordId(), "渠道支付记录ID应该在开始支付时即返回");

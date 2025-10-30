@@ -1,11 +1,11 @@
 package com.bytz.modules.cms.payment.domain.repository;
 
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
-import com.bytz.modules.cms.payment.domain.command.CreatePaymentRequestCommand;
+import com.bytz.modules.cms.payment.domain.command.StartPaymentCommand;
 import com.bytz.modules.cms.payment.domain.command.CreateRefundRequestCommand;
 import com.bytz.modules.cms.payment.domain.command.QueryPaymentStatusCommand;
 import com.bytz.modules.cms.payment.domain.command.QueryRefundStatusCommand;
-import com.bytz.modules.cms.payment.domain.response.PaymentRequestResponse;
+import com.bytz.modules.cms.payment.domain.response.StarPaymentResponse;
 import com.bytz.modules.cms.payment.domain.response.RefundRequestResponse;
 import java.math.BigDecimal;
 
@@ -31,7 +31,7 @@ public interface IPaymentChannelService {
      * @return 支付请求响应（包含渠道支付记录ID和渠道交易号）
      * TODO: 实现支付请求创建逻辑，返回渠道支付记录ID和渠道交易号
      */
-    PaymentRequestResponse createPaymentRequest(CreatePaymentRequestCommand command);
+    StarPaymentResponse starPaymentRequest(StartPaymentCommand command);
     
     /**
      * 查询支付状态

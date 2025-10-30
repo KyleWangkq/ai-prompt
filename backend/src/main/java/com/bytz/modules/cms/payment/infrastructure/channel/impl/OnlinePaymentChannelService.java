@@ -2,11 +2,11 @@ package com.bytz.modules.cms.payment.infrastructure.channel.impl;
 
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentChannelService;
-import com.bytz.modules.cms.payment.domain.command.CreatePaymentRequestCommand;
+import com.bytz.modules.cms.payment.domain.command.StartPaymentCommand;
 import com.bytz.modules.cms.payment.domain.command.CreateRefundRequestCommand;
 import com.bytz.modules.cms.payment.domain.command.QueryPaymentStatusCommand;
 import com.bytz.modules.cms.payment.domain.command.QueryRefundStatusCommand;
-import com.bytz.modules.cms.payment.domain.response.PaymentRequestResponse;
+import com.bytz.modules.cms.payment.domain.response.StarPaymentResponse;
 import com.bytz.modules.cms.payment.domain.response.RefundRequestResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,9 +28,9 @@ public class OnlinePaymentChannelService implements IPaymentChannelService {
     }
     
     @Override
-    public PaymentRequestResponse createPaymentRequest(CreatePaymentRequestCommand command) {
+    public StarPaymentResponse starPaymentRequest(StartPaymentCommand command) {
         log.info("创建线上支付请求，金额: {}, 经销商ID: {}", 
-                command.getTotalAmount(), command.getResellerId());
+                command.getAmount(), command.getResellerId());
         
         // TODO: 实现线上支付请求创建逻辑
         // 1. 调用银联/网银API创建支付订单
@@ -39,7 +39,7 @@ public class OnlinePaymentChannelService implements IPaymentChannelService {
         String channelPaymentRecordId = "ONLINE_RECORD_" + System.currentTimeMillis();
         String channelTransactionNumber = "ONLINE_TXN_" + System.currentTimeMillis();
         
-        return PaymentRequestResponse.builder()
+        return StarPaymentResponse.builder()
                 .channelPaymentRecordId(channelPaymentRecordId)
                 .channelTransactionNumber(channelTransactionNumber)
                 .build();

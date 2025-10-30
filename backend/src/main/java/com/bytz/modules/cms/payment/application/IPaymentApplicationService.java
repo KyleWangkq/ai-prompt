@@ -5,7 +5,7 @@ import com.bytz.modules.cms.payment.application.command.CreatePaymentCommand;
 import com.bytz.modules.cms.payment.application.command.ExecutePaymentCommand;
 import com.bytz.modules.cms.payment.application.command.ExecuteRefundCommand;
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
-import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
+import com.bytz.modules.cms.payment.interfaces.model.PaymentVO;
 
 import java.util.List;
 
@@ -25,9 +25,38 @@ public interface IPaymentApplicationService {
      * - 信用管理系统创建信用还款支付单
      *
      * @param command 创建支付单命令
-     * @return 支付单聚合根
+     * @return 支付单DTO
      */
-    PaymentAggregate createPayment(CreatePaymentCommand command);
+    PaymentVO createPayment(CreatePaymentCommand command);
+
+
+    /**
+     * 取消支付单
+     * 此方法供订单系统等内部模块调用
+     *
+     * 使用场景：
+     * - 订单系统取消订单时，调用此接口取消未支付的支付单
+     * - 经销商主动取消未支付的支付单
+     *
+     * 业务规则：
+     * - 只有未支付(UNPAID)状态的支付单才可以取消
+     * - 不能有任何支付流水（即未发起任何支付操作）
+     * - 取消后状态变为已取消(CANCELED)，不可逆
+     *
+     * @param command 取消支付单命令
+     */
+    PaymentVO cancelPayment(CancelPaymentCommand command);
+
+
+    /**
+     * 执行批量支付
+     *
+     * @param command 执行支付命令
+     * @return 渠道交易id
+     */
+    String executeBatchPayment(ExecutePaymentCommand command);
+
+
 
     /**
      * 执行退款
@@ -42,31 +71,7 @@ public interface IPaymentApplicationService {
      */
     String executeRefund(ExecuteRefundCommand command);
 
-    /**
-     * 取消支付单
-     * 此方法供订单系统等内部模块调用
-     *
-     * 使用场景：
-     * - 订单系统取消订单时，调用此接口取消未支付的支付单
-     * - 经销商主动取消未支付的支付单
-     * 
-     * 业务规则：
-     * - 只有未支付(UNPAID)状态的支付单才可以取消
-     * - 不能有任何支付流水（即未发起任何支付操作）
-     * - 取消后状态变为已取消(CANCELED)，不可逆
-     *
-     * @param command 取消支付单命令
-     */
-    void cancelPayment(CancelPaymentCommand command);
 
-    /**
-     * 执行批量支付
-     * 
-     * @param command 执行支付命令
-     * @return 渠道交易id
-     */
-    String executeBatchPayment(ExecutePaymentCommand command);
-    
     /**
      * 查询经销商可用的支付渠道列表
      * 

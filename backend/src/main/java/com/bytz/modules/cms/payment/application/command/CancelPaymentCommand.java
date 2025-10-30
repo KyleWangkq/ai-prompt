@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import javax.validation.constraints.NotNull;
+
 /**
  * 取消支付单命令
  * Cancel Payment Command
@@ -20,20 +22,12 @@ public class CancelPaymentCommand {
     /**
      * 支付单ID（必填）
      */
+    @NotNull
     private String paymentId;
     
     /**
      * 取消原因（可选）
      */
     private String reason;
-    
-    /**
-     * 操作人ID（可选）
-     */
-    private String operatorId;
-    
-    /**
-     * 操作人姓名（可选）
-     */
-    private String operatorName;
+
 }

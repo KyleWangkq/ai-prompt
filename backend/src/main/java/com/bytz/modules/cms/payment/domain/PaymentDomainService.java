@@ -1,25 +1,19 @@
 package com.bytz.modules.cms.payment.domain;
 
-import com.bytz.modules.cms.payment.application.command.CreatePaymentCommand;
+import com.bytz.modules.cms.payment.domain.command.StartPaymentCommand;
 import com.bytz.modules.cms.payment.domain.enums.PaymentChannel;
-import com.bytz.modules.cms.payment.domain.enums.PaymentType;
 import com.bytz.modules.cms.payment.domain.model.PaymentAggregate;
 import com.bytz.modules.cms.payment.domain.model.PaymentTransaction;
-import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
 import com.bytz.modules.cms.payment.domain.repository.IPaymentChannelService;
-import com.bytz.modules.cms.payment.domain.command.CreatePaymentRequestCommand;
-import com.bytz.modules.cms.payment.domain.response.PaymentRequestResponse;
+import com.bytz.modules.cms.payment.domain.repository.IPaymentRepository;
+import com.bytz.modules.cms.payment.domain.response.StarPaymentResponse;
 import com.bytz.modules.cms.payment.shared.exception.PaymentException;
-import com.bytz.modules.cms.payment.shared.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import javax.validation.Valid;
-import javax.validation.Validator;
-import javax.validation.ConstraintViolation;
-import java.util.Set;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -50,101 +44,131 @@ public class PaymentDomainService {
     private final IPaymentRepository paymentRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final List<IPaymentChannelService> paymentChannelServices;
-    private final Validator validator;
 
-    // ==================== 验证相关方法 ====================
+
+    // ==================== 支付执行相关方法 ====================
+
+
+    @Transactional
+    public String executeSinglePayment(
+            PaymentAggregate payment,
+            IPaymentChannelService paymentChannelService,
+            BigDecimal amount,
+            String businessRemark,
+            String resellerId) {
+        PaymentChannel channelType = paymentChannelService.getChannelType();
+        validateCanPay(payment, amount);
+        PaymentTransaction paymentTransaction = payment.executePayment(channelType, amount, businessRemark);
+        StartPaymentCommand command = StartPaymentCommand.builder()
+                .amount(amount)
+                .resellerId(resellerId)
+                .paymentTransaction(paymentTransaction)
+                .build();
+        StarPaymentResponse paymentResponse = paymentChannelService.starPaymentRequest(command);
+        if (paymentResponse.getTransactionStatus() != null) {
+            paymentTransaction.setTransactionStatus(paymentResponse.getTransactionStatus());
+            paymentTransaction.setChannelTransactionNumber(paymentResponse.getChannelTransactionNumber());
+            paymentTransaction.setChannelPaymentRecordId(paymentResponse.getChannelPaymentRecordId());
+            paymentRepository.save(payment);
+            return paymentResponse.getChannelPaymentRecordId();
+        } else {
+            throw new PaymentException("支付渠道异常");
+        }
+
+    }
+
 
     /**
-     * 校验创建请求（UC-PM-001），包含普通支付单和信用还款支付单
+     * 根据支付单集合与分配金额执行一次统一支付（UC-PM-003/008），适用于所有支付类型
      * <p>
-     * 验证项：
-     * - 支付单号唯一性
-     * - 金额合法性
-     * - 必填字段完整性
-     * - 业务规则符合性
-     * - 信用还款时订单号与信用记录的绑定关系
+     * 处理流程：
+     * 1. 验证支付单集合
+     * 2. 验证金额分配
+     * 3. 获取支付渠道服务
+     * 4. 验证渠道可用性
+     * 5. 调用渠道支付
+     * 6. 创建支付流水
+     * 7. 更新支付单状态
+     * 8. 持久化支付明细
      * <p>
-     * 用例来源：UC-PM-001步骤3-4、UC-PM-007步骤3-4
+     * 支持场景：
+     * - 单支付单支付（特例）
+     * - 多支付单合并支付（统一流程）
+     * - 信用还款支付单（作为普通支付处理）
+     * <p>
+     * 用例来源：UC-PM-003步骤5-12、UC-PM-008步骤4-11
      *
-     * @param command 创建支付单命令对象
-     * @throws BusinessException 如果验证失败
+     * @param payments              支付单列表
+     * @param allocatedAmounts      每个支付单的分配金额（与payments列表一一对应）
+     * @param paymentChannelService 支付渠道服务
+     * @return 渠道支付记录ID
      */
-    public void validateCreate(@Valid CreatePaymentCommand command) {
-        log.debug("开始校验支付单创建请求，订单号: {}, 支付类型: {}", command.getOrderId(), command.getPaymentType());
+    public String executeUnifiedPayment(
+            List<PaymentAggregate> payments,
+            Map<String, BigDecimal> allocatedAmounts,
+            IPaymentChannelService paymentChannelService,
+            String resellerId) {
+        PaymentChannel paymentChannel = paymentChannelService.getChannelType();
 
-        // 使用 valid 框架统一校验参数
-        Set<ConstraintViolation<CreatePaymentCommand>> violations = validator.validate(command);
-        if (!violations.isEmpty()) {
-            String errorMsg = violations.stream()
-                    .map(ConstraintViolation::getMessage)
-                    .reduce((m1, m2) -> m1 + ", " + m2)
-                    .orElse("参数校验失败");
-            throw new BusinessException(errorMsg);
+        log.info("开始执行统一支付，支付单数量: {}, 支付渠道: {}",
+                payments.size(), paymentChannel.getDescription());
+        payments.forEach(payment -> {
+            BigDecimal amount = allocatedAmounts.get(payment.getId());
+            validateCanPay(payment, amount);
+            PaymentTransaction paymentTransaction = payment.executePayment(paymentChannel, amount, "businessRemark");
+        });
+        BigDecimal total = allocatedAmounts.values().stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        StartPaymentCommand command = StartPaymentCommand.builder()
+                .amount(total)
+                .resellerId(resellerId)
+                .build();
+        StarPaymentResponse paymentResponse = paymentChannelService.starPaymentRequest(command);
+        if (paymentResponse.getTransactionStatus() != null) {
+
+            payments.forEach(payment -> {
+                PaymentTransaction runningTransaction = payment.getRunningTransaction();
+                runningTransaction.setTransactionStatus(paymentResponse.getTransactionStatus());
+                runningTransaction.setChannelTransactionNumber(paymentResponse.getChannelTransactionNumber());
+                runningTransaction.setChannelPaymentRecordId(paymentResponse.getChannelPaymentRecordId());
+                paymentRepository.save(payment);
+            });
+            log.info("统一支付执行完成，渠道支付记录ID: {}", paymentResponse.getChannelPaymentRecordId());
+            return paymentResponse.getChannelPaymentRecordId();
+        } else {
+            throw new PaymentException("支付渠道异常");
         }
-
-        // 信用还款特殊校验：必须提供关联业务ID和类型
-        if (PaymentType.CREDIT_REPAYMENT.equals(command.getPaymentType())) {
-            if (command.getRelatedBusinessId() == null || command.getRelatedBusinessId().trim().isEmpty()
-                    || command.getRelatedBusinessType() == null) {
-                throw new BusinessException("信用还款必须提供关联业务ID和类型");
-            }
-        }
-
-        // TODO: 其他业务规则校验
-        log.debug("支付单创建请求校验通过");
     }
+
 
     /**
      * 校验执行支付前置条件（UC-PM-003），适用于所有支付类型
-     * <p>
-     * 验证项：
-     * - 支付单状态可支付
-     * - 待支付金额 > 0
-     * - 未超过截止时间
-     * - 经销商权限
-     * - 批量支付时所有支付单属于同一经销商
-     * - 每个支付单的支付金额不超过待支付金额
-     * <p>
-     * 用例来源：UC-PM-003步骤3-4
      *
-     * @param payments 待支付的支付单列表
+     * @param payment 待支付的支付单
      * @throws PaymentException 如果验证失败
      */
-    public void validateExecute(List<PaymentAggregate> payments) {
-        log.debug("开始校验批量支付执行前置条件，支付单数量: {}", payments.size());
-
-        if (payments == null || payments.isEmpty()) {
-            throw new IllegalArgumentException("支付单列表不能为空");
+    public void validateCanPay(PaymentAggregate payment, BigDecimal amount) {
+        // 验证支付单状态是否允许支付
+        if (!payment.canPay()) {
+            throw new PaymentException(
+                    String.format("支付单 %s 当前状态 %s 不允许支付",
+                            payment.getCode(),
+                            payment.getPaymentStatus().getDescription()));
         }
 
-        // 验证所有支付单属于同一经销商
-        Set<String> resellerIds = payments.stream()
-                .map(PaymentAggregate::getResellerId)
-                .collect(Collectors.toSet());
-
-        if (resellerIds.size() != 1) {
-            throw new PaymentException("所有支付单必须属于同一经销商");
+        // 验证待支付金额
+        BigDecimal pendingAmount = payment.getPendingAmount();
+        if (pendingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new PaymentException(
+                    String.format("支付单 %s 待支付金额必须大于0", payment.getCode()));
         }
 
-        // 验证每个支付单的状态和金额
-        for (PaymentAggregate payment : payments) {
-            // 验证支付单状态是否允许支付
-            if (!payment.canPay()) {
-                throw new PaymentException(
-                        String.format("支付单 %s 当前状态 %s 不允许支付",
-                                payment.getCode(),
-                                payment.getPaymentStatus().getDescription()));
-            }
-
-            // 验证待支付金额
-            BigDecimal pendingAmount = payment.getPendingAmount();
-            if (pendingAmount.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new PaymentException(
-                        String.format("支付单 %s 待支付金额必须大于0", payment.getCode()));
-            }
+        if (amount.compareTo(pendingAmount) > 0) {
+            throw new PaymentException(
+                    String.format("支付单 %s 的分配金额 %s 超过待支付金额 %s",
+                            payment.getCode(), amount, pendingAmount));
         }
-
-        log.debug("批量支付执行前置条件校验通过");
     }
 
     /**
@@ -245,78 +269,6 @@ public class PaymentDomainService {
         log.debug("退款前置条件校验通过");
     }
 
-    // ==================== 支付执行相关方法 ====================
-
-    /**
-     * 根据支付单集合与分配金额执行一次统一支付（UC-PM-003/008），适用于所有支付类型
-     * <p>
-     * 处理流程：
-     * 1. 验证支付单集合
-     * 2. 验证金额分配
-     * 3. 获取支付渠道服务
-     * 4. 验证渠道可用性
-     * 5. 调用渠道支付
-     * 6. 创建支付流水
-     * 7. 更新支付单状态
-     * 8. 持久化支付明细
-     * <p>
-     * 支持场景：
-     * - 单支付单支付（特例）
-     * - 多支付单合并支付（统一流程）
-     * - 信用还款支付单（作为普通支付处理）
-     * <p>
-     * 用例来源：UC-PM-003步骤5-12、UC-PM-008步骤4-11
-     *
-     * @param payments         支付单列表
-     * @param allocatedAmounts 每个支付单的分配金额（与payments列表一一对应）
-     * @param paymentChannel   支付渠道
-     * @return 渠道支付记录ID
-     */
-    public String executeUnifiedPayment(
-            List<PaymentAggregate> payments,
-            List<BigDecimal> allocatedAmounts,
-            PaymentChannel paymentChannel) {
-
-        log.info("开始执行统一支付，支付单数量: {}, 支付渠道: {}",
-                payments.size(), paymentChannel.getDescription());
-
-        // ========== 步骤1: 验证支付单集合 ==========
-        validateExecute(payments);
-
-        // ========== 步骤2: 验证金额分配 ==========
-        BigDecimal totalAmount = allocatedAmounts.stream()
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        validateAmountAllocation(payments, allocatedAmounts, totalAmount);
-
-        // 获取经销商ID（所有支付单属于同一经销商）
-        String resellerId = payments.get(0).getResellerId();
-
-        // ========== 步骤3: 获取支付渠道服务 ==========
-        IPaymentChannelService channelService = findChannelService(paymentChannel);
-
-        // ========== 步骤4: 验证渠道可用性 ==========
-        validateChannelAvailability(channelService, resellerId, totalAmount);
-
-        // ========== 步骤5: 调用渠道支付 ==========
-        PaymentRequestResponse paymentResponse = createPaymentRequest(
-                channelService, resellerId, totalAmount);
-
-        log.info("渠道支付请求创建成功，渠道交易号: {}, 渠道支付记录ID: {}",
-                paymentResponse.getChannelTransactionNumber(),
-                paymentResponse.getChannelPaymentRecordId());
-
-        // ========== 步骤6: 创建支付流水 ==========
-        createPaymentTransactions(payments, allocatedAmounts, paymentChannel, paymentResponse);
-
-        // ========== 步骤7: 更新支付单状态 ==========
-        updatePaymentStatus(payments);
-
-        // ========== 步骤8: 持久化支付明细 ==========
-        persistPayments(payments);
-
-        log.info("统一支付执行完成，渠道支付记录ID: {}", paymentResponse.getChannelPaymentRecordId());
-        return paymentResponse.getChannelPaymentRecordId();
-    }
 
     /**
      * 校验并应用各支付单的金额分配，不得超过各自待支付金额
@@ -569,19 +521,19 @@ public class PaymentDomainService {
     /**
      * 创建渠道支付请求
      */
-    private PaymentRequestResponse createPaymentRequest(
+    private StarPaymentResponse createPaymentRequest(
             IPaymentChannelService channelService,
             String resellerId,
             BigDecimal totalAmount) {
 
         log.debug("创建渠道支付请求，经销商: {}, 金额: {}", resellerId, totalAmount);
 
-        CreatePaymentRequestCommand command = CreatePaymentRequestCommand.builder()
-                .totalAmount(totalAmount)
+        StartPaymentCommand command = StartPaymentCommand.builder()
+                .amount(totalAmount)
                 .resellerId(resellerId)
                 .build();
 
-        return channelService.createPaymentRequest(command);
+        return channelService.starPaymentRequest(command);
     }
 
     /**
@@ -591,7 +543,7 @@ public class PaymentDomainService {
             List<PaymentAggregate> payments,
             List<BigDecimal> allocatedAmounts,
             PaymentChannel paymentChannel,
-            PaymentRequestResponse paymentResponse) {
+            StarPaymentResponse paymentResponse) {
 
         log.debug("创建支付流水，支付单数量: {}", payments.size());
 
@@ -601,7 +553,8 @@ public class PaymentDomainService {
 
             PaymentTransaction transaction = payment.executePayment(
                     paymentChannel,
-                    allocatedAmount
+                    allocatedAmount,
+                    null
             );
 
             transaction.setChannelTransactionNumber(paymentResponse.getChannelTransactionNumber());

@@ -20,18 +20,23 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CreatePaymentRequestCommand {
+public class StartPaymentCommand {
     
     /**
      * 支付总金额
      */
-    private BigDecimal totalAmount;
+    private BigDecimal amount;
     
     /**
      * 经销商ID
      */
     private String resellerId;
-    
+
+    /**
+     * 支付流水信息
+     */
+    private PaymentTransaction paymentTransaction;
+
     /**
      * 渠道特定参数
      */

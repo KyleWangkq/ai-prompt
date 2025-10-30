@@ -30,16 +30,7 @@ public class ExecutePaymentCommand {
      * 支付渠道
      */
     private PaymentChannel paymentChannel;
-    
-    /**
-     * 操作人
-     */
-    private String operatorId;
-    
-    /**
-     * 操作人姓名
-     */
-    private String operatorName;
+
     
     /**
      * 支付单项

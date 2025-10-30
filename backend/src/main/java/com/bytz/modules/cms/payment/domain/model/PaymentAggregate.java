@@ -237,7 +237,8 @@ public class PaymentAggregate {
      */
     public PaymentTransaction executePayment(
             PaymentChannel paymentChannel,
-            BigDecimal amount) {
+            BigDecimal amount,
+            String businessRemark) {
         if (!canPay()) {
             throw new IllegalStateException("当前状态不得支付");
         }
@@ -248,6 +249,7 @@ public class PaymentAggregate {
                 .transactionStatus(TransactionStatus.PROCESSING)
                 .transactionAmount(amount)
                 .paymentChannel(paymentChannel)
+                .businessRemark(businessRemark)
                 .build();
 
         this.runningTransaction = transaction;
